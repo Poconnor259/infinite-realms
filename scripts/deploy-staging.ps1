@@ -28,6 +28,12 @@ if (-not (Test-Path $irPath)) {
 
 # Copy files
 Write-Host "Copying files to SOG-website..." -ForegroundColor Yellow
+# Remove old IR directory to ensure clean deployment
+if (Test-Path $irPath) {
+    Remove-Item -Path $irPath -Recurse -Force
+}
+New-Item -ItemType Directory -Path $irPath -Force | Out-Null
+# Copy all files and subdirectories
 Copy-Item -Path "$distPath\*" -Destination $irPath -Recurse -Force
 
 Write-Host "Files copied!" -ForegroundColor Green
