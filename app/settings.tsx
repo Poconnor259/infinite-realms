@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../lib/theme';
 import { useSettingsStore, useUserStore } from '../lib/store';
+import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 
 interface SettingsSectionProps {
     title: string;
@@ -41,10 +42,8 @@ interface SettingsRowProps {
 }
 
 function SettingsRow({ label, sublabel, icon, iconColor, rightElement, onPress }: SettingsRowProps) {
-    const Wrapper = onPress ? TouchableOpacity : View;
-
-    return (
-        <Wrapper style={styles.row} onPress={onPress} activeOpacity={0.7}>
+    const content = (
+        <>
             {icon && (
                 <View style={[styles.rowIcon, { backgroundColor: (iconColor || colors.primary[400]) + '20' }]}>
                     <Ionicons name={icon} size={20} color={iconColor || colors.primary[400]} />
@@ -58,8 +57,18 @@ function SettingsRow({ label, sublabel, icon, iconColor, rightElement, onPress }
             {onPress && !rightElement && (
                 <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
             )}
-        </Wrapper>
+        </>
     );
+
+    if (onPress) {
+        return (
+            <AnimatedPressable style={styles.row} onPress={onPress}>
+                {content}
+            </AnimatedPressable>
+        );
+    }
+
+    return <View style={styles.row}>{content}</View>;
 }
 
 export default function SettingsScreen() {
@@ -115,7 +124,7 @@ export default function SettingsScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* Account Section */}
-                <View>
+                <FadeInView delay={0}>
                     <SettingsSection title="Account">
                         <SettingsRow
                             label="Sign In"
@@ -136,10 +145,10 @@ export default function SettingsScreen() {
                             }}
                         />
                     </SettingsSection>
-                </View>
+                </FadeInView>
 
                 {/* Preferences Section */}
-                <View>
+                <FadeInView delay={100}>
                     <SettingsSection title="Preferences">
                         <SettingsRow
                             label="Haptic Feedback"
@@ -184,10 +193,10 @@ export default function SettingsScreen() {
                             }
                         />
                     </SettingsSection>
-                </View>
+                </FadeInView>
 
                 {/* BYOK Section */}
-                <View>
+                <FadeInView delay={200}>
                     <SettingsSection title="Bring Your Own Key (BYOK)">
                         <TouchableOpacity
                             style={styles.byokHeader}
@@ -337,10 +346,10 @@ export default function SettingsScreen() {
                             </View>
                         )}
                     </SettingsSection>
-                </View>
+                </FadeInView>
 
                 {/* Data Section */}
-                <View>
+                <FadeInView delay={300}>
                     <SettingsSection title="Data">
                         <SettingsRow
                             label="Export My Data"
@@ -368,10 +377,10 @@ export default function SettingsScreen() {
                             }}
                         />
                     </SettingsSection>
-                </View>
+                </FadeInView>
 
                 {/* About Section */}
-                <View>
+                <FadeInView delay={400}>
                     <SettingsSection title="About">
                         <SettingsRow
                             label="Version"
@@ -392,7 +401,7 @@ export default function SettingsScreen() {
                             onPress={() => { }}
                         />
                     </SettingsSection>
-                </View>
+                </FadeInView>
             </ScrollView>
         </SafeAreaView>
     );

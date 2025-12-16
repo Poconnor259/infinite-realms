@@ -3494,11 +3494,16 @@ expo-font@~14.0.10:
     fontfaceobserver "^2.1.0"
 
 expo-font@~14.1.3:
-  version "14.1.0-canary-20251212-acb11f2"
-  resolved "https://registry.yarnpkg.com/expo-font/-/expo-font-14.1.0-canary-20251212-acb11f2.tgz#a00a568af7273c43d1eef2e91a27a225752a09ae"
-  integrity sha512-iuobkcDrXEDhIhiuS7fOAZ8tfgL41g//9yNpP/qq0Ls8gFK/kXSCVfSPEAZ2pzItBT87wu6KsXmbaUlmHCF2cQ==
+  version "14.1.0-canary-20251216-6e1f9a7"
+  resolved "https://registry.yarnpkg.com/expo-font/-/expo-font-14.1.0-canary-20251216-6e1f9a7.tgz#567ab0e6cede49a01cf2c8f01c358b9696f67e8c"
+  integrity sha512-ou8K2LwYrqnoi26AZxlAVgJfLa+54n+UhKySv9RWr9ieuL36BGUHj+Zbcx4QrPe0L99R8PUL9siOwsuTN6xgyw==
   dependencies:
     fontfaceobserver "^2.1.0"
+
+expo-haptics@~15.0.8:
+  version "15.0.8"
+  resolved "https://registry.yarnpkg.com/expo-haptics/-/expo-haptics-15.0.8.tgz#f93f895ac5d76fe0c5ac26b3644e1dbb097833f3"
+  integrity sha512-lftutojy8Qs8zaDzzjwM3gKHFZ8bOOEZDCkmh2Ddpe95Ra6kt2izeOfOfKuP/QEh0MZ1j9TfqippyHdRd1ZM9g==
 
 expo-keep-awake@~15.0.8:
   version "15.0.8"
@@ -3561,9 +3566,9 @@ expo-router@~6.0.19:
     vaul "^1.1.2"
 
 expo-secure-store@~15.2.1:
-  version "15.0.9-canary-20251212-acb11f2"
-  resolved "https://registry.yarnpkg.com/expo-secure-store/-/expo-secure-store-15.0.9-canary-20251212-acb11f2.tgz#02a70551a6d54e6dc69f712e3c662f910217eba4"
-  integrity sha512-bt4oW+E8vZtbxQQq26Qs/JFd0z1oUugHDUIzM9tLduXKagyK5wHWcZu2alcQ89A/NW+7IkhXOGfeBcZ/Rf/KIQ==
+  version "15.0.9-canary-20251216-6e1f9a7"
+  resolved "https://registry.yarnpkg.com/expo-secure-store/-/expo-secure-store-15.0.9-canary-20251216-6e1f9a7.tgz#5d90b1bf530d873944922ed538a5788b5b1a749c"
+  integrity sha512-JTIpa+w5XzRA9yTONQNxrQDaQmM3K7KwAjBtMeu56onueGiAejMDuqZKEtJzs08iIbM/hD4xaM23N+ioApAPTg==
 
 expo-server@^1.0.5:
   version "1.0.5"

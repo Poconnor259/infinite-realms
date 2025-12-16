@@ -1,0 +1,130 @@
+import React, { useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View, type ViewStyle, type DimensionValue } from 'react-native';
+import { colors, borderRadius, spacing } from '../../lib/theme';
+
+interface SkeletonProps {
+    width?: DimensionValue;
+    height?: number;
+    borderRadius?: number;
+    style?: ViewStyle;
+}
+
+/**
+ * Animated skeleton loading placeholder
+ */
+export function Skeleton({
+    width = '100%',
+    height = 20,
+    borderRadius: radius = borderRadius.md,
+    style,
+}: SkeletonProps) {
+    const shimmerAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+        const animation = Animated.loop(
+            Animated.sequence([
+                Animated.timing(shimmerAnim, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(shimmerAnim, {
+                    toValue: 0,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        animation.start();
+        return () => animation.stop();
+    }, [shimmerAnim]);
+
+    const opacity = shimmerAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0.3, 0.7],
+    });
+
+    return (
+        <Animated.View
+            style={[
+                {
+                    width: typeof width === 'number' ? width : width,
+                    height,
+                    borderRadius: radius,
+                    backgroundColor: colors.background.tertiary,
+                    opacity,
+                },
+                style,
+            ]}
+        />
+    );
+}
+
+/**
+ * Skeleton placeholder for a campaign card
+ */
+export function CampaignCardSkeleton() {
+    return (
+        <View style={styles.campaignCard}>
+            <Skeleton width={48} height={48} borderRadius={24} />
+            <View style={styles.campaignCardContent}>
+                <Skeleton width="60%" height={18} style={{ marginBottom: 8 }} />
+                <Skeleton width="40%" height={14} style={{ marginBottom: 8 }} />
+                <Skeleton width="30%" height={10} />
+            </View>
+            <Skeleton width={60} height={14} />
+        </View>
+    );
+}
+
+/**
+ * Skeleton placeholder for a world module card
+ */
+export function WorldCardSkeleton() {
+    return (
+        <View style={styles.worldCard}>
+            <Skeleton width={60} height={60} borderRadius={30} style={{ marginBottom: 12 }} />
+            <Skeleton width="70%" height={18} style={{ marginBottom: 8 }} />
+            <Skeleton width="90%" height={14} style={{ marginBottom: 8 }} />
+            <Skeleton width="80%" height={12} />
+            <Skeleton width="85%" height={12} style={{ marginTop: 4 }} />
+        </View>
+    );
+}
+
+/**
+ * Skeleton placeholder for a text line
+ */
+export function TextSkeleton({ width = '100%', height = 16 }: { width?: DimensionValue; height?: number }) {
+    return <Skeleton width={width} height={height} />;
+}
+
+/**
+ * Skeleton placeholder for an avatar/icon
+ */
+export function AvatarSkeleton({ size = 40 }: { size?: number }) {
+    return <Skeleton width={size} height={size} borderRadius={size / 2} />;
+}
+
+const styles = StyleSheet.create({
+    campaignCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.md,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.lg,
+        marginBottom: spacing.sm,
+        gap: spacing.md,
+    },
+    campaignCardContent: {
+        flex: 1,
+    },
+    worldCard: {
+        width: 160,
+        padding: spacing.lg,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.xl,
+        alignItems: 'center',
+        marginRight: spacing.md,
+    },
+});

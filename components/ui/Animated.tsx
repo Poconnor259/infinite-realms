@@ -7,22 +7,26 @@ import {
     type StyleProp,
     type PressableProps,
 } from 'react-native';
+import { lightHaptic } from '../../lib/haptics';
 
 interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
     style?: StyleProp<ViewStyle>;
     children: React.ReactNode;
     scaleValue?: number;
+    haptic?: boolean;
 }
 
 /**
- * A pressable component with scale animation on press
+ * A pressable component with scale animation on press and optional haptic feedback
  */
 export function AnimatedPressable({
     style,
     children,
     scaleValue = 0.97,
+    haptic = true,
     onPressIn,
     onPressOut,
+    onPress,
     ...props
 }: AnimatedPressableProps) {
     const scale = useRef(new Animated.Value(1)).current;
@@ -34,6 +38,9 @@ export function AnimatedPressable({
             speed: 50,
             bounciness: 4,
         }).start();
+        if (haptic) {
+            lightHaptic();
+        }
         onPressIn?.(e);
     };
 
@@ -51,6 +58,7 @@ export function AnimatedPressable({
         <Pressable
             onPressIn={handlePressIn}
             onPressOut={handlePressOut}
+            onPress={onPress}
             {...props}
         >
             <Animated.View style={[style, { transform: [{ scale }] }]}>
