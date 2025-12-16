@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    TouchableOpacity,
     ScrollView,
     Image,
 } from 'react-native';
@@ -13,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
 import { useGameStore, getDefaultModuleState, useTurnsStore } from '../lib/store';
 import { TurnsMeter } from '../components/monetization/TurnsMeter';
+import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import type { WorldModuleType, Campaign } from '../lib/types';
 
 // Sample campaigns for demo
@@ -111,23 +111,23 @@ export default function HomeScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
-            <View style={styles.header}>
+            <FadeInView style={styles.header} delay={0}>
                 <View>
                     <Text style={styles.greeting}>Welcome to</Text>
                     <Text style={styles.title}>Infinite Realms</Text>
                 </View>
-                <TouchableOpacity
+                <AnimatedPressable
                     style={styles.settingsButton}
                     onPress={() => router.push('/settings')}
                 >
                     <Ionicons name="settings-outline" size={24} color={colors.text.secondary} />
-                </TouchableOpacity>
-            </View>
+                </AnimatedPressable>
+            </FadeInView>
 
             {/* Turns Usage Meter */}
-            <View style={styles.turnsMeterContainer}>
+            <FadeInView style={styles.turnsMeterContainer} delay={100}>
                 <TurnsMeter />
-            </View>
+            </FadeInView>
 
             <ScrollView
                 style={styles.scrollView}
@@ -135,11 +135,10 @@ export default function HomeScreen() {
                 showsVerticalScrollIndicator={false}
             >
                 {/* New Campaign Button */}
-                <View>
-                    <TouchableOpacity
+                <FadeInView delay={200}>
+                    <AnimatedPressable
                         style={styles.newCampaignButton}
                         onPress={handleNewCampaign}
-                        activeOpacity={0.8}
                     >
                         <View style={styles.newCampaignGradient}>
                             <View style={styles.newCampaignContent}>
@@ -155,8 +154,8 @@ export default function HomeScreen() {
                             </View>
                             <Ionicons name="chevron-forward" size={24} color={colors.text.muted} />
                         </View>
-                    </TouchableOpacity>
-                </View>
+                    </AnimatedPressable>
+                </FadeInView>
 
                 {/* Campaigns Section */}
                 {campaigns.length > 0 && (
@@ -170,11 +169,10 @@ export default function HomeScreen() {
                             const hpPercent = (campaign.character.hp.current / campaign.character.hp.max) * 100;
 
                             return (
-                                <View key={campaign.id}>
-                                    <TouchableOpacity
+                                <FadeInView key={campaign.id} delay={300 + index * 100}>
+                                    <AnimatedPressable
                                         style={styles.campaignCard}
                                         onPress={() => handleCampaignPress(campaign)}
-                                        activeOpacity={0.7}
                                     >
                                         {/* World Badge */}
                                         <View style={[styles.worldBadge, { backgroundColor: worldInfo.color + '20' }]}>
@@ -219,15 +217,15 @@ export default function HomeScreen() {
                                                 color={colors.text.muted}
                                             />
                                         </View>
-                                    </TouchableOpacity>
-                                </View>
+                                    </AnimatedPressable>
+                                </FadeInView>
                             );
                         })}
                     </View>
                 )}
 
                 {/* World Modules Preview */}
-                <View style={styles.section}>
+                <FadeInView style={styles.section} delay={500}>
                     <Text style={styles.sectionTitle}>
                         Available Worlds
                     </Text>
@@ -238,16 +236,18 @@ export default function HomeScreen() {
                         contentContainerStyle={styles.worldsScroll}
                     >
                         {Object.entries(WORLD_INFO).map(([key, info], index) => (
-                            <View key={key}>
-                                <View style={[styles.worldCard, { borderColor: info.color + '40' }]}>
-                                    <Text style={styles.worldCardIcon}>{info.icon}</Text>
-                                    <Text style={styles.worldCardName}>{info.name}</Text>
-                                    <Text style={styles.worldCardDesc}>{info.description}</Text>
-                                </View>
-                            </View>
+                            <AnimatedPressable
+                                key={key}
+                                style={[styles.worldCard, { borderColor: info.color + '40' }]}
+                                onPress={handleNewCampaign}
+                            >
+                                <Text style={styles.worldCardIcon}>{info.icon}</Text>
+                                <Text style={styles.worldCardName}>{info.name}</Text>
+                                <Text style={styles.worldCardDesc}>{info.description}</Text>
+                            </AnimatedPressable>
                         ))}
                     </ScrollView>
-                </View>
+                </FadeInView>
             </ScrollView>
         </SafeAreaView>
     );

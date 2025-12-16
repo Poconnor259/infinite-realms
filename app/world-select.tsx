@@ -3,7 +3,6 @@ import {
     View,
     Text,
     StyleSheet,
-    TouchableOpacity,
     ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -11,6 +10,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
 import { useGameStore, getDefaultModuleState } from '../lib/store';
+import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import type { WorldModuleType, Campaign } from '../lib/types';
 
 interface WorldModule {
@@ -185,15 +185,14 @@ WARNING: Failure to complete will result in penalty.
                     const isSelected = selectedWorld === world.id;
 
                     return (
-                        <View key={world.id}>
-                            <TouchableOpacity
+                        <FadeInView key={world.id} delay={index * 100}>
+                            <AnimatedPressable
                                 style={[
                                     styles.worldCard,
                                     isSelected && styles.worldCardSelected,
                                     { borderColor: isSelected ? world.color : colors.border.default },
                                 ]}
                                 onPress={() => handleWorldSelect(world.id)}
-                                activeOpacity={0.8}
                                 disabled={world.locked}
                             >
                                 {/* Header */}
@@ -232,28 +231,27 @@ WARNING: Failure to complete will result in penalty.
                                         <Text style={styles.lockedText}>{world.lockReason}</Text>
                                     </View>
                                 )}
-                            </TouchableOpacity>
-                        </View>
+                            </AnimatedPressable>
+                        </FadeInView>
                     );
                 })}
             </ScrollView>
 
             {/* Continue Button */}
             <View style={styles.footer}>
-                <TouchableOpacity
+                <AnimatedPressable
                     style={[
                         styles.continueButton,
                         !selectedWorld && styles.continueButtonDisabled,
                     ]}
                     onPress={handleContinue}
                     disabled={!selectedWorld}
-                    activeOpacity={0.8}
                 >
                     <Text style={styles.continueButtonText}>
                         Begin Adventure
                     </Text>
                     <Ionicons name="arrow-forward" size={20} color={colors.text.primary} />
-                </TouchableOpacity>
+                </AnimatedPressable>
             </View>
         </SafeAreaView>
     );
