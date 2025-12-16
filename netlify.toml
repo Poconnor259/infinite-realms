@@ -1,0 +1,16 @@
+# Build configuration for Netlify deployment
+[build]
+  publish = "dist"
+
+# SPA redirect for Expo Router
+[[redirects]]
+  from = "/IR/*"
+  to = "/IR/index.html"
+  status = 200
+
+# Prevent conflicts with main site
+[[headers]]
+  for = "/IR/*"
+  [headers.values]
+    X-Frame-Options = "SAMEORIGIN"
+    X-Content-Type-Options = "nosniff"

@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../../lib/theme';
-import { useGameStore } from '../../lib/store';
+import { useGameStore, useTurnsStore } from '../../lib/store';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { HPBar } from '../../components/hud/HPBar';
@@ -26,6 +26,48 @@ const WORLD_INFO: Record<WorldModuleType, { name: string; icon: string; color: s
     outworlder: { name: 'The Outworlder', icon: '🌌', color: '#10b981' },
     shadowMonarch: { name: 'Shadow Monarch', icon: '👤', color: '#8b5cf6' },
 };
+
+// Turn Counter Component
+function TurnCounter() {
+    const { getRemaining, tier } = useTurnsStore();
+    const remaining = getRemaining();
+    const router = useRouter();
+
+    const displayText = remaining === Infinity ? '∞' : remaining.toString();
+    const lowTurns = typeof remaining === 'number' && remaining < 10;
+
+    return (
+        <TouchableOpacity
+            onPress={() => router.push('/subscription')}
+            style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: spacing.sm,
+                paddingVertical: spacing.xs,
+                backgroundColor: lowTurns ? colors.hp.low + '20' : colors.background.tertiary,
+                borderRadius: borderRadius.sm,
+                borderWidth: 1,
+                borderColor: lowTurns ? colors.hp.low : colors.border.default,
+            }}
+        >
+            <Ionicons
+                name="flash"
+                size={16}
+                color={lowTurns ? colors.hp.low : colors.primary[400]}
+                style={{ marginRight: 4 }}
+            />
+            <Text
+                style={{
+                    color: lowTurns ? colors.hp.low : colors.text.secondary,
+                    fontSize: typography.fontSize.sm,
+                    fontWeight: '600',
+                }}
+            >
+                {displayText}
+            </Text>
+        </TouchableOpacity>
+    );
+}
 
 export default function CampaignScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
@@ -247,6 +289,8 @@ export default function CampaignScreen() {
                             </View>
                         </View>
                     </View>
+
+                    <TurnCounter />
 
                     <TouchableOpacity
                         style={styles.headerButton}

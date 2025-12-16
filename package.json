@@ -8,7 +8,9 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "eslint .",
-    "test": "jest"
+    "test": "jest",
+    "build:web": "expo export --platform web",
+    "deploy:staging": "powershell -ExecutionPolicy Bypass -File ./scripts/deploy-staging.ps1"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",

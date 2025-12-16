@@ -62,6 +62,16 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
                         maxLength={500}
                         editable={!disabled}
                         onSubmitEditing={handleSend}
+                        onKeyPress={(e) => {
+                            // Web-only: Handle Enter vs Shift+Enter
+                            if (Platform.OS === 'web' && (e as any).nativeEvent.key === 'Enter') {
+                                if (!(e as any).nativeEvent.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend();
+                                }
+                                // If shiftKey is pressed, allow default behavior (newline)
+                            }
+                        }}
                     />
                 </View>
                 <TouchableOpacity

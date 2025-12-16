@@ -169,6 +169,16 @@ export default function CreateCampaignScreen() {
                             onChangeText={setCharacterName}
                             autoFocus
                             maxLength={30}
+                            onSubmitEditing={handleCreate}
+                            onKeyPress={(e) => {
+                                // Web-only: Handle Enter vs Shift+Enter
+                                if (Platform.OS === 'web' && (e as any).nativeEvent.key === 'Enter') {
+                                    if (!(e as any).nativeEvent.shiftKey && characterName.trim()) {
+                                        e.preventDefault();
+                                        handleCreate();
+                                    }
+                                }
+                            }}
                         />
                     </FadeInView>
 
