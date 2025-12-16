@@ -11,7 +11,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
-import { useGameStore, getDefaultModuleState } from '../lib/store';
+import { useGameStore, getDefaultModuleState, useTurnsStore } from '../lib/store';
+import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import type { WorldModuleType, Campaign } from '../lib/types';
 
 // Sample campaigns for demo
@@ -121,6 +122,11 @@ export default function HomeScreen() {
                 >
                     <Ionicons name="settings-outline" size={24} color={colors.text.secondary} />
                 </TouchableOpacity>
+            </View>
+
+            {/* Turns Usage Meter */}
+            <View style={styles.turnsMeterContainer}>
+                <TurnsMeter />
             </View>
 
             <ScrollView
@@ -275,6 +281,10 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background.tertiary,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    turnsMeterContainer: {
+        paddingHorizontal: spacing.lg,
+        marginBottom: spacing.md,
     },
     scrollView: {
         flex: 1,

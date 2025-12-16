@@ -11,6 +11,7 @@ import type {
     OutworlderModuleState,
     ShadowMonarchModuleState,
 } from './types';
+import { SUBSCRIPTION_LIMITS } from './types';
 
 // Simple localStorage-based storage (works on web and React Native with polyfill)
 const createStorage = () => {
@@ -331,3 +332,147 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
             } as ShadowMonarchModuleState;
     }
 }
+
+// ==================== TURNS STORE ====================
+
+interface TurnsState {
+    used: number;
+    bonusTurns: number;
+    resetDate: number;
+    tier: SubscriptionTier;
+
+    // Computed
+    getLimit: () => number;
+    getRemaining: () => number;
+    canUseTurn: () => boolean;
+    getUsagePercent: () => number;
+
+    // Actions
+    useTurn: () => boolean;
+    addBonusTurns: (amount: number) => void;
+    setTier: (tier: SubscriptionTier) => void;
+    checkAndResetMonthly: () => void;
+}
+
+const getMonthlyResetDate = (): number => {
+    const now = new Date();
+    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+    return nextMonth.getTime();
+};
+
+export const useTurnsStore = create<TurnsState>((set, get) => {
+    // Load from storage
+    const savedData = storage.getString('turnsData');
+    const parsed = savedData ? JSON.parse(savedData) : null;
+
+    const initialState = {
+        used: parsed?.used ?? 0,
+        bonusTurns: parsed?.bonusTurns ?? 0,
+        resetDate: parsed?.resetDate ?? getMonthlyResetDate(),
+        tier: (parsed?.tier as SubscriptionTier) ?? 'scout',
+    };
+
+    return {
+        ...initialState,
+
+        getLimit: () => {
+            const { tier } = get();
+            return SUBSCRIPTION_LIMITS[tier];
+        },
+
+        getRemaining: () => {
+            const { used, bonusTurns, getLimit } = get();
+            const limit = getLimit();
+            if (limit === Infinity) return Infinity;
+            return Math.max(0, limit + bonusTurns - used);
+        },
+
+        canUseTurn: () => {
+            const { getRemaining, tier } = get();
+            if (tier === 'legend') return true; // BYOK = unlimited
+            return getRemaining() > 0;
+        },
+
+        getUsagePercent: () => {
+            const { used, bonusTurns, getLimit } = get();
+            const limit = getLimit();
+            if (limit === Infinity) return 0;
+            const total = limit + bonusTurns;
+            return Math.min(100, (used / total) * 100);
+        },
+
+        useTurn: () => {
+            const { canUseTurn, used, tier } = get();
+            if (!canUseTurn()) return false;
+
+            if (tier !== 'legend') {
+                const newUsed = used + 1;
+                set({ used: newUsed });
+
+                // Persist
+                const data = JSON.stringify({
+                    used: newUsed,
+                    bonusTurns: get().bonusTurns,
+                    resetDate: get().resetDate,
+                    tier: get().tier,
+                });
+                storage.set('turnsData', data);
+            }
+
+            return true;
+        },
+
+        addBonusTurns: (amount) => {
+            const { bonusTurns } = get();
+            const newBonus = bonusTurns + amount;
+            set({ bonusTurns: newBonus });
+
+            // Persist
+            const data = JSON.stringify({
+                used: get().used,
+                bonusTurns: newBonus,
+                resetDate: get().resetDate,
+                tier: get().tier,
+            });
+            storage.set('turnsData', data);
+        },
+
+        setTier: (tier) => {
+            set({ tier });
+
+            // Persist
+            const data = JSON.stringify({
+                used: get().used,
+                bonusTurns: get().bonusTurns,
+                resetDate: get().resetDate,
+                tier,
+            });
+            storage.set('turnsData', data);
+        },
+
+        checkAndResetMonthly: () => {
+            const { resetDate } = get();
+            const now = Date.now();
+
+            if (now >= resetDate) {
+                // Reset for new month
+                const newResetDate = getMonthlyResetDate();
+                set({
+                    used: 0,
+                    bonusTurns: 0, // Bonus turns don't carry over
+                    resetDate: newResetDate,
+                });
+
+                // Persist
+                const data = JSON.stringify({
+                    used: 0,
+                    bonusTurns: 0,
+                    resetDate: newResetDate,
+                    tier: get().tier,
+                });
+                storage.set('turnsData', data);
+            }
+        },
+    };
+});
+

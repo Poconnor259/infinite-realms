@@ -257,3 +257,31 @@ export interface User {
     };
     createdAt: number;
 }
+
+// ==================== TURNS & MONETIZATION ====================
+
+export interface TurnsUsage {
+    used: number;
+    limit: number;
+    bonusTurns: number; // From top-ups
+    resetDate: number; // Timestamp for monthly reset
+}
+
+export interface TopUpPackage {
+    id: 'topup_250' | 'topup_500';
+    turns: number;
+    price: number; // In cents
+    displayPrice: string;
+}
+
+export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
+    scout: 50,
+    hero: 500,
+    legend: Infinity, // BYOK = unlimited
+};
+
+export const TOP_UP_PACKAGES: TopUpPackage[] = [
+    { id: 'topup_250', turns: 250, price: 500, displayPrice: '$5' },
+    { id: 'topup_500', turns: 500, price: 1000, displayPrice: '$10' },
+];
+
