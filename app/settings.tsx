@@ -8,6 +8,7 @@ import {
     TextInput,
     Switch,
     Alert,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -97,18 +98,27 @@ export default function SettingsScreen() {
     };
 
     const handleRemoveKey = (provider: 'openai' | 'anthropic' | 'google') => {
-        Alert.alert(
-            'Remove API Key',
-            `Are you sure you want to remove your ${provider.toUpperCase()} API key?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Remove',
-                    style: 'destructive',
-                    onPress: () => setApiKey(provider, null),
-                },
-            ]
-        );
+        if (Platform.OS === 'web') {
+            // Web-friendly confirmation
+            // @ts-ignore - confirm exists on window
+            if (window.confirm(`Are you sure you want to remove your ${provider.toUpperCase()} API key?`)) {
+                setApiKey(provider, null);
+            }
+        } else {
+            // Native Alert
+            Alert.alert(
+                'Remove API Key',
+                `Are you sure you want to remove your ${provider.toUpperCase()} API key?`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Remove',
+                        style: 'destructive',
+                        onPress: () => setApiKey(provider, null),
+                    },
+                ]
+            );
+        }
     };
 
     const getKeyStatus = (key: string | null) => {

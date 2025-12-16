@@ -116,6 +116,37 @@ export const typography = {
         normal: 1.5,
         relaxed: 1.75,
     },
+
+    // Presets
+    h1: {
+        fontSize: 32,
+        fontWeight: 'bold',
+        color: '#f8fafc',
+    },
+    h2: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#f8fafc',
+    },
+    h3: {
+        fontSize: 20,
+        fontWeight: '600',
+        color: '#f8fafc',
+    },
+    h4: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#f8fafc',
+    },
+    body: {
+        fontSize: 16,
+        color: '#cbd5e1',
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#94a3b8',
+    },
 };
 
 export const shadows = {
@@ -146,6 +177,13 @@ export const shadows = {
         shadowOpacity: 0.5,
         shadowRadius: 12,
         elevation: 12,
+    },
+    none: {
+        shadowColor: 'transparent',
+        shadowOffset: { width: 0, height: 0 },
+        shadowOpacity: 0,
+        shadowRadius: 0,
+        elevation: 0,
     },
 };
 

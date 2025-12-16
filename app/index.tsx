@@ -97,6 +97,10 @@ export default function HomeScreen() {
         router.push('/world-select');
     };
 
+    const handleWorldSelect = (worldId: string) => {
+        router.push(`/campaign/create?world=${worldId}`);
+    };
+
     const formatDate = (timestamp: number) => {
         const date = new Date(timestamp);
         const now = new Date();
@@ -239,7 +243,7 @@ export default function HomeScreen() {
                             <AnimatedPressable
                                 key={key}
                                 style={[styles.worldCard, { borderColor: info.color + '40' }]}
-                                onPress={handleNewCampaign}
+                                onPress={() => handleWorldSelect(key)}
                             >
                                 <Text style={styles.worldCardIcon}>{info.icon}</Text>
                                 <Text style={styles.worldCardName}>{info.name}</Text>

@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.processWithBrain = processWithBrain;
 exports.rollDice = rollDice;
 const openai_1 = __importDefault(require("openai"));
+const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const zod_1 = require("zod");
 // ==================== WORLD MODULE PROMPTS ====================
 const WORLD_PROMPTS = {
@@ -60,7 +61,6 @@ const BrainResponseSchema = zod_1.z.object({
 async function processWithBrain(input) {
     const { userInput, worldModule, currentState, chatHistory, apiKey } = input;
     try {
-        const openai = new openai_1.default({ apiKey });
         const systemPrompt = `${WORLD_PROMPTS[worldModule]}
 
 CRITICAL INSTRUCTIONS:
@@ -75,54 +75,106 @@ CURRENT GAME STATE:
 ${JSON.stringify(currentState, null, 2)}
 
 Respond with JSON only. No markdown, no explanation.`;
-        // Build messages array
-        const messages = [
-            { role: 'system', content: systemPrompt },
-        ];
-        // Add recent chat history for context
-        for (const msg of chatHistory) {
-            messages.push({
-                role: msg.role === 'user' ? 'user' : 'assistant',
-                content: msg.content,
+        // Detect Provider
+        const isAnthropic = apiKey.startsWith('sk-ant');
+        let content = null;
+        console.log(`[Brain] Using provider: ${isAnthropic ? 'Anthropic' : 'OpenAI'} (Key length: ${apiKey.length})`);
+        if (isAnthropic) {
+            const anthropic = new sdk_1.default({ apiKey });
+            const response = await anthropic.messages.create({
+                model: 'claude-opus-4-5-20251101',
+                max_tokens: 3000,
+                temperature: 0.7,
+                system: systemPrompt,
+                messages: [
+                    ...chatHistory.map(msg => ({
+                        role: (msg.role === 'user' ? 'user' : 'assistant'),
+                        content: msg.content
+                    })),
+                    {
+                        role: 'user',
+                        content: `PLAYER ACTION: ${userInput}
+            
+            Process this action according to the game mechanics instructions.
+            
+            Respond with JSON matching this structure:
+            {
+              "stateUpdates": { /* only changed fields */ },
+              "narrativeCues": [{ "type": "...", "content": "...", "emotion": "..." }],
+              "diceRolls": [{ "type": "d20", "result": N, "modifier": M, "total": T, "purpose": "..." }],
+              "systemMessages": ["..."],
+              "narrativeCue": "Brief narrative if Claude is unavailable"
+            }`
+                    }
+                ]
             });
+            // Handle Anthropic response content
+            const block = response.content[0];
+            if (block.type === 'text') {
+                content = block.text;
+            }
         }
-        // Add current user input
-        messages.push({
-            role: 'user',
-            content: `PLAYER ACTION: ${userInput}
-
-Process this action according to the game rules. Calculate any required dice rolls, update the game state, and provide narrative cues for the storyteller.
-
-Respond with JSON matching this structure:
-{
-  "stateUpdates": { /* only changed fields */ },
-  "narrativeCues": [{ "type": "...", "content": "...", "emotion": "..." }],
-  "diceRolls": [{ "type": "d20", "result": N, "modifier": M, "total": T, "purpose": "..." }],
-  "systemMessages": ["..."],
-  "narrativeCue": "Brief narrative if Claude is unavailable"
-}`,
-        });
-        const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages,
-            temperature: 0.7,
-            max_tokens: 2000,
-            response_format: { type: 'json_object' },
-        });
-        const content = response.choices[0]?.message?.content;
+        else {
+            // Default to OpenAI
+            const openai = new openai_1.default({ apiKey });
+            const messages = [
+                { role: 'system', content: systemPrompt },
+            ];
+            // Add recent chat history for context
+            for (const msg of chatHistory) {
+                messages.push({
+                    role: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content,
+                });
+            }
+            // Add current user input
+            messages.push({
+                role: 'user',
+                content: `PLAYER ACTION: ${userInput}
+    
+    Process this action according to the game rules. Calculate any required dice rolls, update the game state, and provide narrative cues for the storyteller.
+    
+    Respond with JSON matching this structure:
+    {
+      "stateUpdates": { /* only changed fields */ },
+      "narrativeCues": [{ "type": "...", "content": "...", "emotion": "..." }],
+      "diceRolls": [{ "type": "d20", "result": N, "modifier": M, "total": T, "purpose": "..." }],
+      "systemMessages": ["..."],
+      "narrativeCue": "Brief narrative if Claude is unavailable"
+    }`,
+            });
+            const response = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages,
+                temperature: 0.7,
+                max_tokens: 2000,
+                response_format: { type: 'json_object' },
+            });
+            content = response.choices[0]?.message?.content;
+        }
         if (!content) {
             return {
                 success: false,
                 error: 'No response from Brain model',
             };
         }
+        // Extract JSON from markdown code blocks if present
+        let jsonText = content.trim();
+        // Check if content is wrapped in markdown code blocks
+        const codeBlockMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (codeBlockMatch) {
+            jsonText = codeBlockMatch[1].trim();
+        }
+        // Remove any leading/trailing whitespace
+        jsonText = jsonText.trim();
         // Parse and validate response
         let parsed;
         try {
-            parsed = JSON.parse(content);
+            parsed = JSON.parse(jsonText);
         }
         catch (parseError) {
             console.error('Failed to parse Brain response:', content);
+            console.error('Extracted JSON text:', jsonText);
             return {
                 success: false,
                 error: 'Invalid JSON response from Brain',

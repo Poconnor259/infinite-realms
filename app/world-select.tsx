@@ -9,9 +9,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
-import { useGameStore, getDefaultModuleState } from '../lib/store';
+
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
-import type { WorldModuleType, Campaign } from '../lib/types';
+import type { WorldModuleType } from '../lib/types';
 
 interface WorldModule {
     id: WorldModuleType;
@@ -72,7 +72,6 @@ const WORLD_MODULES: WorldModule[] = [
 
 export default function WorldSelectScreen() {
     const router = useRouter();
-    const { setCurrentCampaign, setMessages } = useGameStore();
     const [selectedWorld, setSelectedWorld] = useState<WorldModuleType | null>(null);
 
     const handleWorldSelect = (worldId: WorldModuleType) => {
@@ -81,90 +80,7 @@ export default function WorldSelectScreen() {
 
     const handleContinue = () => {
         if (!selectedWorld) return;
-
-        // Create a new campaign with the selected world
-        const newCampaign: Campaign = {
-            id: `campaign_${Date.now()}`,
-            userId: 'demo',
-            name: getWorldName(selectedWorld),
-            worldModule: selectedWorld,
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            character: {
-                id: `char_${Date.now()}`,
-                name: 'Unnamed Hero',
-                hp: { current: 100, max: 100 },
-                level: 1,
-            },
-            moduleState: getDefaultModuleState(selectedWorld),
-        };
-
-        setCurrentCampaign(newCampaign);
-        setMessages([
-            {
-                id: 'intro',
-                role: 'narrator',
-                content: getWorldIntro(selectedWorld),
-                timestamp: Date.now(),
-            },
-        ]);
-
-        // Navigate to the campaign
-        router.replace(`/campaign/${newCampaign.id}`);
-    };
-
-    const getWorldName = (worldId: WorldModuleType): string => {
-        switch (worldId) {
-            case 'classic': return 'New Adventure';
-            case 'outworlder': return 'Pallimustus Awakening';
-            case 'shadowMonarch': return 'Hunter Awakening';
-        }
-    };
-
-    const getWorldIntro = (worldId: WorldModuleType): string => {
-        switch (worldId) {
-            case 'classic':
-                return `*The tavern door creaks open as you step inside. The smell of ale and woodsmoke fills your nostrils. Adventurers of all kinds sit at rough-hewn tables, sharing tales of glory and peril.*
-
-A grizzled dwarf behind the bar looks up at you with knowing eyes.
-
-**"Another brave soul seeking fortune and fame, eh? Well, you've come to the right place. Pull up a chair and tell me - what brings you to these lands?"**`;
-
-            case 'outworlder':
-                return `*You wake with a gasp, your body tingling with unfamiliar energy. The world around you is strange - the sky an impossible shade of violet, the trees glowing with bioluminescent light.*
-
-A translucent blue panel materializes before your eyes:*
-
-\`\`\`
-『SYSTEM MESSAGE』
-OUTWORLDER DETECTED
-ESSENCE ABSORPTION PROTOCOL: INITIATED
-CURRENT RANK: UNAWAKENED
-\`\`\`
-
-*Something fundamental has changed within you. You can feel... possibilities. The air itself seems alive with potential.*
-
-**What do you do?**`;
-
-            case 'shadowMonarch':
-                return `*The dungeon gate looms before you - a swirling vortex of darkness that appeared in the center of the city three days ago. As an E-Rank Hunter, you've been assigned to the rear guard. Not that it matters - your stats are so low you're practically a liability.*
-
-Suddenly, a blue window appears in your vision:*
-
-\`\`\`
-[DAILY QUEST]
-Run: 0/10 km
-Push-ups: 0/100
-Sit-ups: 0/100
-Squats: 0/100
-
-WARNING: Failure to complete will result in penalty.
-\`\`\`
-
-*Strange... you've never seen this before. Could this be... a system?*
-
-**What do you do?**`;
-        }
+        router.push(`/campaign/create?world=${selectedWorld}`);
     };
 
     return (

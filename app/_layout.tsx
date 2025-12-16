@@ -4,7 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { colors } from '../lib/theme';
-import { useSettingsStore } from '../lib/store';
+import { useSettingsStore, useUserStore } from '../lib/store';
+import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser } from '../lib/firebase';
 
 export default function RootLayout() {
     const loadSettings = useSettingsStore((state) => state.loadSettings);
@@ -12,6 +13,30 @@ export default function RootLayout() {
     useEffect(() => {
         // Load user settings on app start
         loadSettings();
+
+        // Listen for auth changes
+        const unsubscribe = onAuthChange(async (firebaseUser) => {
+            if (firebaseUser) {
+                // Get or create user profile
+                await createOrUpdateUser(firebaseUser.uid, {
+                    lastActive: Date.now()
+                });
+
+                // Update store
+                useUserStore.getState().setUser({
+                    id: firebaseUser.uid,
+                    email: firebaseUser.email || '',
+                    createdAt: Date.now(),
+                    tier: 'scout', // Default tier, should fetch from DB in real app
+                });
+            } else {
+                useUserStore.getState().setUser(null);
+                // Auto sign-in if needed
+                signInAnonymouslyIfNeeded();
+            }
+        });
+
+        return () => unsubscribe();
     }, []);
 
     return (

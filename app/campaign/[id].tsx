@@ -37,8 +37,18 @@ export default function CampaignScreen() {
         messages,
         isLoading,
         processUserInput,
+        loadCampaign,
         error,
     } = useGameStore();
+
+    useEffect(() => {
+        if (!id) return;
+
+        // If we don't have a campaign, or it's the wrong one, load it
+        if (!currentCampaign || currentCampaign.id !== id) {
+            loadCampaign(id);
+        }
+    }, [id, currentCampaign, loadCampaign]);
 
     const [hudExpanded, setHudExpanded] = useState(true);
     const hudAnimation = useRef(new Animated.Value(1)).current;
@@ -64,6 +74,17 @@ export default function CampaignScreen() {
     const handleSend = async (text: string) => {
         await processUserInput(text);
     };
+
+    if (isLoading && !currentCampaign) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color={colors.primary[400]} />
+                    <Text style={[styles.loadingText, { marginTop: spacing.md }]}>Loading adventure...</Text>
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     if (!currentCampaign) {
         return (

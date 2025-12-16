@@ -47,7 +47,7 @@ interface GameResponse {
 // ==================== MAIN GAME ENDPOINT ====================
 
 export const processGameAction = onCall(
-    { secrets: [openaiApiKey, anthropicApiKey] },
+    { secrets: [openaiApiKey, anthropicApiKey], cors: true, invoker: 'public' },
     async (request): Promise<GameResponse> => {
         const data = request.data as GameRequest;
         const auth = request.auth;
@@ -58,7 +58,6 @@ export const processGameAction = onCall(
             worldModule,
             currentState,
             chatHistory,
-            userTier,
             byokKeys,
         } = data;
 
@@ -74,6 +73,14 @@ export const processGameAction = onCall(
             // Determine which API keys to use
             const openaiKey = byokKeys?.openai || openaiApiKey.value();
             const anthropicKey = byokKeys?.anthropic || anthropicApiKey.value();
+
+            // DEBUG LOGGING
+            console.log(`[Auth Debug] hasByok: ${!!byokKeys?.openai}, hasSecret: ${!!openaiApiKey.value()}`);
+            if (openaiKey) {
+                console.log(`[Auth Debug] Key used starts with: ${openaiKey.substring(0, 8)}... ends with: ...${openaiKey.slice(-4)} (Length: ${openaiKey.length})`);
+            } else {
+                console.log('[Auth Debug] No OpenAI key found');
+            }
 
             if (!openaiKey) {
                 return {
@@ -105,7 +112,8 @@ export const processGameAction = onCall(
             // Step 2: Generate narrative with Voice (Narrator)
             let narrativeText: string;
 
-            if (userTier === 'scout' || !anthropicKey) {
+            if (!anthropicKey) {
+                // Fallback if no Anthropic key available
                 narrativeText = brainResult.data?.narrativeCue ||
                     `*${userInput}*\n\nThe action has been processed.`;
             } else {
@@ -164,7 +172,7 @@ export const processGameAction = onCall(
 
 // ==================== CAMPAIGN MANAGEMENT ====================
 
-export const createCampaign = onCall(async (request) => {
+export const createCampaign = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -195,7 +203,7 @@ export const createCampaign = onCall(async (request) => {
     return { campaignId: campaignRef.id };
 });
 
-export const deleteCampaign = onCall(async (request) => {
+export const deleteCampaign = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -224,7 +232,7 @@ export const deleteCampaign = onCall(async (request) => {
 
 // ==================== EXPORT DATA (GDPR) ====================
 
-export const exportUserData = onCall(async (request) => {
+export const exportUserData = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }

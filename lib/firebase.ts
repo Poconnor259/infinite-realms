@@ -45,21 +45,47 @@ export function onAuthChange(callback: (user: User | null) => void) {
 
 // ==================== CLOUD FUNCTIONS ====================
 
+// Matches GameRequest in functions/src/index.ts
 export interface ProcessInputRequest {
     campaignId: string;
     userInput: string;
-    messageHistory: Array<{ role: string; content: string }>;
+    worldModule: 'classic' | 'outworlder' | 'shadowMonarch';
+    currentState: Record<string, unknown>;
+    chatHistory: Array<{ role: string; content: string }>;
+    userTier: 'scout' | 'hero' | 'legend';
+    byokKeys?: {
+        openai?: string;
+        anthropic?: string;
+    };
 }
 
 export interface ProcessInputResponse {
-    narratorMessage: string;
-    stateUpdates: any;
+    success: boolean;
+    narrativeText?: string;
+    stateUpdates?: Record<string, unknown>;
+    diceRolls?: Array<any>;
+    systemMessages?: string[];
     error?: string;
 }
 
-export const processGameInput = httpsCallable<ProcessInputRequest, ProcessInputResponse>(
+export interface CreateCampaignRequest {
+    name: string;
+    worldModule: string;
+    characterName: string;
+}
+
+export interface CreateCampaignResponse {
+    campaignId: string;
+}
+
+export const createCampaign = httpsCallable<CreateCampaignRequest, CreateCampaignResponse>(
     functions,
-    'processGameInput'
+    'createCampaign'
+);
+
+export const processGameAction = httpsCallable<ProcessInputRequest, ProcessInputResponse>(
+    functions,
+    'processGameAction'
 );
 
 // ==================== FIRESTORE HELPERS ====================

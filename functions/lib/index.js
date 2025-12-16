@@ -47,10 +47,10 @@ const db = admin.firestore();
 const openaiApiKey = (0, params_1.defineSecret)('OPENAI_API_KEY');
 const anthropicApiKey = (0, params_1.defineSecret)('ANTHROPIC_API_KEY');
 // ==================== MAIN GAME ENDPOINT ====================
-exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey] }, async (request) => {
+exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey], cors: true, invoker: 'public' }, async (request) => {
     const data = request.data;
     const auth = request.auth;
-    const { campaignId, userInput, worldModule, currentState, chatHistory, userTier, byokKeys, } = data;
+    const { campaignId, userInput, worldModule, currentState, chatHistory, byokKeys, } = data;
     // Validate required fields
     if (!campaignId || !userInput || !worldModule) {
         return {
@@ -62,6 +62,14 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         // Determine which API keys to use
         const openaiKey = byokKeys?.openai || openaiApiKey.value();
         const anthropicKey = byokKeys?.anthropic || anthropicApiKey.value();
+        // DEBUG LOGGING
+        console.log(`[Auth Debug] hasByok: ${!!byokKeys?.openai}, hasSecret: ${!!openaiApiKey.value()}`);
+        if (openaiKey) {
+            console.log(`[Auth Debug] Key used starts with: ${openaiKey.substring(0, 8)}... ends with: ...${openaiKey.slice(-4)} (Length: ${openaiKey.length})`);
+        }
+        else {
+            console.log('[Auth Debug] No OpenAI key found');
+        }
         if (!openaiKey) {
             return {
                 success: false,
@@ -86,7 +94,8 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         console.log('[Brain] Result:', JSON.stringify(brainResult.data));
         // Step 2: Generate narrative with Voice (Narrator)
         let narrativeText;
-        if (userTier === 'scout' || !anthropicKey) {
+        if (!anthropicKey) {
+            // Fallback if no Anthropic key available
             narrativeText = brainResult.data?.narrativeCue ||
                 `*${userInput}*\n\nThe action has been processed.`;
         }
@@ -141,7 +150,7 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
     }
 });
 // ==================== CAMPAIGN MANAGEMENT ====================
-exports.createCampaign = (0, https_1.onCall)(async (request) => {
+exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -166,7 +175,7 @@ exports.createCampaign = (0, https_1.onCall)(async (request) => {
     });
     return { campaignId: campaignRef.id };
 });
-exports.deleteCampaign = (0, https_1.onCall)(async (request) => {
+exports.deleteCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -188,7 +197,7 @@ exports.deleteCampaign = (0, https_1.onCall)(async (request) => {
     return { success: true };
 });
 // ==================== EXPORT DATA (GDPR) ====================
-exports.exportUserData = (0, https_1.onCall)(async (request) => {
+exports.exportUserData = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }

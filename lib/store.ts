@@ -12,6 +12,7 @@ import type {
     ShadowMonarchModuleState,
 } from './types';
 import { SUBSCRIPTION_LIMITS } from './types';
+import { loadCampaign as fetchCampaign, processGameAction } from './firebase';
 
 // Simple localStorage-based storage (works on web and React Native with polyfill)
 const createStorage = () => {
@@ -69,6 +70,7 @@ interface GameState {
 
     // Game logic
     processUserInput: (input: string) => Promise<void>;
+    loadCampaign: (id: string) => Promise<void>;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -133,30 +135,131 @@ export const useGameStore = create<GameState>((set, get) => ({
             timestamp: Date.now(),
         };
 
+        const newMessages = [...state.messages, userMessage];
+
         set((state) => ({
-            messages: [...state.messages, userMessage],
+            messages: newMessages,
         }));
 
         try {
-            // This will be replaced with actual API call to Cloud Functions
-            // For now, simulate a response
-            await new Promise((resolve) => setTimeout(resolve, 1500));
+            // Get dependencies
+            const user = useUserStore.getState().user;
+            const settings = useSettingsStore.getState();
+
+            if (!user) {
+                throw new Error("User not authenticated");
+            }
+
+            console.log('[Game] Processing with Cloud Function...');
+
+            // Call Cloud Function
+            const result = await processGameAction({
+                campaignId: state.currentCampaign.id,
+                userInput: input,
+                worldModule: state.currentCampaign.worldModule,
+                currentState: state.currentCampaign.moduleState as any,
+                chatHistory: newMessages.slice(-10).map(m => ({
+                    role: m.role,
+                    content: m.content
+                })),
+                userTier: user.tier || 'scout',
+                byokKeys: {
+                    openai: settings.openaiKey || undefined,
+                    anthropic: settings.anthropicKey || undefined,
+                }
+            });
+
+            console.log('[Game] Result:', result.data);
+
+            if (!result.data.success) {
+                throw new Error(result.data.error || 'Unknown error from Game Brain');
+            }
+
+            const narrative = result.data.narrativeText || '...';
 
             const narratorMessage: Message = {
                 id: `msg_${Date.now() + 1}`,
                 role: 'narrator',
-                content: `*Processing your action: "${input}"*\n\n[This is a placeholder. Connect to Firebase Cloud Functions to enable the AI Brain and Voice.]`,
+                content: narrative,
+                timestamp: Date.now(),
+            };
+
+            // Update state
+            set((state) => {
+                const updatedCampaign = state.currentCampaign!;
+
+                // Merge state updates if any
+                if (result.data.stateUpdates) {
+                    updatedCampaign.moduleState = {
+                        ...updatedCampaign.moduleState,
+                        ...result.data.stateUpdates
+                    };
+                    updatedCampaign.updatedAt = Date.now();
+                }
+
+                return {
+                    messages: [...newMessages, narratorMessage],
+                    currentCampaign: updatedCampaign,
+                    isLoading: false,
+                };
+            });
+
+        } catch (error) {
+            console.error('[Game] Error:', error);
+            set({
+                isLoading: false,
+                error: error instanceof Error ? error.message : 'An error occurred',
+            });
+
+            // Add system error message to chat
+            const errorMessage: Message = {
+                id: `err_${Date.now()}`,
+                role: 'system',
+                content: `*Error: ${error instanceof Error ? error.message : 'Connection failed'}*`,
                 timestamp: Date.now(),
             };
 
             set((state) => ({
-                messages: [...state.messages, narratorMessage],
-                isLoading: false,
+                messages: [...state.messages, errorMessage]
             }));
+        }
+    },
+
+    loadCampaign: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+            const userId = useUserStore.getState().user?.id;
+
+            if (!userId) {
+                // Wait for auth to initialize if we don't have a user yet
+                // But for now, just fail gracefully or retry
+                console.warn('No user ID found during loadCampaign');
+                // Could retry or relying on the component to call this only when auth is ready
+                // Let's assume the caller checks auth or we just return.
+                // Actually, if we are loading a campaign, we really need the user ID.
+                // Let's throw for now so the UI shows an error.
+                throw new Error("Authentication required to load campaign");
+            }
+
+            const campaignData = await fetchCampaign(userId, id);
+
+            if (campaignData) {
+                set({
+                    currentCampaign: campaignData as Campaign,
+                    isLoading: false
+                });
+                storage.set('lastCampaignId', id);
+            } else {
+                set({
+                    error: 'Campaign not found',
+                    isLoading: false
+                });
+            }
         } catch (error) {
+            console.error(error);
             set({
-                isLoading: false,
-                error: error instanceof Error ? error.message : 'An error occurred',
+                error: error instanceof Error ? error.message : 'Failed to load campaign',
+                isLoading: false
             });
         }
     },
