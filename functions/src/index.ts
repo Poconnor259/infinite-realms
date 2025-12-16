@@ -1,4 +1,5 @@
-import * as functions from 'firebase-functions';
+import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
@@ -8,6 +9,10 @@ admin.initializeApp();
 
 // Get Firestore instance
 const db = admin.firestore();
+
+// Define secrets
+const openaiApiKey = defineSecret('OPENAI_API_KEY');
+const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY');
 
 // ==================== TYPES ====================
 
@@ -41,21 +46,11 @@ interface GameResponse {
 
 // ==================== MAIN GAME ENDPOINT ====================
 
-/**
- * Main game processing endpoint.
- * Implements the Brain -> Voice pipeline.
- * 
- * 1. Receives user input + current game state
- * 2. Sends to Brain (GPT-4o-mini) for logic processing
- * 3. Sends Brain output to Voice (Claude) for narrative generation
- * 4. Returns narrative + state updates to client
- */
-export const processGameAction = functions.https.onCall(
-    async (data: GameRequest, context): Promise<GameResponse> => {
-        // Validate authentication (optional for demo, required in production)
-        // if (!context.auth) {
-        //   throw new functions.https.HttpsError('unauthenticated', 'User must be signed in');
-        // }
+export const processGameAction = onCall(
+    { secrets: [openaiApiKey, anthropicApiKey] },
+    async (request): Promise<GameResponse> => {
+        const data = request.data as GameRequest;
+        const auth = request.auth;
 
         const {
             campaignId,
@@ -77,8 +72,8 @@ export const processGameAction = functions.https.onCall(
 
         try {
             // Determine which API keys to use
-            const openaiKey = byokKeys?.openai || process.env.OPENAI_API_KEY || functions.config().openai?.key;
-            const anthropicKey = byokKeys?.anthropic || process.env.ANTHROPIC_API_KEY || functions.config().anthropic?.key;
+            const openaiKey = byokKeys?.openai || openaiApiKey.value();
+            const anthropicKey = byokKeys?.anthropic || anthropicApiKey.value();
 
             if (!openaiKey) {
                 return {
@@ -94,7 +89,7 @@ export const processGameAction = functions.https.onCall(
                 userInput,
                 worldModule,
                 currentState,
-                chatHistory: chatHistory.slice(-10), // Last 10 messages for context
+                chatHistory: chatHistory.slice(-10),
                 apiKey: openaiKey,
             });
 
@@ -108,15 +103,12 @@ export const processGameAction = functions.https.onCall(
             console.log('[Brain] Result:', JSON.stringify(brainResult.data));
 
             // Step 2: Generate narrative with Voice (Narrator)
-            // Use Claude for Hero+ tiers, GPT-4o-mini for free tier
             let narrativeText: string;
 
             if (userTier === 'scout' || !anthropicKey) {
-                // Free tier: Use Brain to also generate simple narrative
                 narrativeText = brainResult.data?.narrativeCue ||
                     `*${userInput}*\n\nThe action has been processed.`;
             } else {
-                // Premium tier: Use Claude for rich narrative
                 console.log('[Voice] Generating narrative with Claude');
 
                 const voiceResult = await generateNarrative({
@@ -129,7 +121,6 @@ export const processGameAction = functions.https.onCall(
                 });
 
                 if (!voiceResult.success) {
-                    // Fallback to Brain narrative if Voice fails
                     narrativeText = brainResult.data?.narrativeCue ||
                         'The narrator seems momentarily distracted...';
                 } else {
@@ -138,10 +129,10 @@ export const processGameAction = functions.https.onCall(
             }
 
             // Step 3: Save state to Firestore (if authenticated)
-            if (context.auth) {
+            if (auth) {
                 try {
                     await db.collection('users')
-                        .doc(context.auth.uid)
+                        .doc(auth.uid)
                         .collection('campaigns')
                         .doc(campaignId)
                         .update({
@@ -150,7 +141,6 @@ export const processGameAction = functions.https.onCall(
                         });
                 } catch (dbError) {
                     console.error('Failed to save state to Firestore:', dbError);
-                    // Continue anyway - state will be saved client-side
                 }
             }
 
@@ -174,118 +164,98 @@ export const processGameAction = functions.https.onCall(
 
 // ==================== CAMPAIGN MANAGEMENT ====================
 
-/**
- * Create a new campaign
- */
-export const createCampaign = functions.https.onCall(
-    async (data, context) => {
-        if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', 'User must be signed in');
-        }
-
-        const { name, worldModule, characterName } = data;
-
-        const campaignRef = db.collection('users')
-            .doc(context.auth.uid)
-            .collection('campaigns')
-            .doc();
-
-        const now = admin.firestore.FieldValue.serverTimestamp();
-
-        await campaignRef.set({
-            id: campaignRef.id,
-            name,
-            worldModule,
-            character: {
-                id: `char_${Date.now()}`,
-                name: characterName || 'Unnamed Hero',
-                hp: { current: 100, max: 100 },
-                level: 1,
-            },
-            createdAt: now,
-            updatedAt: now,
-        });
-
-        return { campaignId: campaignRef.id };
+export const createCampaign = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
     }
-);
 
-/**
- * Delete a campaign
- */
-export const deleteCampaign = functions.https.onCall(
-    async (data, context) => {
-        if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', 'User must be signed in');
-        }
+    const { name, worldModule, characterName } = request.data;
 
-        const { campaignId } = data;
+    const campaignRef = db.collection('users')
+        .doc(request.auth.uid)
+        .collection('campaigns')
+        .doc();
 
-        // Delete all messages in the campaign
-        const messagesRef = db.collection('users')
-            .doc(context.auth.uid)
-            .collection('campaigns')
-            .doc(campaignId)
-            .collection('messages');
+    const now = admin.firestore.FieldValue.serverTimestamp();
 
-        const messages = await messagesRef.get();
-        const batch = db.batch();
-        messages.docs.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
+    await campaignRef.set({
+        id: campaignRef.id,
+        name,
+        worldModule,
+        character: {
+            id: `char_${Date.now()}`,
+            name: characterName || 'Unnamed Hero',
+            hp: { current: 100, max: 100 },
+            level: 1,
+        },
+        createdAt: now,
+        updatedAt: now,
+    });
 
-        // Delete the campaign
-        await db.collection('users')
-            .doc(context.auth.uid)
-            .collection('campaigns')
-            .doc(campaignId)
-            .delete();
+    return { campaignId: campaignRef.id };
+});
 
-        return { success: true };
+export const deleteCampaign = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
     }
-);
+
+    const { campaignId } = request.data;
+
+    const messagesRef = db.collection('users')
+        .doc(request.auth.uid)
+        .collection('campaigns')
+        .doc(campaignId)
+        .collection('messages');
+
+    const messages = await messagesRef.get();
+    const batch = db.batch();
+    messages.docs.forEach(doc => batch.delete(doc.ref));
+    await batch.commit();
+
+    await db.collection('users')
+        .doc(request.auth.uid)
+        .collection('campaigns')
+        .doc(campaignId)
+        .delete();
+
+    return { success: true };
+});
 
 // ==================== EXPORT DATA (GDPR) ====================
 
-/**
- * Export all user data as JSON
- */
-export const exportUserData = functions.https.onCall(
-    async (data, context) => {
-        if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', 'User must be signed in');
-        }
-
-        const userId = context.auth.uid;
-
-        // Get user document
-        const userDoc = await db.collection('users').doc(userId).get();
-        const userData = userDoc.data();
-
-        // Get all campaigns
-        const campaignsSnapshot = await db.collection('users')
-            .doc(userId)
-            .collection('campaigns')
-            .get();
-
-        const campaigns = await Promise.all(
-            campaignsSnapshot.docs.map(async (doc) => {
-                const campaignData = doc.data();
-
-                // Get messages for this campaign
-                const messagesSnapshot = await doc.ref.collection('messages').get();
-                const messages = messagesSnapshot.docs.map(msgDoc => msgDoc.data());
-
-                return {
-                    ...campaignData,
-                    messages,
-                };
-            })
-        );
-
-        return {
-            user: userData,
-            campaigns,
-            exportedAt: new Date().toISOString(),
-        };
+export const exportUserData = onCall(async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
     }
-);
+
+    const userId = request.auth.uid;
+
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.data();
+
+    const campaignsSnapshot = await db.collection('users')
+        .doc(userId)
+        .collection('campaigns')
+        .get();
+
+    const campaigns = await Promise.all(
+        campaignsSnapshot.docs.map(async (doc) => {
+            const campaignData = doc.data();
+
+            const messagesSnapshot = await doc.ref.collection('messages').get();
+            const messages = messagesSnapshot.docs.map(msgDoc => msgDoc.data());
+
+            return {
+                ...campaignData,
+                messages,
+            };
+        })
+    );
+
+    return {
+        user: userData,
+        campaigns,
+        exportedAt: new Date().toISOString(),
+    };
+});
