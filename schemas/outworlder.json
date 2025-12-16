@@ -1,0 +1,193 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Outworlder Character Schema",
+    "description": "Character schema for The Outworlder (HWFWM) world module",
+    "type": "object",
+    "required": [
+        "name",
+        "rank",
+        "level",
+        "hp",
+        "mana",
+        "spirit",
+        "essences"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Unique character identifier"
+        },
+        "name": {
+            "type": "string",
+            "description": "Character name"
+        },
+        "rank": {
+            "type": "string",
+            "enum": [
+                "Iron",
+                "Bronze",
+                "Silver",
+                "Gold",
+                "Diamond"
+            ],
+            "description": "Current power rank"
+        },
+        "level": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Level within current rank"
+        },
+        "hp": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "mana": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "spirit": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            },
+            "description": "Spirit points for special abilities"
+        },
+        "essences": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "maxItems": 4,
+            "description": "Absorbed essences (max 4)"
+        },
+        "confluence": {
+            "type": "string",
+            "description": "Special title from essence combination"
+        },
+        "abilities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "essence",
+                    "rank",
+                    "type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "essence": {
+                        "type": "string"
+                    },
+                    "rank": {
+                        "type": "string",
+                        "enum": [
+                            "Normal",
+                            "Iron",
+                            "Bronze",
+                            "Silver",
+                            "Gold",
+                            "Diamond"
+                        ]
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "attack",
+                            "defense",
+                            "utility",
+                            "movement",
+                            "special"
+                        ]
+                    },
+                    "cooldown": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "description": "Cooldown in turns"
+                    },
+                    "currentCooldown": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "cost": {
+                        "type": "string",
+                        "enum": [
+                            "mana",
+                            "health",
+                            "spirit",
+                            "none"
+                        ]
+                    },
+                    "costAmount": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "inventory": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "rank": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}

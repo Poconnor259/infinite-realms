@@ -1,0 +1,237 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Classic D&D 5e Character Schema",
+    "description": "Character schema for The Classic world module",
+    "type": "object",
+    "required": [
+        "name",
+        "class",
+        "race",
+        "level",
+        "hp",
+        "stats",
+        "ac"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Unique character identifier"
+        },
+        "name": {
+            "type": "string",
+            "description": "Character name"
+        },
+        "class": {
+            "type": "string",
+            "enum": [
+                "Fighter",
+                "Wizard",
+                "Rogue",
+                "Cleric",
+                "Ranger",
+                "Paladin",
+                "Barbarian",
+                "Bard",
+                "Druid",
+                "Monk",
+                "Sorcerer",
+                "Warlock"
+            ],
+            "description": "Character class"
+        },
+        "race": {
+            "type": "string",
+            "enum": [
+                "Human",
+                "Elf",
+                "Dwarf",
+                "Halfling",
+                "Gnome",
+                "Half-Elf",
+                "Half-Orc",
+                "Tiefling",
+                "Dragonborn"
+            ],
+            "description": "Character race"
+        },
+        "level": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20,
+            "description": "Character level"
+        },
+        "hp": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "stats": {
+            "type": "object",
+            "required": [
+                "STR",
+                "DEX",
+                "CON",
+                "INT",
+                "WIS",
+                "CHA"
+            ],
+            "properties": {
+                "STR": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                },
+                "DEX": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                },
+                "CON": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                },
+                "INT": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                },
+                "WIS": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                },
+                "CHA": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 30
+                }
+            }
+        },
+        "ac": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Armor Class"
+        },
+        "proficiencyBonus": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 6,
+            "description": "Proficiency bonus based on level"
+        },
+        "gold": {
+            "type": "integer",
+            "minimum": 0,
+            "default": 0
+        },
+        "inventory": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "quantity",
+                    "type"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer",
+                        "minimum": 1
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "weapon",
+                            "armor",
+                            "potion",
+                            "scroll",
+                            "misc"
+                        ]
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "equipped": {
+                        "type": "boolean"
+                    }
+                }
+            }
+        },
+        "spellSlots": {
+            "type": "object",
+            "additionalProperties": {
+                "type": "object",
+                "properties": {
+                    "current": {
+                        "type": "integer",
+                        "minimum": 0
+                    },
+                    "max": {
+                        "type": "integer",
+                        "minimum": 0
+                    }
+                }
+            },
+            "description": "Spell slots by level (1-9)"
+        },
+        "abilities": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "description",
+                    "type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "description": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "action",
+                            "bonus",
+                            "reaction",
+                            "passive"
+                        ]
+                    },
+                    "usesRemaining": {
+                        "type": "integer"
+                    },
+                    "maxUses": {
+                        "type": "integer"
+                    },
+                    "rechargeOn": {
+                        "type": "string",
+                        "enum": [
+                            "shortRest",
+                            "longRest"
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}

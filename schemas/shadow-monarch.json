@@ -1,0 +1,302 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Shadow Monarch Character Schema",
+    "description": "Character schema for Shadow Monarch (Solo Leveling) world module",
+    "type": "object",
+    "required": [
+        "name",
+        "level",
+        "hp",
+        "mana",
+        "stats",
+        "job"
+    ],
+    "properties": {
+        "id": {
+            "type": "string",
+            "description": "Unique character identifier"
+        },
+        "name": {
+            "type": "string",
+            "description": "Character name"
+        },
+        "level": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Hunter level"
+        },
+        "job": {
+            "type": "string",
+            "enum": [
+                "None",
+                "Necromancer",
+                "Shadow Monarch"
+            ],
+            "description": "Job class"
+        },
+        "title": {
+            "type": "string",
+            "description": "Earned title (e.g., 'Wolf Slayer')"
+        },
+        "hp": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "mana": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "fatigue": {
+            "type": "object",
+            "required": [
+                "current",
+                "max"
+            ],
+            "properties": {
+                "current": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "max": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            },
+            "description": "Actions increase fatigue; rest to recover"
+        },
+        "stats": {
+            "type": "object",
+            "required": [
+                "strength",
+                "agility",
+                "vitality",
+                "intelligence",
+                "perception"
+            ],
+            "properties": {
+                "strength": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "agility": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "vitality": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "intelligence": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "perception": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "statPoints": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Unallocated stat points"
+        },
+        "skills": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "name",
+                    "rank",
+                    "type"
+                ],
+                "properties": {
+                    "name": {
+                        "type": "string"
+                    },
+                    "rank": {
+                        "type": "string",
+                        "enum": [
+                            "E",
+                            "D",
+                            "C",
+                            "B",
+                            "A",
+                            "S"
+                        ]
+                    },
+                    "type": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "passive"
+                        ]
+                    },
+                    "manaCost": {
+                        "type": "integer"
+                    },
+                    "cooldown": {
+                        "type": "integer"
+                    },
+                    "description": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "shadowArmy": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "required": [
+                    "id",
+                    "name",
+                    "rank",
+                    "type",
+                    "status"
+                ],
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "rank": {
+                        "type": "string",
+                        "enum": [
+                            "Normal",
+                            "Elite",
+                            "Knight",
+                            "General"
+                        ]
+                    },
+                    "type": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string",
+                        "enum": [
+                            "active",
+                            "stored",
+                            "destroyed"
+                        ]
+                    },
+                    "level": {
+                        "type": "integer"
+                    }
+                }
+            },
+            "description": "Extracted shadow soldiers"
+        },
+        "dailyQuest": {
+            "type": "object",
+            "properties": {
+                "runKm": {
+                    "type": "object",
+                    "properties": {
+                        "current": {
+                            "type": "number"
+                        },
+                        "target": {
+                            "type": "number",
+                            "default": 10
+                        }
+                    }
+                },
+                "pushups": {
+                    "type": "object",
+                    "properties": {
+                        "current": {
+                            "type": "integer"
+                        },
+                        "target": {
+                            "type": "integer",
+                            "default": 100
+                        }
+                    }
+                },
+                "situps": {
+                    "type": "object",
+                    "properties": {
+                        "current": {
+                            "type": "integer"
+                        },
+                        "target": {
+                            "type": "integer",
+                            "default": 100
+                        }
+                    }
+                },
+                "squats": {
+                    "type": "object",
+                    "properties": {
+                        "current": {
+                            "type": "integer"
+                        },
+                        "target": {
+                            "type": "integer",
+                            "default": 100
+                        }
+                    }
+                },
+                "completed": {
+                    "type": "boolean"
+                },
+                "deadline": {
+                    "type": "integer",
+                    "description": "Unix timestamp of deadline"
+                }
+            }
+        },
+        "inventory": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "id": {
+                        "type": "string"
+                    },
+                    "name": {
+                        "type": "string"
+                    },
+                    "quantity": {
+                        "type": "integer"
+                    },
+                    "rank": {
+                        "type": "string"
+                    },
+                    "type": {
+                        "type": "string"
+                    }
+                }
+            }
+        }
+    }
+}

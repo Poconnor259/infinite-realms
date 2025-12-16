@@ -1,0 +1,395 @@
+import React, { useState } from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
+import { useGameStore, getDefaultModuleState } from '../lib/store';
+import type { WorldModuleType, Campaign } from '../lib/types';
+
+interface WorldModule {
+    id: WorldModuleType;
+    name: string;
+    subtitle: string;
+    icon: string;
+    color: string;
+    description: string;
+    features: string[];
+    locked?: boolean;
+    lockReason?: string;
+}
+
+const WORLD_MODULES: WorldModule[] = [
+    {
+        id: 'classic',
+        name: 'The Classic',
+        subtitle: 'Dungeons & Dragons 5th Edition',
+        icon: '⚔️',
+        color: colors.gold.main,
+        description: 'Experience the timeless fantasy of D&D with full 5e rules integration. Roll for initiative, manage spell slots, and explore dungeons with your party.',
+        features: [
+            'Full D&D 5e stat system (STR, DEX, CON, INT, WIS, CHA)',
+            'Spell slot management',
+            'Equipment and inventory tracking',
+            'Classic fantasy setting',
+        ],
+    },
+    {
+        id: 'outworlder',
+        name: 'The Outworlder',
+        subtitle: 'He Who Fights With Monsters',
+        icon: '🌌',
+        color: '#10b981',
+        description: 'Enter a world where essence abilities define your power. Climb the ranks from Iron to Diamond as you absorb monster essences and unlock your confluence.',
+        features: [
+            'Essence-based power system',
+            'Rank progression (Iron → Diamond)',
+            'Unique ability combinations',
+            'Blue Box system notifications',
+        ],
+    },
+    {
+        id: 'shadowMonarch',
+        name: 'Shadow Monarch',
+        subtitle: 'Solo Leveling',
+        icon: '👤',
+        color: '#8b5cf6',
+        description: 'Start as the weakest hunter and rise to become the Shadow Monarch. Complete daily quests, clear dungeons, and build your shadow army.',
+        features: [
+            'Daily quest system with penalties',
+            'Shadow extraction and army management',
+            'Stat point allocation',
+            'Gate and dungeon rankings',
+        ],
+    },
+];
+
+export default function WorldSelectScreen() {
+    const router = useRouter();
+    const { setCurrentCampaign, setMessages } = useGameStore();
+    const [selectedWorld, setSelectedWorld] = useState<WorldModuleType | null>(null);
+
+    const handleWorldSelect = (worldId: WorldModuleType) => {
+        setSelectedWorld(worldId);
+    };
+
+    const handleContinue = () => {
+        if (!selectedWorld) return;
+
+        // Create a new campaign with the selected world
+        const newCampaign: Campaign = {
+            id: `campaign_${Date.now()}`,
+            userId: 'demo',
+            name: getWorldName(selectedWorld),
+            worldModule: selectedWorld,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            character: {
+                id: `char_${Date.now()}`,
+                name: 'Unnamed Hero',
+                hp: { current: 100, max: 100 },
+                level: 1,
+            },
+            moduleState: getDefaultModuleState(selectedWorld),
+        };
+
+        setCurrentCampaign(newCampaign);
+        setMessages([
+            {
+                id: 'intro',
+                role: 'narrator',
+                content: getWorldIntro(selectedWorld),
+                timestamp: Date.now(),
+            },
+        ]);
+
+        // Navigate to the campaign
+        router.replace(`/campaign/${newCampaign.id}`);
+    };
+
+    const getWorldName = (worldId: WorldModuleType): string => {
+        switch (worldId) {
+            case 'classic': return 'New Adventure';
+            case 'outworlder': return 'Pallimustus Awakening';
+            case 'shadowMonarch': return 'Hunter Awakening';
+        }
+    };
+
+    const getWorldIntro = (worldId: WorldModuleType): string => {
+        switch (worldId) {
+            case 'classic':
+                return `*The tavern door creaks open as you step inside. The smell of ale and woodsmoke fills your nostrils. Adventurers of all kinds sit at rough-hewn tables, sharing tales of glory and peril.*
+
+A grizzled dwarf behind the bar looks up at you with knowing eyes.
+
+**"Another brave soul seeking fortune and fame, eh? Well, you've come to the right place. Pull up a chair and tell me - what brings you to these lands?"**`;
+
+            case 'outworlder':
+                return `*You wake with a gasp, your body tingling with unfamiliar energy. The world around you is strange - the sky an impossible shade of violet, the trees glowing with bioluminescent light.*
+
+A translucent blue panel materializes before your eyes:*
+
+\`\`\`
+『SYSTEM MESSAGE』
+OUTWORLDER DETECTED
+ESSENCE ABSORPTION PROTOCOL: INITIATED
+CURRENT RANK: UNAWAKENED
+\`\`\`
+
+*Something fundamental has changed within you. You can feel... possibilities. The air itself seems alive with potential.*
+
+**What do you do?**`;
+
+            case 'shadowMonarch':
+                return `*The dungeon gate looms before you - a swirling vortex of darkness that appeared in the center of the city three days ago. As an E-Rank Hunter, you've been assigned to the rear guard. Not that it matters - your stats are so low you're practically a liability.*
+
+Suddenly, a blue window appears in your vision:*
+
+\`\`\`
+[DAILY QUEST]
+Run: 0/10 km
+Push-ups: 0/100
+Sit-ups: 0/100
+Squats: 0/100
+
+WARNING: Failure to complete will result in penalty.
+\`\`\`
+
+*Strange... you've never seen this before. Could this be... a system?*
+
+**What do you do?**`;
+        }
+    };
+
+    return (
+        <SafeAreaView style={styles.container} edges={['bottom']}>
+            <ScrollView
+                style={styles.scrollView}
+                contentContainerStyle={styles.scrollContent}
+                showsVerticalScrollIndicator={false}
+            >
+                <Text style={styles.title}>
+                    Choose Your World
+                </Text>
+                <Text style={styles.subtitle}>
+                    Each world has unique rules, mechanics, and storytelling styles
+                </Text>
+
+                {WORLD_MODULES.map((world, index) => {
+                    const isSelected = selectedWorld === world.id;
+
+                    return (
+                        <View key={world.id}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.worldCard,
+                                    isSelected && styles.worldCardSelected,
+                                    { borderColor: isSelected ? world.color : colors.border.default },
+                                ]}
+                                onPress={() => handleWorldSelect(world.id)}
+                                activeOpacity={0.8}
+                                disabled={world.locked}
+                            >
+                                {/* Header */}
+                                <View style={styles.worldHeader}>
+                                    <View style={[styles.worldIcon, { backgroundColor: world.color + '20' }]}>
+                                        <Text style={styles.worldIconText}>{world.icon}</Text>
+                                    </View>
+                                    <View style={styles.worldTitleContainer}>
+                                        <Text style={styles.worldName}>{world.name}</Text>
+                                        <Text style={styles.worldSubtitle}>{world.subtitle}</Text>
+                                    </View>
+                                    {isSelected && (
+                                        <View style={[styles.checkmark, { backgroundColor: world.color }]}>
+                                            <Ionicons name="checkmark" size={16} color="#fff" />
+                                        </View>
+                                    )}
+                                </View>
+
+                                {/* Description */}
+                                <Text style={styles.worldDescription}>{world.description}</Text>
+
+                                {/* Features */}
+                                <View style={styles.featuresContainer}>
+                                    {world.features.map((feature, i) => (
+                                        <View key={i} style={styles.featureItem}>
+                                            <Text style={[styles.featureBullet, { color: world.color }]}>•</Text>
+                                            <Text style={styles.featureText}>{feature}</Text>
+                                        </View>
+                                    ))}
+                                </View>
+
+                                {/* Locked overlay */}
+                                {world.locked && (
+                                    <View style={styles.lockedOverlay}>
+                                        <Ionicons name="lock-closed" size={24} color={colors.text.muted} />
+                                        <Text style={styles.lockedText}>{world.lockReason}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    );
+                })}
+            </ScrollView>
+
+            {/* Continue Button */}
+            <View style={styles.footer}>
+                <TouchableOpacity
+                    style={[
+                        styles.continueButton,
+                        !selectedWorld && styles.continueButtonDisabled,
+                    ]}
+                    onPress={handleContinue}
+                    disabled={!selectedWorld}
+                    activeOpacity={0.8}
+                >
+                    <Text style={styles.continueButtonText}>
+                        Begin Adventure
+                    </Text>
+                    <Ionicons name="arrow-forward" size={20} color={colors.text.primary} />
+                </TouchableOpacity>
+            </View>
+        </SafeAreaView>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.background.primary,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    scrollContent: {
+        padding: spacing.lg,
+        paddingBottom: spacing.xxl,
+    },
+    title: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.xxl,
+        fontWeight: 'bold',
+        textAlign: 'center',
+        marginBottom: spacing.xs,
+    },
+    subtitle: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.md,
+        textAlign: 'center',
+        marginBottom: spacing.xl,
+    },
+    worldCard: {
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.xl,
+        padding: spacing.lg,
+        marginBottom: spacing.md,
+        borderWidth: 2,
+        borderColor: colors.border.default,
+        ...shadows.md,
+    },
+    worldCardSelected: {
+        backgroundColor: colors.background.elevated,
+    },
+    worldHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+    },
+    worldIcon: {
+        width: 56,
+        height: 56,
+        borderRadius: borderRadius.lg,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: spacing.md,
+    },
+    worldIconText: {
+        fontSize: 28,
+    },
+    worldTitleContainer: {
+        flex: 1,
+    },
+    worldName: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.lg,
+        fontWeight: 'bold',
+        marginBottom: 2,
+    },
+    worldSubtitle: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
+    },
+    checkmark: {
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    worldDescription: {
+        color: colors.text.secondary,
+        fontSize: typography.fontSize.sm,
+        lineHeight: typography.fontSize.sm * typography.lineHeight.relaxed,
+        marginBottom: spacing.md,
+    },
+    featuresContainer: {
+        gap: spacing.xs,
+    },
+    featureItem: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+    },
+    featureBullet: {
+        fontSize: typography.fontSize.md,
+        marginRight: spacing.sm,
+        marginTop: -2,
+    },
+    featureText: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
+        flex: 1,
+    },
+    lockedOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        borderRadius: borderRadius.xl,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    lockedText: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
+        marginTop: spacing.sm,
+    },
+    footer: {
+        padding: spacing.lg,
+        paddingTop: spacing.sm,
+        borderTopWidth: 1,
+        borderTopColor: colors.border.default,
+        backgroundColor: colors.background.primary,
+    },
+    continueButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.sm,
+        backgroundColor: colors.primary[600],
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.lg,
+    },
+    continueButtonDisabled: {
+        backgroundColor: colors.background.tertiary,
+        opacity: 0.5,
+    },
+    continueButtonText: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.lg,
+        fontWeight: '600',
+    },
+});
