@@ -1,5 +1,17 @@
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged, type User } from 'firebase/auth';
+import {
+    getAuth,
+    signInAnonymously,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut as firebaseSignOut,
+    sendPasswordResetEmail,
+    updateProfile,
+    linkWithCredential,
+    EmailAuthProvider,
+    onAuthStateChanged,
+    type User
+} from 'firebase/auth';
 import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
@@ -43,7 +55,124 @@ export function onAuthChange(callback: (user: User | null) => void) {
     return onAuthStateChanged(auth, callback);
 }
 
-// ==================== CLOUD FUNCTIONS ====================
+// ==================== EMAIL/PASSWORD AUTH ====================
+
+export async function signUpWithEmail(
+    email: string,
+    password: string,
+    displayName?: string
+): Promise<{ user: User | null; error: string | null }> {
+    try {
+        const result = await createUserWithEmailAndPassword(auth, email, password);
+
+        // Update display name if provided
+        if (displayName && result.user) {
+            await updateProfile(result.user, { displayName });
+        }
+
+        console.log('User signed up:', result.user.uid);
+        return { user: result.user, error: null };
+    } catch (error: any) {
+        console.error('Sign up failed:', error);
+        let errorMessage = 'Failed to create account';
+
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'Email already in use';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'Password should be at least 6 characters';
+        }
+
+        return { user: null, error: errorMessage };
+    }
+}
+
+export async function signInWithEmail(
+    email: string,
+    password: string
+): Promise<{ user: User | null; error: string | null }> {
+    try {
+        const result = await signInWithEmailAndPassword(auth, email, password);
+        console.log('User signed in:', result.user.uid);
+        return { user: result.user, error: null };
+    } catch (error: any) {
+        console.error('Sign in failed:', error);
+        let errorMessage = 'Failed to sign in';
+
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
+            errorMessage = 'Invalid email or password';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address';
+        } else if (error.code === 'auth/too-many-requests') {
+            errorMessage = 'Too many attempts. Try again later';
+        }
+
+        return { user: null, error: errorMessage };
+    }
+}
+
+export async function signOut(): Promise<void> {
+    try {
+        await firebaseSignOut(auth);
+        console.log('User signed out');
+    } catch (error) {
+        console.error('Sign out failed:', error);
+        throw error;
+    }
+}
+
+export async function resetPassword(email: string): Promise<{ success: boolean; error: string | null }> {
+    try {
+        await sendPasswordResetEmail(auth, email);
+        console.log('Password reset email sent to:', email);
+        return { success: true, error: null };
+    } catch (error: any) {
+        console.error('Password reset failed:', error);
+        let errorMessage = 'Failed to send password reset email';
+
+        if (error.code === 'auth/user-not-found') {
+            errorMessage = 'No account found with this email';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address';
+        }
+
+        return { success: false, error: errorMessage };
+    }
+}
+
+// Link anonymous account to email/password
+export async function linkAnonymousToEmail(
+    email: string,
+    password: string
+): Promise<{ user: User | null; error: string | null }> {
+    try {
+        if (!auth.currentUser || !auth.currentUser.isAnonymous) {
+            return { user: null, error: 'No anonymous user to link' };
+        }
+
+        const credential = EmailAuthProvider.credential(email, password);
+        const result = await linkWithCredential(auth.currentUser, credential);
+
+        console.log('Anonymous account linked to email:', result.user.uid);
+        return { user: result.user, error: null };
+    } catch (error: any) {
+        console.error('Account linking failed:', error);
+        let errorMessage = 'Failed to link account';
+
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = 'Email already in use';
+        } else if (error.code === 'auth/invalid-email') {
+            errorMessage = 'Invalid email address';
+        } else if (error.code === 'auth/weak-password') {
+            errorMessage = 'Password should be at least 6 characters';
+        }
+
+        return { user: null, error: errorMessage };
+    }
+}
+
+// ====================CLOUD FUNCTIONS ====================
 
 // Matches GameRequest in functions/src/index.ts
 export interface ProcessInputRequest {
