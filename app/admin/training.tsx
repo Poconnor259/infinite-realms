@@ -9,6 +9,7 @@ import { getKnowledgeDocs, addKnowledgeDoc, updateKnowledgeDoc, deleteKnowledgeD
 
 type WorldModule = 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
 type Category = 'lore' | 'rules' | 'characters' | 'locations' | 'other';
+type TargetModel = 'brain' | 'voice' | 'both';
 
 const WORLD_MODULES: { value: WorldModule; label: string }[] = [
     { value: 'global', label: 'Global (All Modules)' },
@@ -25,6 +26,12 @@ const CATEGORIES: { value: Category; label: string }[] = [
     { value: 'other', label: 'Other' },
 ];
 
+const TARGET_MODELS: { value: TargetModel; label: string; icon: 'hardware-chip' | 'chatbubble-ellipses' | 'git-merge'; description: string }[] = [
+    { value: 'brain', label: 'Brain (OpenAI)', icon: 'hardware-chip', description: 'Rules & game logic' },
+    { value: 'voice', label: 'Voice (Claude)', icon: 'chatbubble-ellipses', description: 'Narrative & storytelling' },
+    { value: 'both', label: 'Both Models', icon: 'git-merge', description: 'All AI systems' },
+];
+
 export default function AdminTrainingScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -37,6 +44,7 @@ export default function AdminTrainingScreen() {
     const [formName, setFormName] = useState('');
     const [formModule, setFormModule] = useState<WorldModule>('global');
     const [formCategory, setFormCategory] = useState<Category>('lore');
+    const [formTargetModel, setFormTargetModel] = useState<TargetModel>('both');
     const [formContent, setFormContent] = useState('');
 
     useEffect(() => {
@@ -68,6 +76,7 @@ export default function AdminTrainingScreen() {
                 name: formName.trim(),
                 worldModule: formModule,
                 category: formCategory,
+                targetModel: formTargetModel,
                 content: formContent.trim(),
                 enabled: true,
             });
@@ -78,6 +87,7 @@ export default function AdminTrainingScreen() {
                 name: formName.trim(),
                 worldModule: formModule,
                 category: formCategory,
+                targetModel: formTargetModel,
                 content: formContent.trim(),
                 enabled: true,
             }, ...documents]);
@@ -87,6 +97,7 @@ export default function AdminTrainingScreen() {
             setFormContent('');
             setFormModule('global');
             setFormCategory('lore');
+            setFormTargetModel('both');
             setShowForm(false);
 
             Alert.alert('Success', 'Document added successfully');
@@ -142,6 +153,22 @@ export default function AdminTrainingScreen() {
         }
     };
 
+    const getModelColor = (model: TargetModel) => {
+        switch (model) {
+            case 'brain': return colors.status.warning;
+            case 'voice': return colors.primary[400];
+            case 'both': return colors.status.success;
+        }
+    };
+
+    const getModelLabel = (model: TargetModel) => {
+        switch (model) {
+            case 'brain': return 'BRAIN';
+            case 'voice': return 'VOICE';
+            case 'both': return 'BOTH';
+        }
+    };
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -164,15 +191,19 @@ export default function AdminTrainingScreen() {
                 <View style={styles.statsRow}>
                     <View style={styles.statCard}>
                         <Text style={styles.statValue}>{documents.length}</Text>
-                        <Text style={styles.statLabel}>Total Docs</Text>
+                        <Text style={styles.statLabel}>Total</Text>
                     </View>
                     <View style={styles.statCard}>
-                        <Text style={styles.statValue}>{documents.filter(d => d.enabled).length}</Text>
-                        <Text style={styles.statLabel}>Active</Text>
+                        <Text style={[styles.statValue, { color: colors.status.warning }]}>
+                            {documents.filter(d => d.targetModel === 'brain' || d.targetModel === 'both').length}
+                        </Text>
+                        <Text style={styles.statLabel}>Brain</Text>
                     </View>
                     <View style={styles.statCard}>
-                        <Text style={styles.statValue}>{documents.filter(d => d.worldModule === 'global').length}</Text>
-                        <Text style={styles.statLabel}>Global</Text>
+                        <Text style={[styles.statValue, { color: colors.primary[400] }]}>
+                            {documents.filter(d => d.targetModel === 'voice' || d.targetModel === 'both').length}
+                        </Text>
+                        <Text style={styles.statLabel}>Voice</Text>
                     </View>
                 </View>
             </FadeInView>
@@ -237,6 +268,31 @@ export default function AdminTrainingScreen() {
                             ))}
                         </View>
 
+                        <Text style={styles.formLabel}>Target AI Model</Text>
+                        <View style={styles.modelSelectRow}>
+                            {TARGET_MODELS.map(m => (
+                                <AnimatedPressable
+                                    key={m.value}
+                                    style={[
+                                        styles.modelOption,
+                                        formTargetModel === m.value && styles.modelOptionActive
+                                    ]}
+                                    onPress={() => setFormTargetModel(m.value)}
+                                >
+                                    <Ionicons
+                                        name={m.icon}
+                                        size={20}
+                                        color={formTargetModel === m.value ? colors.text.primary : colors.text.muted}
+                                    />
+                                    <Text style={[
+                                        styles.modelOptionLabel,
+                                        formTargetModel === m.value && styles.modelOptionLabelActive
+                                    ]}>{m.label}</Text>
+                                    <Text style={styles.modelOptionDesc}>{m.description}</Text>
+                                </AnimatedPressable>
+                            ))}
+                        </View>
+
                         <Text style={styles.formLabel}>Content</Text>
                         <TextInput
                             style={[styles.input, styles.textArea]}
@@ -287,6 +343,11 @@ export default function AdminTrainingScreen() {
                                         <View style={[styles.moduleBadge, { backgroundColor: getModuleColor(doc.worldModule) + '30' }]}>
                                             <Text style={[styles.moduleBadgeText, { color: getModuleColor(doc.worldModule) }]}>
                                                 {doc.worldModule.toUpperCase()}
+                                            </Text>
+                                        </View>
+                                        <View style={[styles.moduleBadge, { backgroundColor: getModelColor(doc.targetModel || 'both') + '30' }]}>
+                                            <Text style={[styles.moduleBadgeText, { color: getModelColor(doc.targetModel || 'both') }]}>
+                                                {getModelLabel(doc.targetModel || 'both')}
                                             </Text>
                                         </View>
                                     </View>
@@ -345,7 +406,9 @@ export default function AdminTrainingScreen() {
             <View style={styles.infoBox}>
                 <Ionicons name="information-circle" size={20} color={colors.status.info} />
                 <Text style={styles.infoText}>
-                    Documents are injected into the AI's context during gameplay. Use for world lore, custom rules, character backstories, or location descriptions.
+                    <Text style={{ fontWeight: 'bold' }}>Brain (OpenAI)</Text>: Rules, mechanics, game logic{"\n"}
+                    <Text style={{ fontWeight: 'bold' }}>Voice (Claude)</Text>: Narrative style, tone, descriptions{"\n"}
+                    <Text style={{ fontWeight: 'bold' }}>Both</Text>: Lore and world info for all AI systems
                 </Text>
             </View>
         </ScrollView>
@@ -472,6 +535,37 @@ const styles = StyleSheet.create({
     selectOptionTextActive: {
         color: colors.text.primary,
         fontWeight: '500',
+    },
+    modelSelectRow: {
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    modelOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        padding: spacing.md,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    modelOptionActive: {
+        backgroundColor: colors.primary[700],
+        borderColor: colors.primary[500],
+    },
+    modelOptionLabel: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.muted,
+        fontWeight: '500',
+    },
+    modelOptionLabelActive: {
+        color: colors.text.primary,
+    },
+    modelOptionDesc: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        marginLeft: 'auto',
     },
     submitButton: {
         flexDirection: 'row',

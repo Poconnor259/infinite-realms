@@ -343,6 +343,7 @@ export interface KnowledgeDocument {
     worldModule: 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
     content: string;
     category: 'lore' | 'rules' | 'characters' | 'locations' | 'other';
+    targetModel: 'brain' | 'voice' | 'both';
     uploadedBy?: string;
     createdAt?: string;
     updatedAt?: string;

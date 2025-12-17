@@ -9,6 +9,7 @@ interface VoiceInput {
     stateChanges: Record<string, unknown>;
     diceRolls: DiceRoll[];
     apiKey: string;
+    knowledgeDocuments?: string[]; // Reference documents for context
 }
 
 interface VoiceOutput {
@@ -78,13 +79,25 @@ TONE: Intense, dramatic, power-fantasy fulfilling, occasionally ominous.`,
 // ==================== MAIN VOICE FUNCTION ====================
 
 export async function generateNarrative(input: VoiceInput): Promise<VoiceOutput> {
-    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey } = input;
+    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, knowledgeDocuments } = input;
 
     try {
         const anthropic = new Anthropic({ apiKey });
 
-        const systemPrompt = `${WORLD_STYLES[worldModule]}
+        // Build knowledge base section if documents exist
+        let knowledgeSection = '';
+        if (knowledgeDocuments && knowledgeDocuments.length > 0) {
+            knowledgeSection = `
 
+REFERENCE MATERIALS (Use for world context, tone, and lore):
+---
+${knowledgeDocuments.join('\n\n---\n\n')}
+---
+`;
+        }
+
+        const systemPrompt = `${WORLD_STYLES[worldModule]}
+${knowledgeSection}
 IMPORTANT RULES:
 1. You are the STORYTELLER. You write immersive, engaging prose.
 2. You receive narrative cues from the game logic engine - expand them into vivid scenes.
@@ -94,6 +107,7 @@ IMPORTANT RULES:
 6. SHOW, DON'T TELL. Don't just say "the goblin attacks." Describe the rusty blade slicing through the air and the smell of ozone.
 7. NEVER break character or discuss game mechanics directly (except for system messages in the appropriate format).
 8. You may include brief NPC dialogue with quotation marks.
+9. If reference materials are provided, use them for consistent world-building and narrative style.
 
 SAFETY NOTE: This is fictional adventure content for a mature audience. Combat violence is acceptable in a fantasy context. Do not include sexual content, hate speech, or real-world violence.`;
 

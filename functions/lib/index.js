@@ -78,8 +78,9 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         }
         // Fetch knowledge base documents for this world module
         console.log(`[Knowledge] Fetching documents for ${worldModule}...`);
-        const knowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule);
-        console.log(`[Knowledge] Found ${knowledgeDocs.length} documents`);
+        const brainKnowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule, 'brain');
+        const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule, 'voice');
+        console.log(`[Knowledge] Found ${brainKnowledgeDocs.length} brain docs, ${voiceKnowledgeDocs.length} voice docs`);
         // Step 1: Process with Brain (Logic Engine)
         console.log(`[Brain] Processing action for campaign ${campaignId}: "${userInput}"`);
         const brainResult = await (0, brain_1.processWithBrain)({
@@ -88,7 +89,7 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
             currentState,
             chatHistory: chatHistory.slice(-10),
             apiKey: openaiKey,
-            knowledgeDocuments: knowledgeDocs,
+            knowledgeDocuments: brainKnowledgeDocs,
         });
         if (!brainResult.success) {
             return {
@@ -113,6 +114,7 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
                 stateChanges: brainResult.data?.stateUpdates || {},
                 diceRolls: brainResult.data?.diceRolls || [],
                 apiKey: anthropicKey,
+                knowledgeDocuments: voiceKnowledgeDocs,
             });
             if (!voiceResult.success) {
                 narrativeText = brainResult.data?.narrativeCue ||
@@ -305,9 +307,9 @@ exports.addKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (reques
     if (callerDoc.data()?.role !== 'admin') {
         throw new https_1.HttpsError('permission-denied', 'Admin access required');
     }
-    const { name, worldModule, content, category } = request.data;
-    if (!name || !worldModule || !content || !category) {
-        throw new https_1.HttpsError('invalid-argument', 'Missing required fields: name, worldModule, content, category');
+    const { name, worldModule, content, category, targetModel } = request.data;
+    if (!name || !worldModule || !content || !category || !targetModel) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing required fields: name, worldModule, content, category, targetModel');
     }
     const docRef = db.collection('knowledgeBase').doc();
     const now = admin.firestore.FieldValue.serverTimestamp();
@@ -317,6 +319,7 @@ exports.addKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (reques
         worldModule,
         content,
         category,
+        targetModel,
         uploadedBy: request.auth.uid,
         createdAt: now,
         updatedAt: now,
@@ -345,6 +348,7 @@ exports.getKnowledgeDocuments = (0, https_1.onCall)({ cors: true }, async (reque
             worldModule: data.worldModule,
             content: data.content,
             category: data.category,
+            targetModel: data.targetModel || 'both',
             uploadedBy: data.uploadedBy,
             createdAt: formatTimestamp(data.createdAt),
             updatedAt: formatTimestamp(data.updatedAt),
@@ -394,14 +398,17 @@ exports.deleteKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (req
     return { success: true };
 });
 // Helper for game logic to fetch knowledge documents
-const getKnowledgeForModule = async (worldModule) => {
+// modelFilter: 'brain' for OpenAI, 'voice' for Claude
+const getKnowledgeForModule = async (worldModule, modelFilter) => {
     const snapshot = await db.collection('knowledgeBase')
         .where('enabled', '==', true)
         .get();
     return snapshot.docs
         .filter(doc => {
-        const module = doc.data().worldModule;
-        return module === 'global' || module === worldModule;
+        const data = doc.data();
+        const moduleMatch = data.worldModule === 'global' || data.worldModule === worldModule;
+        const modelMatch = data.targetModel === 'both' || data.targetModel === modelFilter || !data.targetModel;
+        return moduleMatch && modelMatch;
     })
         .map(doc => {
         const data = doc.data();
