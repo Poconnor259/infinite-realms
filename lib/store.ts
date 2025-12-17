@@ -145,10 +145,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             // Get dependencies
             const user = useUserStore.getState().user;
             const settings = useSettingsStore.getState();
+            const turnsStore = useTurnsStore.getState();
 
             if (!user) {
                 throw new Error("User not authenticated");
             }
+
+            // Check and use turn
+            if (!turnsStore.canUseTurn()) {
+                throw new Error("You have run out of turns for this month. Please upgrade your plan or wait for the monthly reset.");
+            }
+
+            // Optimistically use turn
+            turnsStore.useTurn();
 
             console.log('[Game] Processing with Cloud Function...');
 

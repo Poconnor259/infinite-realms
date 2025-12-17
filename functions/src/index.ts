@@ -147,6 +147,13 @@ export const processGameAction = onCall(
                             moduleState: brainResult.data?.stateUpdates || currentState,
                             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                         });
+
+                    // Increment user's turn/token usage
+                    await db.collection('users').doc(auth.uid).update({
+                        turnsUsed: admin.firestore.FieldValue.increment(1),
+                        lastActive: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+
                 } catch (dbError) {
                     console.error('Failed to save state to Firestore:', dbError);
                 }

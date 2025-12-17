@@ -15,7 +15,19 @@ import {
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
-import { getFirestore, collection, doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import {
+    getFirestore,
+    collection,
+    doc,
+    setDoc,
+    getDoc,
+    updateDoc,
+    getDocs,
+    serverTimestamp,
+    query,
+    orderBy,
+    limit
+} from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase configuration
@@ -287,4 +299,27 @@ export async function getUser(userId: string): Promise<any> {
     const ref = doc(db, 'users', userId);
     const snap = await getDoc(ref);
     return snap.exists() ? snap.data() : null;
+}
+
+// ==================== ADMIN HELPERS ====================
+
+export async function getAllUsers() {
+    const usersRef = collection(db, 'users');
+    const q = query(usersRef, orderBy('lastActive', 'desc'), limit(50));
+    const snap = await getDocs(q);
+
+    return snap.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+    })) as User[];
+}
+
+export async function updateUserRole(userId: string, role: 'user' | 'admin') {
+    const ref = doc(db, 'users', userId);
+    await updateDoc(ref, { role });
+}
+
+export async function updateUserTier(userId: string, tier: 'scout' | 'hero' | 'legend') {
+    const ref = doc(db, 'users', userId);
+    await updateDoc(ref, { tier });
 }

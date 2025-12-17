@@ -258,6 +258,7 @@ export interface User {
     isAnonymous?: boolean;
     createdAt: number;
     role?: 'user' | 'admin';
+    turnsUsed?: number;
 }
 
 // ==================== TURNS & MONETIZATION ====================
