@@ -46,11 +46,6 @@ export default function RootLayout() {
         return () => unsubscribe();
     }, []);
 
-    // Don't render until fonts are loaded  
-    if (!fontsLoaded) {
-        return null;
-    }
-
     return (
         <GestureHandlerRootView style={styles.container}>
             <StatusBar style="light" />
