@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
 import { useTurnsStore } from '../lib/store';
-import { TOP_UP_PACKAGES, type SubscriptionTier } from '../lib/types';
+import { TOP_UP_PACKAGES, type SubscriptionTier, SUBSCRIPTION_PRICING } from '../lib/types';
 
 interface TierCardProps {
     tier: SubscriptionTier;
@@ -140,7 +140,7 @@ export default function SubscriptionScreen() {
                     tier="scout"
                     name="Scout"
                     icon="🔭"
-                    price="Free"
+                    price={SUBSCRIPTION_PRICING.scout.displayPrice}
                     turns="15 turns/month"
                     features={[
                         'Access all 3 world modules',
@@ -155,7 +155,7 @@ export default function SubscriptionScreen() {
                     tier="hero"
                     name="Hero"
                     icon="⚔️"
-                    price="$9.99/month"
+                    price={SUBSCRIPTION_PRICING.hero.displayPrice}
                     turns="300 turns/month"
                     features={[
                         'Everything in Scout',
@@ -172,7 +172,7 @@ export default function SubscriptionScreen() {
                     tier="legend"
                     name="Legend"
                     icon="👑"
-                    price="Free (BYOK)"
+                    price={SUBSCRIPTION_PRICING.legend.displayPrice}
                     turns="Unlimited turns"
                     features={[
                         'Bring your own API keys',

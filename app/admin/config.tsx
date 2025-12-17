@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { SUBSCRIPTION_LIMITS, TOP_UP_PACKAGES } from '../../lib/types';
+import { SUBSCRIPTION_LIMITS, TOP_UP_PACKAGES, SUBSCRIPTION_PRICING } from '../../lib/types';
 
 const WORLD_MODULES = [
     {
@@ -56,7 +56,7 @@ export default function AdminConfigScreen() {
                                 <Ionicons name="shield-outline" size={20} color={colors.text.muted} />
                                 <View>
                                     <Text style={styles.tierName}>Scout</Text>
-                                    <Text style={styles.tierPrice}>Free</Text>
+                                    <Text style={styles.tierPrice}>{SUBSCRIPTION_PRICING.scout.displayPrice}</Text>
                                 </View>
                             </View>
                             <View style={styles.tierLimit}>
@@ -70,7 +70,7 @@ export default function AdminConfigScreen() {
                                 <Ionicons name="star" size={20} color={colors.status.warning} />
                                 <View>
                                     <Text style={styles.tierName}>Hero</Text>
-                                    <Text style={styles.tierPrice}>$9.99/month</Text>
+                                    <Text style={styles.tierPrice}>{SUBSCRIPTION_PRICING.hero.displayPrice}</Text>
                                 </View>
                             </View>
                             <View style={styles.tierLimit}>
@@ -84,7 +84,7 @@ export default function AdminConfigScreen() {
                                 <Ionicons name="diamond" size={20} color={colors.primary[400]} />
                                 <View>
                                     <Text style={styles.tierName}>Legend</Text>
-                                    <Text style={styles.tierPrice}>BYOK (Bring Your Own Key)</Text>
+                                    <Text style={styles.tierPrice}>{SUBSCRIPTION_PRICING.legend.displayPrice}</Text>
                                 </View>
                             </View>
                             <View style={styles.tierLimit}>

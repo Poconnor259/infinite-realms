@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getAllUsers } from '../../lib/firebase';
-import { User } from '../../lib/types';
+import { User, SUBSCRIPTION_PRICING } from '../../lib/types';
 
 export default function AdminMetricsScreen() {
     const router = useRouter();
@@ -129,21 +129,21 @@ export default function AdminMetricsScreen() {
                         <View style={styles.breakdownRow}>
                             <View style={styles.breakdownLabel}>
                                 <Ionicons name="shield-outline" size={18} color={colors.text.muted} />
-                                <Text style={styles.breakdownText}>Scout (Free)</Text>
+                                <Text style={styles.breakdownText}>Scout ({SUBSCRIPTION_PRICING.scout.displayPrice})</Text>
                             </View>
                             <Text style={styles.breakdownValue}>{tierCounts.scout}</Text>
                         </View>
                         <View style={styles.breakdownRow}>
                             <View style={styles.breakdownLabel}>
                                 <Ionicons name="star-outline" size={18} color={colors.status.warning} />
-                                <Text style={styles.breakdownText}>Hero ($5/mo)</Text>
+                                <Text style={styles.breakdownText}>Hero ({SUBSCRIPTION_PRICING.hero.displayPrice})</Text>
                             </View>
                             <Text style={styles.breakdownValue}>{tierCounts.hero}</Text>
                         </View>
                         <View style={styles.breakdownRow}>
                             <View style={styles.breakdownLabel}>
                                 <Ionicons name="diamond-outline" size={18} color={colors.primary[400]} />
-                                <Text style={styles.breakdownText}>Legend (BYOK)</Text>
+                                <Text style={styles.breakdownText}>Legend ({SUBSCRIPTION_PRICING.legend.displayPrice})</Text>
                             </View>
                             <Text style={styles.breakdownValue}>{tierCounts.legend}</Text>
                         </View>

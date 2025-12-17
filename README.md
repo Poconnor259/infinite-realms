@@ -30,7 +30,7 @@ All tiers use the same hybrid AI system:
 |------|---------------|-------|-------|
 | **Scout** (Free) | 15 | Free | Full AI experience with limited turns |
 | **Hero** | 300 | $9.99/month | 20x more turns |
-| **Legend** (BYOK) | Unlimited | Free (use your keys) | Bring your own API keys |
+| **Legend** (BYOK) | Unlimited | $49.99 (One-time) | One-time license + BYOK |
 
 
 ## 🚀 Getting Started

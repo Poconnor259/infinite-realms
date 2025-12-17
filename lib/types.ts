@@ -283,6 +283,12 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
     legend: Infinity, // BYOK = unlimited
 };
 
+export const SUBSCRIPTION_PRICING: Record<SubscriptionTier, { price: number; displayPrice: string }> = {
+    scout: { price: 0, displayPrice: 'Free' },
+    hero: { price: 999, displayPrice: '$9.99/month' },
+    legend: { price: 4999, displayPrice: '$49.99 one-time' },
+};
+
 export const TOP_UP_PACKAGES: TopUpPackage[] = [
     { id: 'topup_150', turns: 150, price: 500, displayPrice: '$5' },
     { id: 'topup_300', turns: 300, price: 1000, displayPrice: '$10' },
