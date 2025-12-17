@@ -124,8 +124,8 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
             content: cueText,
         });
         const response = await anthropic.messages.create({
-            model: 'claude-opus-4-5-20250514',
-            max_tokens: 2500,
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 4096,
             system: systemPrompt,
             messages,
         });

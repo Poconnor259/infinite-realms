@@ -141,7 +141,7 @@ export default function SubscriptionScreen() {
                     name="Scout"
                     icon="🔭"
                     price="Free"
-                    turns="50 turns/month"
+                    turns="15 turns/month"
                     features={[
                         'Access all 3 world modules',
                         'Basic character progression',
@@ -156,10 +156,10 @@ export default function SubscriptionScreen() {
                     name="Hero"
                     icon="⚔️"
                     price="$9.99/month"
-                    turns="500 turns/month"
+                    turns="300 turns/month"
                     features={[
                         'Everything in Scout',
-                        '10x more turns',
+                        '20x more turns',
                         'Priority support',
                         'Early access to new features',
                     ]}

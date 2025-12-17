@@ -9,7 +9,7 @@
 ## 🌟 Features
 
 ### Core Mechanics
-- **Hybrid AI Architecture**: Logic Engine (GPT-4o-mini) + Narrator (Claude Opus 4.5)
+- **Hybrid AI Architecture**: Logic Engine (GPT-4o-mini) + Narrator (Claude Sonnet 4)
 - **Smart Game State**: Tracks HP, inventory, dice rolls like a real video game
 - **Real-time HUD**: Animated health bars, stat displays, and resource tracking
 
@@ -24,12 +24,12 @@
 
 All tiers use the same hybrid AI system:
 - **GPT-4o-mini** handles game logic, state updates, inventory, and dice rolls
-- **Claude Opus 4.5** generates immersive narrative and storytelling
+- **Claude Sonnet 4** generates immersive narrative and storytelling
 
 | Tier | Monthly Turns | Price | Notes |
 |------|---------------|-------|-------|
-| **Scout** (Free) | 50 | Free | Full AI experience with limited turns |
-| **Hero** | 500 | $5/month | 10x more turns |
+| **Scout** (Free) | 15 | Free | Full AI experience with limited turns |
+| **Hero** | 300 | $9.99/month | 20x more turns |
 | **Legend** (BYOK) | Unlimited | Free (use your keys) | Bring your own API keys |
 
 

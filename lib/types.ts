@@ -278,8 +278,8 @@ export interface TopUpPackage {
 }
 
 export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
-    scout: 50,
-    hero: 500,
+    scout: 15,
+    hero: 300,
     legend: Infinity, // BYOK = unlimited
 };
 

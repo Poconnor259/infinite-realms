@@ -137,7 +137,7 @@ Respond with JSON only. No markdown, no explanation.`;
             const anthropic = new Anthropic({ apiKey });
 
             const response = await anthropic.messages.create({
-                model: 'claude-opus-4-5-20251101',
+                model: 'claude-sonnet-4-20250514',
                 max_tokens: 3000,
                 temperature: 0.7,
                 system: systemPrompt,
