@@ -158,7 +158,7 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
         });
 
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
+            model: 'claude-opus-4-5-20250514',
             max_tokens: 1500,
             system: systemPrompt,
             messages,
@@ -205,7 +205,7 @@ export async function summarizeChatHistory(
             .join('\n\n');
 
         const response = await anthropic.messages.create({
-            model: 'claude-3-5-sonnet-20241022',
+            model: 'claude-opus-4-5-20250514',
             max_tokens: 500,
             system: 'You are a story summarizer. Condense the following RPG session into a brief but complete summary that preserves all important plot points, character actions, and discoveries. Focus on what matters for continuing the story.',
             messages: [

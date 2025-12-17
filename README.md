@@ -9,7 +9,7 @@
 ## 🌟 Features
 
 ### Core Mechanics
-- **Hybrid AI Architecture**: Logic Engine (GPT-4o-mini) + Narrator (Claude 3.5 Sonnet)
+- **Hybrid AI Architecture**: Logic Engine (GPT-4o-mini) + Narrator (Claude Opus 4.5)
 - **Smart Game State**: Tracks HP, inventory, dice rolls like a real video game
 - **Real-time HUD**: Animated health bars, stat displays, and resource tracking
 
@@ -24,7 +24,7 @@
 
 All tiers use the same hybrid AI system:
 - **GPT-4o-mini** handles game logic, state updates, inventory, and dice rolls
-- **Claude 3.5 Sonnet** generates immersive narrative and storytelling
+- **Claude Opus 4.5** generates immersive narrative and storytelling
 
 | Tier | Monthly Turns | Price | Notes |
 |------|---------------|-------|-------|
