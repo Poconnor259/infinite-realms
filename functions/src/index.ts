@@ -89,6 +89,11 @@ export const processGameAction = onCall(
                 };
             }
 
+            // Fetch knowledge base documents for this world module
+            console.log(`[Knowledge] Fetching documents for ${worldModule}...`);
+            const knowledgeDocs = await getKnowledgeForModule(worldModule);
+            console.log(`[Knowledge] Found ${knowledgeDocs.length} documents`);
+
             // Step 1: Process with Brain (Logic Engine)
             console.log(`[Brain] Processing action for campaign ${campaignId}: "${userInput}"`);
 
@@ -98,6 +103,7 @@ export const processGameAction = onCall(
                 currentState,
                 chatHistory: chatHistory.slice(-10),
                 apiKey: openaiKey,
+                knowledgeDocuments: knowledgeDocs,
             });
 
             if (!brainResult.success) {
@@ -346,3 +352,157 @@ export const adminUpdateUser = onCall({ cors: true }, async (request) => {
 
     return { success: true };
 });
+
+// ==================== KNOWLEDGE BASE ====================
+
+interface KnowledgeDocument {
+    id?: string;
+    name: string;
+    worldModule: 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
+    content: string;
+    category: 'lore' | 'rules' | 'characters' | 'locations' | 'other';
+    uploadedBy?: string;
+    createdAt?: FirebaseFirestore.Timestamp;
+    updatedAt?: FirebaseFirestore.Timestamp;
+    enabled: boolean;
+}
+
+export const addKnowledgeDocument = onCall({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
+    }
+
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const { name, worldModule, content, category } = request.data as Partial<KnowledgeDocument>;
+
+    if (!name || !worldModule || !content || !category) {
+        throw new HttpsError('invalid-argument', 'Missing required fields: name, worldModule, content, category');
+    }
+
+    const docRef = db.collection('knowledgeBase').doc();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+
+    await docRef.set({
+        id: docRef.id,
+        name,
+        worldModule,
+        content,
+        category,
+        uploadedBy: request.auth.uid,
+        createdAt: now,
+        updatedAt: now,
+        enabled: true,
+    });
+
+    return { id: docRef.id, success: true };
+});
+
+export const getKnowledgeDocuments = onCall({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
+    }
+
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const snapshot = await db.collection('knowledgeBase')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .get();
+
+    const documents = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            name: data.name,
+            worldModule: data.worldModule,
+            content: data.content,
+            category: data.category,
+            uploadedBy: data.uploadedBy,
+            createdAt: formatTimestamp(data.createdAt),
+            updatedAt: formatTimestamp(data.updatedAt),
+            enabled: data.enabled ?? true,
+        };
+    });
+
+    return { documents };
+});
+
+export const updateKnowledgeDocument = onCall({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
+    }
+
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const { documentId, updates } = request.data;
+
+    if (!documentId) {
+        throw new HttpsError('invalid-argument', 'Document ID required');
+    }
+
+    const docRef = db.collection('knowledgeBase').doc(documentId);
+    const doc = await docRef.get();
+
+    if (!doc.exists) {
+        throw new HttpsError('not-found', 'Document not found');
+    }
+
+    await docRef.update({
+        ...updates,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+
+    return { success: true };
+});
+
+export const deleteKnowledgeDocument = onCall({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
+    }
+
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const { documentId } = request.data;
+
+    if (!documentId) {
+        throw new HttpsError('invalid-argument', 'Document ID required');
+    }
+
+    await db.collection('knowledgeBase').doc(documentId).delete();
+
+    return { success: true };
+});
+
+// Helper for game logic to fetch knowledge documents
+export const getKnowledgeForModule = async (worldModule: string): Promise<string[]> => {
+    const snapshot = await db.collection('knowledgeBase')
+        .where('enabled', '==', true)
+        .get();
+
+    return snapshot.docs
+        .filter(doc => {
+            const module = doc.data().worldModule;
+            return module === 'global' || module === worldModule;
+        })
+        .map(doc => {
+            const data = doc.data();
+            return `[${data.category.toUpperCase()}: ${data.name}]\n${data.content}`;
+        });
+};

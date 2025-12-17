@@ -335,4 +335,45 @@ export async function updateUserTier(userId: string, tier: 'scout' | 'hero' | 'l
     });
 }
 
+// ==================== KNOWLEDGE BASE HELPERS ====================
 
+export interface KnowledgeDocument {
+    id: string;
+    name: string;
+    worldModule: 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
+    content: string;
+    category: 'lore' | 'rules' | 'characters' | 'locations' | 'other';
+    uploadedBy?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    enabled: boolean;
+}
+
+export async function getKnowledgeDocs(): Promise<KnowledgeDocument[]> {
+    try {
+        const getDocsFn = httpsCallable(functions, 'getKnowledgeDocuments');
+        const result = await getDocsFn();
+        const data = result.data as any;
+        return data.documents || [];
+    } catch (error: any) {
+        console.error('Error fetching knowledge docs:', error);
+        throw error;
+    }
+}
+
+export async function addKnowledgeDoc(doc: Omit<KnowledgeDocument, 'id' | 'uploadedBy' | 'createdAt' | 'updatedAt'>): Promise<string> {
+    const addFn = httpsCallable(functions, 'addKnowledgeDocument');
+    const result = await addFn(doc);
+    const data = result.data as any;
+    return data.id;
+}
+
+export async function updateKnowledgeDoc(documentId: string, updates: Partial<KnowledgeDocument>): Promise<void> {
+    const updateFn = httpsCallable(functions, 'updateKnowledgeDocument');
+    await updateFn({ documentId, updates });
+}
+
+export async function deleteKnowledgeDoc(documentId: string): Promise<void> {
+    const deleteFn = httpsCallable(functions, 'deleteKnowledgeDocument');
+    await deleteFn({ documentId });
+}

@@ -36,6 +36,11 @@ export default function AdminLayout() {
             }}
         >
             <Stack.Screen name="index" options={{ title: 'Admin Dashboard' }} />
+            <Stack.Screen name="users" options={{ title: 'User Management' }} />
+            <Stack.Screen name="costs" options={{ title: 'Cost Estimator' }} />
+            <Stack.Screen name="training" options={{ title: 'Knowledge Base' }} />
+            <Stack.Screen name="metrics" options={{ title: 'System Metrics' }} />
+            <Stack.Screen name="config" options={{ title: 'Global Config' }} />
         </Stack>
     );
 }

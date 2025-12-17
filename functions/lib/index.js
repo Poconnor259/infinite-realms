@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.processGameAction = void 0;
+exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.processGameAction = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
@@ -76,6 +76,10 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
                 error: 'OpenAI API key not configured. Please set up BYOK or contact support.',
             };
         }
+        // Fetch knowledge base documents for this world module
+        console.log(`[Knowledge] Fetching documents for ${worldModule}...`);
+        const knowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule);
+        console.log(`[Knowledge] Found ${knowledgeDocs.length} documents`);
         // Step 1: Process with Brain (Logic Engine)
         console.log(`[Brain] Processing action for campaign ${campaignId}: "${userInput}"`);
         const brainResult = await (0, brain_1.processWithBrain)({
@@ -84,6 +88,7 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
             currentState,
             chatHistory: chatHistory.slice(-10),
             apiKey: openaiKey,
+            knowledgeDocuments: knowledgeDocs,
         });
         if (!brainResult.success) {
             return {
@@ -291,4 +296,117 @@ exports.adminUpdateUser = (0, https_1.onCall)({ cors: true }, async (request) =>
     await db.collection('users').doc(targetUserId).update(updates);
     return { success: true };
 });
+exports.addKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
+    }
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    const { name, worldModule, content, category } = request.data;
+    if (!name || !worldModule || !content || !category) {
+        throw new https_1.HttpsError('invalid-argument', 'Missing required fields: name, worldModule, content, category');
+    }
+    const docRef = db.collection('knowledgeBase').doc();
+    const now = admin.firestore.FieldValue.serverTimestamp();
+    await docRef.set({
+        id: docRef.id,
+        name,
+        worldModule,
+        content,
+        category,
+        uploadedBy: request.auth.uid,
+        createdAt: now,
+        updatedAt: now,
+        enabled: true,
+    });
+    return { id: docRef.id, success: true };
+});
+exports.getKnowledgeDocuments = (0, https_1.onCall)({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
+    }
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    const snapshot = await db.collection('knowledgeBase')
+        .orderBy('createdAt', 'desc')
+        .limit(100)
+        .get();
+    const documents = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            name: data.name,
+            worldModule: data.worldModule,
+            content: data.content,
+            category: data.category,
+            uploadedBy: data.uploadedBy,
+            createdAt: formatTimestamp(data.createdAt),
+            updatedAt: formatTimestamp(data.updatedAt),
+            enabled: data.enabled ?? true,
+        };
+    });
+    return { documents };
+});
+exports.updateKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
+    }
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    const { documentId, updates } = request.data;
+    if (!documentId) {
+        throw new https_1.HttpsError('invalid-argument', 'Document ID required');
+    }
+    const docRef = db.collection('knowledgeBase').doc(documentId);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        throw new https_1.HttpsError('not-found', 'Document not found');
+    }
+    await docRef.update({
+        ...updates,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { success: true };
+});
+exports.deleteKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
+    }
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    const { documentId } = request.data;
+    if (!documentId) {
+        throw new https_1.HttpsError('invalid-argument', 'Document ID required');
+    }
+    await db.collection('knowledgeBase').doc(documentId).delete();
+    return { success: true };
+});
+// Helper for game logic to fetch knowledge documents
+const getKnowledgeForModule = async (worldModule) => {
+    const snapshot = await db.collection('knowledgeBase')
+        .where('enabled', '==', true)
+        .get();
+    return snapshot.docs
+        .filter(doc => {
+        const module = doc.data().worldModule;
+        return module === 'global' || module === worldModule;
+    })
+        .map(doc => {
+        const data = doc.data();
+        return `[${data.category.toUpperCase()}: ${data.name}]\n${data.content}`;
+    });
+};
+exports.getKnowledgeForModule = getKnowledgeForModule;
 //# sourceMappingURL=index.js.map

@@ -10,6 +10,7 @@ interface BrainInput {
     currentState: Record<string, unknown>;
     chatHistory: Array<{ role: string; content: string }>;
     apiKey: string;
+    knowledgeDocuments?: string[]; // Reference documents for context
 }
 
 interface BrainOutput {
@@ -96,11 +97,23 @@ const BrainResponseSchema = z.object({
 // ==================== MAIN BRAIN FUNCTION ====================
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
-    const { userInput, worldModule, currentState, chatHistory, apiKey } = input;
+    const { userInput, worldModule, currentState, chatHistory, apiKey, knowledgeDocuments } = input;
 
     try {
-        const systemPrompt = `${WORLD_PROMPTS[worldModule]}
+        // Build knowledge base section if documents exist
+        let knowledgeSection = '';
+        if (knowledgeDocuments && knowledgeDocuments.length > 0) {
+            knowledgeSection = `
 
+REFERENCE MATERIALS (Use for world context and lore):
+---
+${knowledgeDocuments.join('\n\n---\n\n')}
+---
+`;
+        }
+
+        const systemPrompt = `${WORLD_PROMPTS[worldModule]}
+${knowledgeSection}
 CRITICAL INSTRUCTIONS:
 1. You are ONLY the logic engine. You process game mechanics, not story.
 2. You MUST respond with valid JSON matching the schema.
@@ -108,6 +121,7 @@ CRITICAL INSTRUCTIONS:
 4. Update only the state fields that changed.
 5. Provide narrative cues for the storyteller, not full prose.
 6. Include any system messages (level ups, achievements, warnings).
+7. If reference materials are provided, use them for world-consistent responses.
 
 CURRENT GAME STATE:
 ${JSON.stringify(currentState, null, 2)}
