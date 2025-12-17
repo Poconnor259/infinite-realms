@@ -3,12 +3,19 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useFonts } from 'expo-font';
+import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
 import { useSettingsStore, useUserStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser } from '../lib/firebase';
 
 export default function RootLayout() {
     const loadSettings = useSettingsStore((state) => state.loadSettings);
+
+    // Load Ionicons font for web
+    const [fontsLoaded] = useFonts({
+        ...Ionicons.font,
+    });
 
     useEffect(() => {
         // Load user settings on app start
@@ -38,6 +45,11 @@ export default function RootLayout() {
 
         return () => unsubscribe();
     }, []);
+
+    // Don't render until fonts are loaded  
+    if (!fontsLoaded) {
+        return null;
+    }
 
     return (
         <GestureHandlerRootView style={styles.container}>
