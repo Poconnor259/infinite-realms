@@ -58,6 +58,12 @@ export default function AdminDashboard() {
                     onPress={() => router.push('/admin/metrics')}
                 />
                 <AdminCard
+                    title="Cost Estimator"
+                    description="Track usage and estimated billing"
+                    icon="cash-outline"
+                    onPress={() => router.push('/admin/costs')}
+                />
+                <AdminCard
                     title="Global Config"
                     description="Update game settings and constants"
                     icon="settings"

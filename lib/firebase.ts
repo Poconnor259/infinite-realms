@@ -303,23 +303,36 @@ export async function getUser(userId: string): Promise<any> {
 
 // ==================== ADMIN HELPERS ====================
 
-export async function getAllUsers() {
-    const usersRef = collection(db, 'users');
-    const q = query(usersRef, orderBy('lastActive', 'desc'), limit(50));
-    const snap = await getDocs(q);
+// ==================== ADMIN HELPERS ====================
 
-    return snap.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-    })) as User[];
+export async function getAllUsers() {
+    try {
+        const getAdminData = httpsCallable(functions, 'getAdminDashboardData');
+        const result = await getAdminData();
+        const data = result.data as any;
+        return data.users || [];
+    } catch (error: any) {
+        console.error('Error fetching admin data:', error);
+        // Temporary debug alert
+        alert(`Admin Fetch Error: ${error.message || JSON.stringify(error)}`);
+        return [];
+    }
 }
 
 export async function updateUserRole(userId: string, role: 'user' | 'admin') {
-    const ref = doc(db, 'users', userId);
-    await updateDoc(ref, { role });
+    const adminUpdate = httpsCallable(functions, 'adminUpdateUser');
+    await adminUpdate({
+        targetUserId: userId,
+        updates: { role }
+    });
 }
 
 export async function updateUserTier(userId: string, tier: 'scout' | 'hero' | 'legend') {
-    const ref = doc(db, 'users', userId);
-    await updateDoc(ref, { tier });
+    const adminUpdate = httpsCallable(functions, 'adminUpdateUser');
+    await adminUpdate({
+        targetUserId: userId,
+        updates: { tier }
+    });
 }
+
+

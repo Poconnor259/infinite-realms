@@ -123,9 +123,9 @@ export default function HomeScreen() {
                     {user?.isAnonymous && (
                         <AnimatedPressable
                             style={styles.createAccountLink}
-                            onPress={() => router.push('/auth/signup')}
+                            onPress={() => router.push('/auth/signin')}
                         >
-                            <Text style={styles.createAccountText}>Create Account / Sign In</Text>
+                            <Text style={styles.createAccountText}>Sign In / Create Account</Text>
                             <Ionicons name="arrow-forward" size={16} color={colors.primary[400]} />
                         </AnimatedPressable>
                     )}

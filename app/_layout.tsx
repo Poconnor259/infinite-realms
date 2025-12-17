@@ -21,6 +21,9 @@ export default function RootLayout() {
         ...Ionicons.font,
     });
 
+    const user = useUserStore((state) => state.user);
+    const isLoading = useUserStore((state) => state.isLoading);
+
     useEffect(() => {
         // Load user settings on app start
         loadSettings();
@@ -47,27 +50,42 @@ export default function RootLayout() {
                     tier: userDoc?.tier || 'scout',
                     role: userDoc?.role || 'user',
                 });
-
-                // If on auth group, go back to home (except verify-email)
-                const inAuthGroup = segments[0] === 'auth';
-                const isVerifyEmail = segments[0] === 'auth' && segments[1] === 'verify-email';
-
-                if (inAuthGroup && !isVerifyEmail) {
-                    router.replace('/');
-                }
             } else {
                 useUserStore.getState().setUser(null);
-
-                // Redirect to signin if not already there
-                const inAuthGroup = segments[0] === 'auth';
-                if (!inAuthGroup) {
-                    router.replace('/auth/signin');
-                }
             }
         });
 
         return () => unsubscribe();
-    }, [segments]);
+    }, []);
+
+    // Handle routing protection
+    useEffect(() => {
+        if (isLoading) return;
+
+        const inAuthGroup = segments[0] === 'auth';
+        const isVerifyEmail = segments[0] === 'auth' && segments[1] === 'verify-email';
+
+        if (user) {
+            // If user is authenticated...
+
+            // 1. Allow anonymous users to access auth screens (to sign in/up)
+            if (user.isAnonymous) {
+                return;
+            }
+
+            // 2. Redirect real users away from auth screens (except verify-email)
+            if (inAuthGroup && !isVerifyEmail) {
+                router.replace('/');
+            }
+        } else {
+            // If user is NOT authenticated
+
+            // Redirect to signin if not already there
+            if (!inAuthGroup) {
+                router.replace('/auth/signin');
+            }
+        }
+    }, [user, segments, isLoading]);
 
     return (
         <GestureHandlerRootView style={styles.container}>

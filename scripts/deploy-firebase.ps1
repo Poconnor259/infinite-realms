@@ -17,7 +17,7 @@ Write-Host ""
 
 # Deploy to Firebase Hosting
 Write-Host "Deploying to Firebase Hosting..." -ForegroundColor Yellow
-firebase deploy --only hosting
+firebase deploy --only "hosting,functions"
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Firebase deployment failed!" -ForegroundColor Red

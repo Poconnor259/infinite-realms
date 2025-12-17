@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.processGameAction = void 0;
+exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.processGameAction = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
@@ -127,6 +127,11 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
                     .update({
                     moduleState: brainResult.data?.stateUpdates || currentState,
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                });
+                // Increment user's turn/token usage
+                await db.collection('users').doc(auth.uid).update({
+                    turnsUsed: admin.firestore.FieldValue.increment(1),
+                    lastActive: admin.firestore.FieldValue.serverTimestamp(),
                 });
             }
             catch (dbError) {
@@ -222,5 +227,68 @@ exports.exportUserData = (0, https_1.onCall)({ cors: true, invoker: 'public' }, 
         campaigns,
         exportedAt: new Date().toISOString(),
     };
+});
+// ==================== ADMIN DASHBOARD ====================
+// Helper for timestamp formatting
+function formatTimestamp(val) {
+    if (!val)
+        return null;
+    if (typeof val?.toDate === 'function')
+        return val.toDate().toISOString();
+    if (typeof val === 'number')
+        return new Date(val).toISOString();
+    return val; // String or other
+}
+exports.getAdminDashboardData = (0, https_1.onCall)({ cors: true }, async (request) => {
+    try {
+        if (!request.auth) {
+            throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
+        }
+        // Verify admin role 
+        const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+        const callerData = callerDoc.data();
+        if (callerData?.role !== 'admin') {
+            throw new https_1.HttpsError('permission-denied', 'Admin access required');
+        }
+        // Fetch all users
+        const usersSnapshot = await db.collection('users')
+            .limit(100)
+            .get();
+        const users = usersSnapshot.docs.map(doc => {
+            const d = doc.data();
+            return {
+                id: doc.id,
+                email: d.email || '',
+                displayName: d.displayName || 'Unknown',
+                photoURL: d.photoURL || null,
+                role: d.role || 'user',
+                tier: d.tier || 'scout',
+                turnsUsed: d.turnsUsed || 0,
+                isAnonymous: !!d.isAnonymous,
+                createdAt: formatTimestamp(d.createdAt),
+                lastActive: formatTimestamp(d.lastActive),
+            };
+        });
+        return { users };
+    }
+    catch (error) {
+        console.error('getAdminDashboardData Error:', error);
+        if (error.code) {
+            throw error;
+        }
+        throw new https_1.HttpsError('internal', error.message || 'Unknown error');
+    }
+});
+exports.adminUpdateUser = (0, https_1.onCall)({ cors: true }, async (request) => {
+    if (!request.auth) {
+        throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
+    }
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    }
+    const { targetUserId, updates } = request.data;
+    await db.collection('users').doc(targetUserId).update(updates);
+    return { success: true };
 });
 //# sourceMappingURL=index.js.map
