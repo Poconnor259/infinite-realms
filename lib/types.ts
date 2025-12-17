@@ -271,7 +271,7 @@ export interface TurnsUsage {
 }
 
 export interface TopUpPackage {
-    id: 'topup_250' | 'topup_500';
+    id: 'topup_150' | 'topup_300';
     turns: number;
     price: number; // In cents
     displayPrice: string;
@@ -284,7 +284,7 @@ export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
 };
 
 export const TOP_UP_PACKAGES: TopUpPackage[] = [
-    { id: 'topup_250', turns: 250, price: 500, displayPrice: '$5' },
-    { id: 'topup_500', turns: 500, price: 1000, displayPrice: '$10' },
+    { id: 'topup_150', turns: 150, price: 500, displayPrice: '$5' },
+    { id: 'topup_300', turns: 300, price: 1000, displayPrice: '$10' },
 ];
 
