@@ -22,6 +22,11 @@ interface BrainOutput {
         diceRolls: DiceRoll[];
         systemMessages: string[];
     };
+    usage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+    };
     error?: string;
 }
 
@@ -131,6 +136,8 @@ Respond with JSON only. No markdown, no explanation.`;
         // Detect Provider
         const isAnthropic = apiKey.startsWith('sk-ant');
         let content: string | null = null;
+        let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
+
         console.log(`[Brain] Using provider: ${isAnthropic ? 'Anthropic' : 'OpenAI'} (Key length: ${apiKey.length})`);
 
         if (isAnthropic) {
@@ -164,12 +171,16 @@ Respond with JSON only. No markdown, no explanation.`;
                 ]
             });
 
-            // Handle Anthropic response content
             const block = response.content[0];
             if (block.type === 'text') {
                 content = block.text;
             }
 
+            usage = {
+                promptTokens: response.usage.input_tokens,
+                completionTokens: response.usage.output_tokens,
+                totalTokens: response.usage.input_tokens + response.usage.output_tokens
+            };
         } else {
             // Default to OpenAI
             const openai = new OpenAI({ apiKey });
@@ -178,7 +189,6 @@ Respond with JSON only. No markdown, no explanation.`;
                 { role: 'system', content: systemPrompt },
             ];
 
-            // Add recent chat history for context
             for (const msg of chatHistory) {
                 messages.push({
                     role: msg.role === 'user' ? 'user' : 'assistant',
@@ -186,7 +196,6 @@ Respond with JSON only. No markdown, no explanation.`;
                 });
             }
 
-            // Add current user input
             messages.push({
                 role: 'user',
                 content: `PLAYER ACTION: ${userInput}
@@ -211,7 +220,12 @@ Respond with JSON only. No markdown, no explanation.`;
                 response_format: { type: 'json_object' },
             });
 
-            content = response.choices[0]?.message?.content;
+            content = response.choices[0]?.message?.content || null;
+            usage = {
+                promptTokens: response.usage?.prompt_tokens || 0,
+                completionTokens: response.usage?.completion_tokens || 0,
+                totalTokens: response.usage?.total_tokens || 0
+            };
         }
 
         if (!content) {
@@ -223,23 +237,18 @@ Respond with JSON only. No markdown, no explanation.`;
 
         // Extract JSON from markdown code blocks if present
         let jsonText = content.trim();
-
-        // Check if content is wrapped in markdown code blocks
         const codeBlockMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
         if (codeBlockMatch) {
             jsonText = codeBlockMatch[1].trim();
         }
-
-        // Remove any leading/trailing whitespace
         jsonText = jsonText.trim();
 
         // Parse and validate response
-        let parsed: unknown;
+        let parsed: any;
         try {
             parsed = JSON.parse(jsonText);
         } catch (parseError) {
             console.error('Failed to parse Brain response:', content);
-            console.error('Extracted JSON text:', jsonText);
             return {
                 success: false,
                 error: 'Invalid JSON response from Brain',
@@ -251,22 +260,23 @@ Respond with JSON only. No markdown, no explanation.`;
 
         if (!validated.success) {
             console.error('Brain response validation failed:', validated.error);
-            // Return partial data if possible
             return {
                 success: true,
                 data: {
-                    stateUpdates: (parsed as Record<string, unknown>).stateUpdates as Record<string, unknown> || {},
+                    stateUpdates: parsed.stateUpdates || {},
                     narrativeCues: [],
-                    narrativeCue: (parsed as Record<string, unknown>).narrativeCue as string || 'The action was processed.',
+                    narrativeCue: parsed.narrativeCue || 'The action was processed.',
                     diceRolls: [],
                     systemMessages: [],
                 },
+                usage
             };
         }
 
         return {
             success: true,
             data: validated.data,
+            usage
         };
 
     } catch (error) {

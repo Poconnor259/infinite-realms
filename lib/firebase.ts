@@ -259,6 +259,11 @@ export const processGameAction = httpsCallable<ProcessInputRequest, ProcessInput
     'processGameAction'
 );
 
+export const deleteCampaignFn = httpsCallable<{ campaignId: string }, { success: boolean }>(
+    functions,
+    'deleteCampaign'
+);
+
 // ==================== FIRESTORE HELPERS ====================
 
 // Campaigns collection
@@ -275,7 +280,26 @@ export async function saveCampaign(userId: string, campaignId: string, data: any
 export async function loadCampaign(userId: string, campaignId: string) {
     const ref = doc(db, 'users', userId, 'campaigns', campaignId);
     const snap = await getDoc(ref);
-    return snap.exists() ? snap.data() : null;
+    if (!snap.exists()) return null;
+
+    const campaignData = snap.data();
+
+    // Fetch messages
+    const messagesCol = collection(db, 'users', userId, 'campaigns', campaignId, 'messages');
+    const messagesQuery = query(messagesCol, orderBy('timestamp', 'asc'), limit(50));
+    const messagesSnapshot = await getDocs(messagesQuery);
+
+    const messages = messagesSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            role: data.role,
+            content: data.content,
+            timestamp: data.timestamp?.toMillis?.() || Date.now(),
+        };
+    });
+
+    return { ...campaignData, messages };
 }
 
 export async function getUserCampaigns(userId: string) {
@@ -322,17 +346,19 @@ export async function getUser(userId: string): Promise<any> {
 
 // ==================== ADMIN HELPERS ====================
 
-export async function getAllUsers() {
+export async function getAdminData() {
     try {
-        const getAdminData = httpsCallable(functions, 'getAdminDashboardData');
-        const result = await getAdminData();
+        const getAdminDataFn = httpsCallable(functions, 'getAdminDashboardData');
+        const result = await getAdminDataFn();
         const data = result.data as any;
-        return data.users || [];
+        return {
+            users: data.users || [],
+            dailyStats: data.dailyStats || []
+        };
     } catch (error: any) {
         console.error('Error fetching admin data:', error);
-        // Temporary debug alert
         alert(`Admin Fetch Error: ${error.message || JSON.stringify(error)}`);
-        return [];
+        return { users: [], dailyStats: [] };
     }
 }
 

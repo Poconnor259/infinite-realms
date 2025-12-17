@@ -117,6 +117,40 @@ export default function CampaignScreen() {
         await processUserInput(text);
     };
 
+    const handleDeleteCampaign = async () => {
+        setMenuVisible(false);
+
+        // Use window.confirm for web compatibility
+        const confirmed = Platform.OS === 'web'
+            ? window.confirm(`Are you sure you want to delete "${currentCampaign?.name}"? This cannot be undone.`)
+            : await new Promise<boolean>((resolve) => {
+                Alert.alert(
+                    'Delete Campaign',
+                    `Are you sure you want to delete "${currentCampaign?.name}"? This cannot be undone.`,
+                    [
+                        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                        { text: 'Delete', style: 'destructive', onPress: () => resolve(true) },
+                    ]
+                );
+            });
+
+        if (!confirmed || !currentCampaign) return;
+
+        setIsDeleting(true);
+        try {
+            await deleteCampaignFn({ campaignId: currentCampaign.id });
+            router.replace('/world-select');
+        } catch (error) {
+            console.error('Failed to delete campaign:', error);
+            if (Platform.OS === 'web') {
+                window.alert('Failed to delete campaign');
+            } else {
+                Alert.alert('Error', 'Failed to delete campaign');
+            }
+            setIsDeleting(false);
+        }
+    };
+
     if (isLoading && !currentCampaign) {
         return (
             <SafeAreaView style={styles.container}>
@@ -291,13 +325,6 @@ export default function CampaignScreen() {
                     </View>
 
                     <TurnCounter />
-
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => {/* Open menu */ }}
-                    >
-                        <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
-                    </TouchableOpacity>
                 </View>
 
                 {/* Collapsible HUD */}
@@ -583,5 +610,32 @@ const styles = StyleSheet.create({
     errorBannerText: {
         color: colors.status.error,
         fontSize: typography.fontSize.sm,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'flex-start' as const,
+        alignItems: 'flex-end' as const,
+        paddingTop: 60,
+        paddingRight: spacing.md,
+    },
+    menuContainer: {
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
+        padding: spacing.xs,
+        minWidth: 180,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    menuItem: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: spacing.sm,
+        padding: spacing.md,
+        borderRadius: borderRadius.sm,
+    },
+    menuItemText: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '500' as const,
     },
 });

@@ -6,6 +6,8 @@ import {
     ScrollView,
     Image,
     ActivityIndicator,
+    TouchableOpacity,
+    Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -14,7 +16,7 @@ import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme
 import { useGameStore, getDefaultModuleState, useTurnsStore, useUserStore } from '../lib/store';
 import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
-import { getUserCampaigns } from '../lib/firebase';
+import { getUserCampaigns, deleteCampaignFn } from '../lib/firebase';
 import type { WorldModuleType, Campaign } from '../lib/types';
 
 const WORLD_INFO: Record<WorldModuleType, {
@@ -101,6 +103,31 @@ export default function HomeScreen() {
         if (diffHours < 24) return `${diffHours}h ago`;
         if (diffHours < 48) return 'Yesterday';
         return date.toLocaleDateString();
+    };
+
+    const handleDeleteCampaign = async (campaign: Campaign, event: any) => {
+        // Stop propagation to prevent opening the campaign
+        event.stopPropagation();
+
+        const confirmed = Platform.OS === 'web'
+            ? window.confirm(`Are you sure you want to delete "${campaign.name}"? This cannot be undone.`)
+            : true; // On mobile, could use Alert.alert
+
+        if (!confirmed) return;
+
+        try {
+            await deleteCampaignFn({ campaignId: campaign.id });
+            // Refresh campaigns list
+            if (user?.id) {
+                const userCampaigns = await getUserCampaigns(user.id);
+                setCampaigns(userCampaigns as Campaign[]);
+            }
+        } catch (error) {
+            console.error('Failed to delete campaign:', error);
+            if (Platform.OS === 'web') {
+                window.alert('Failed to delete campaign');
+            }
+        }
     };
 
     return (
@@ -227,16 +254,28 @@ export default function HomeScreen() {
                                             </View>
                                         </View>
 
-                                        {/* Last Played */}
+                                        {/* Last Played & Delete */}
                                         <View style={styles.campaignMeta}>
                                             <Text style={styles.lastPlayed}>
                                                 {formatDate(campaign.updatedAt)}
                                             </Text>
-                                            <Ionicons
-                                                name="chevron-forward"
-                                                size={20}
-                                                color={colors.text.muted}
-                                            />
+                                            <View style={styles.campaignActions}>
+                                                <TouchableOpacity
+                                                    style={styles.deleteButton}
+                                                    onPress={(e) => handleDeleteCampaign(campaign, e)}
+                                                >
+                                                    <Ionicons
+                                                        name="trash-outline"
+                                                        size={18}
+                                                        color={colors.status.error}
+                                                    />
+                                                </TouchableOpacity>
+                                                <Ionicons
+                                                    name="chevron-forward"
+                                                    size={20}
+                                                    color={colors.text.muted}
+                                                />
+                                            </View>
                                         </View>
                                     </AnimatedPressable>
                                 </FadeInView>
@@ -443,6 +482,15 @@ const styles = StyleSheet.create({
     },
     campaignMeta: {
         alignItems: 'flex-end',
+    },
+    campaignActions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    deleteButton: {
+        padding: spacing.xs,
+        borderRadius: borderRadius.sm,
     },
     lastPlayed: {
         color: colors.text.muted,

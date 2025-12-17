@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getAllUsers } from '../../lib/firebase';
+import { getAdminData } from '../../lib/firebase';
 import { User } from '../../lib/types';
 import { useSettingsStore } from '../../lib/store';
 
@@ -16,10 +16,15 @@ import { useSettingsStore } from '../../lib/store';
 const DEFAULT_COST_PER_1K_TURNS = 21.50; // $0.0215 per turn × 1000
 const AVG_TOKENS_PER_TURN = 3400; // ~2500 in + ~900 out (total for both models)
 
+// Pricing per 1M tokens (Blended GPT-4o-mini + Claude Sonnet 4)
+const BLENDED_INPUT_COST_1M = 1.575; // avg($0.15, $3.00) if equal weight, but Claude is heavier
+const BLENDED_OUTPUT_COST_1M = 7.80; // avg($0.60, $15.00)
+
 export default function AdminCostsScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<User[]>([]);
+    const [dailyStats, setDailyStats] = useState<any[]>([]);
 
     // Calculator States
     const [costPer1kTurns, setCostPer1kTurns] = useState('21.50'); // Based on actual model costs
@@ -31,8 +36,9 @@ export default function AdminCostsScreen() {
 
     const loadData = async () => {
         try {
-            const userList = await getAllUsers();
-            setUsers(userList);
+            const data = await getAdminData();
+            setUsers(data.users);
+            setDailyStats(data.dailyStats);
         } catch (error) {
             console.error(error);
             Alert.alert('Error', 'Failed to load usage data');
@@ -43,16 +49,39 @@ export default function AdminCostsScreen() {
 
     // Computations
     const totalTurns = users.reduce((sum, u) => sum + (u.turnsUsed || 0), 0);
+    const totalPromptTokens = users.reduce((sum, u) => sum + (u.tokensPrompt || 0), 0);
+    const totalCompletionTokens = users.reduce((sum, u) => sum + (u.tokensCompletion || 0), 0);
+    const totalTokensTracked = users.reduce((sum, u) => sum + (u.tokensTotal || 0), 0);
     const totalUsers = users.length;
 
-    // 30-day Active Users (approximation based on lastActive if we had it, for now all users)
-    // Real app would filter by lastActive date
-    const oneMonthAgo = Date.now() - (30 * 24 * 60 * 60 * 1000);
-    const activeUsers = users; // users.filter(u => u.lastActive > oneMonthAgo); 
+    // Temporal Token Aggregation
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStats = dailyStats.find(s => s.date === todayStr);
 
+    const tokensToday = todayStats?.tokensTotal || 0;
+
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+    const lastWeekStats = dailyStats.filter(s => new Date(s.date) >= oneWeekAgo);
+    const tokensWeek = lastWeekStats.reduce((sum, s) => sum + (s.tokensTotal || 0), 0);
+
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setDate(oneMonthAgo.getDate() - 30);
+    const lastMonthStats = dailyStats.filter(s => new Date(s.date) >= oneMonthAgo);
+    const tokensMonth = lastMonthStats.reduce((sum, s) => sum + (s.tokensTotal || 0), 0);
+
+    // Actual Cost Calculation (using tracked tokens if available, else fallback to turn estimate)
+    // We'll use a weighted blended rate since we store aggregate tokens
+    const actualAiCost = (totalPromptTokens / 1000000 * 1.575) + (totalCompletionTokens / 1000000 * 7.80);
+
+    // Fallback/Estimation comparison
     const estimatedAiCost = (totalTurns / 1000) * parseFloat(costPer1kTurns || '0');
-    const estimatedDbCost = activeUsers.length * parseFloat(firebaseCostPerUser || '0') * 30; // Monthly
-    const totalEstimatedCost = estimatedAiCost + estimatedDbCost;
+
+    // Choose which to display (if tokens are tracked, use actual)
+    const displayAiCost = totalTokensTracked > 0 ? actualAiCost : estimatedAiCost;
+
+    const estimatedDbCost = totalUsers * parseFloat(firebaseCostPerUser || '0') * 30; // Monthly
+    const totalEstimatedCost = displayAiCost + estimatedDbCost;
 
     if (loading) {
         return (
@@ -101,7 +130,51 @@ export default function AdminCostsScreen() {
                     <Text style={styles.cardLabel}>Total Users</Text>
                     <Text style={styles.cardValue}>{totalUsers.toLocaleString()}</Text>
                 </View>
+
+                <View style={styles.card}>
+                    <View style={[styles.iconBox, { backgroundColor: colors.status.info + '20' }]}>
+                        <Ionicons name="stats-chart" size={24} color={colors.status.info} />
+                    </View>
+                    <Text style={styles.cardLabel}>Total Tokens</Text>
+                    <Text style={styles.cardValue}>{(totalTokensTracked / 1000).toFixed(1)}k</Text>
+                </View>
             </StaggeredList>
+
+            {/* Temporal Tokens */}
+            <View style={styles.temporalSection}>
+                <View style={styles.temporalCard}>
+                    <Text style={styles.temporalLabel}>Today</Text>
+                    <Text style={styles.temporalValue}>{(tokensToday / 1000).toFixed(1)}k</Text>
+                </View>
+                <View style={styles.temporalCard}>
+                    <Text style={styles.temporalLabel}>Past 7d</Text>
+                    <Text style={styles.temporalValue}>{(tokensWeek / 1000).toFixed(1)}k</Text>
+                </View>
+                <View style={styles.temporalCard}>
+                    <Text style={styles.temporalLabel}>Past 30d</Text>
+                    <Text style={styles.temporalValue}>{(tokensMonth / 1000).toFixed(1)}k</Text>
+                </View>
+            </View>
+
+            {/* Token Breakdown */}
+            {totalTokensTracked > 0 && (
+                <FadeInView style={styles.breakdownCard}>
+                    <Text style={styles.breakdownTitle}>Actual Usage Breakdown</Text>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Prompt Tokens</Text>
+                        <Text style={styles.breakdownValue}>{totalPromptTokens.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Completion Tokens</Text>
+                        <Text style={styles.breakdownValue}>{totalCompletionTokens.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.divider} />
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabelBold}>Actual AI Cost</Text>
+                        <Text style={styles.breakdownValueBold}>${actualAiCost.toFixed(4)}</Text>
+                    </View>
+                </FadeInView>
+            )}
 
             {/* Calculator Settings */}
             <View style={styles.section}>
@@ -285,5 +358,73 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.secondary,
         lineHeight: 20,
+    },
+    breakdownCard: {
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
+        padding: spacing.lg,
+        marginBottom: spacing.xl,
+        borderWidth: 1,
+        borderColor: colors.primary[900] + '40',
+    },
+    breakdownTitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.md,
+    },
+    breakdownRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: spacing.xs,
+    },
+    breakdownLabel: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+    },
+    breakdownValue: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        fontFamily: 'monospace',
+    },
+    divider: {
+        height: 1,
+        backgroundColor: colors.border.default,
+        marginVertical: spacing.sm,
+    },
+    breakdownLabelBold: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    breakdownValueBold: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.primary[400],
+    },
+    temporalSection: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginBottom: spacing.lg,
+    },
+    temporalCard: {
+        flex: 1,
+        backgroundColor: colors.background.secondary,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        alignItems: 'center',
+    },
+    temporalLabel: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        textTransform: 'uppercase',
+        marginBottom: 4,
+    },
+    temporalValue: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
     },
 });

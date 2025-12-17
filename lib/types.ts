@@ -259,6 +259,9 @@ export interface User {
     createdAt: number;
     role?: 'user' | 'admin';
     turnsUsed?: number;
+    tokensPrompt?: number;
+    tokensCompletion?: number;
+    tokensTotal?: number;
 }
 
 // ==================== TURNS & MONETIZATION ====================

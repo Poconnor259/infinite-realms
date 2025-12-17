@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getAllUsers, updateUserRole, updateUserTier } from '../../lib/firebase';
+import { getAdminData, updateUserRole, updateUserTier } from '../../lib/firebase';
 import { User } from '../../lib/types';
 import { useUserStore } from '../../lib/store';
 
@@ -18,14 +18,14 @@ export default function AdminUsersScreen() {
     const [filter, setFilter] = useState('');
 
     useEffect(() => {
-        loadUsers();
+        loadData();
     }, []);
 
-    const loadUsers = async () => {
+    const loadData = async (showLoading = true) => {
+        if (showLoading) setLoading(true);
         try {
-            setLoading(true);
-            const userList = await getAllUsers();
-            setUsers(userList);
+            const data = await getAdminData();
+            setUsers(data.users);
         } catch (error) {
             console.error('Failed to load users:', error);
             Alert.alert('Error', 'Failed to load user list');

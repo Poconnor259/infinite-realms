@@ -240,21 +240,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             const userId = useUserStore.getState().user?.id;
 
             if (!userId) {
-                // Wait for auth to initialize if we don't have a user yet
-                // But for now, just fail gracefully or retry
-                console.warn('No user ID found during loadCampaign');
-                // Could retry or relying on the component to call this only when auth is ready
-                // Let's assume the caller checks auth or we just return.
-                // Actually, if we are loading a campaign, we really need the user ID.
-                // Let's throw for now so the UI shows an error.
                 throw new Error("Authentication required to load campaign");
             }
 
             const campaignData = await fetchCampaign(userId, id);
 
             if (campaignData) {
+                // Extract messages from campaign data if available
+                const messages = campaignData.messages || [];
+                delete campaignData.messages; // Remove from campaign object
+
                 set({
                     currentCampaign: campaignData as Campaign,
+                    messages,
                     isLoading: false
                 });
                 storage.set('lastCampaignId', id);

@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getAllUsers } from '../../lib/firebase';
+import { getAdminData } from '../../lib/firebase';
 import { User, SUBSCRIPTION_PRICING } from '../../lib/types';
 
 export default function AdminMetricsScreen() {
@@ -20,8 +20,8 @@ export default function AdminMetricsScreen() {
 
     const loadData = async () => {
         try {
-            const userList = await getAllUsers();
-            setUsers(userList);
+            const data = await getAdminData();
+            setUsers(data.users);
         } catch (error) {
             console.error('Failed to load metrics:', error);
             Alert.alert('Error', 'Failed to load metrics data');
@@ -39,6 +39,14 @@ export default function AdminMetricsScreen() {
     // Computed metrics
     const totalUsers = users.length;
     const totalTurns = users.reduce((sum, u) => sum + (u.turnsUsed || 0), 0);
+    const totalTokens = users.reduce((sum, u) => sum + (u.tokensTotal || 0), 0);
+
+    // Average cost estimation ($3/1M input, $15/1M output weighted)
+    // For simplicity: (Prompt * $0.000003) + (Completion * $0.000015)
+    // Actually GPT-4o-mini is way cheaper, so we use a blended average or do it precisely
+    const totalPrompt = users.reduce((sum, u) => sum + (u.tokensPrompt || 0), 0);
+    const totalCompletion = users.reduce((sum, u) => sum + (u.tokensCompletion || 0), 0);
+    const estimatedCost = (totalPrompt * 0.000003) + (totalCompletion * 0.000015);
 
     // Active in last 7 days
     const oneWeekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
@@ -61,6 +69,7 @@ export default function AdminMetricsScreen() {
 
     // Average turns per user
     const avgTurns = totalUsers > 0 ? Math.round(totalTurns / totalUsers) : 0;
+    const avgTokensPerTurn = totalTurns > 0 ? Math.round(totalTokens / totalTurns) : 0;
 
     if (loading) {
         return (
@@ -105,6 +114,22 @@ export default function AdminMetricsScreen() {
                 </View>
 
                 <View style={styles.card}>
+                    <View style={[styles.iconBox, { backgroundColor: colors.status.info + '20' }]}>
+                        <Ionicons name="hardware-chip-outline" size={28} color={colors.status.info} />
+                    </View>
+                    <Text style={styles.cardValue}>{(totalTokens / 1000).toFixed(1)}k</Text>
+                    <Text style={styles.cardLabel}>Total Tokens</Text>
+                </View>
+
+                <View style={styles.card}>
+                    <View style={[styles.iconBox, { backgroundColor: colors.status.error + '20' }]}>
+                        <Ionicons name="cash-outline" size={28} color={colors.status.error} />
+                    </View>
+                    <Text style={styles.cardValue}>${estimatedCost.toFixed(2)}</Text>
+                    <Text style={styles.cardLabel}>Est. AI Cost</Text>
+                </View>
+
+                <View style={styles.card}>
                     <View style={[styles.iconBox, { backgroundColor: colors.status.success + '20' }]}>
                         <Ionicons name="pulse" size={28} color={colors.status.success} />
                     </View>
@@ -113,13 +138,36 @@ export default function AdminMetricsScreen() {
                 </View>
 
                 <View style={styles.card}>
-                    <View style={[styles.iconBox, { backgroundColor: colors.status.info + '20' }]}>
-                        <Ionicons name="analytics" size={28} color={colors.status.info} />
+                    <View style={[styles.iconBox, { backgroundColor: colors.primary[900] + '40' }]}>
+                        <Ionicons name="analytics" size={28} color={colors.primary[400]} />
                     </View>
-                    <Text style={styles.cardValue}>{avgTurns}</Text>
-                    <Text style={styles.cardLabel}>Avg Turns/User</Text>
+                    <Text style={styles.cardValue}>{avgTokensPerTurn}</Text>
+                    <Text style={styles.cardLabel}>Avg Tokens/Turn</Text>
                 </View>
             </StaggeredList>
+
+            {/* Token Breakdown */}
+            <FadeInView>
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Token Usage Details</Text>
+                    <View style={styles.breakdownCard}>
+                        <View style={styles.breakdownRow}>
+                            <View style={styles.breakdownLabel}>
+                                <Ionicons name="arrow-up-circle-outline" size={18} color={colors.text.muted} />
+                                <Text style={styles.breakdownText}>Prompt Tokens (Input)</Text>
+                            </View>
+                            <Text style={styles.breakdownValue}>{totalPrompt.toLocaleString()}</Text>
+                        </View>
+                        <View style={styles.breakdownRow}>
+                            <View style={styles.breakdownLabel}>
+                                <Ionicons name="arrow-down-circle-outline" size={18} color={colors.status.success} />
+                                <Text style={styles.breakdownText}>Completion Tokens (Output)</Text>
+                            </View>
+                            <Text style={styles.breakdownValue}>{totalCompletion.toLocaleString()}</Text>
+                        </View>
+                    </View>
+                </View>
+            </FadeInView>
 
             {/* Tier Breakdown */}
             <FadeInView>

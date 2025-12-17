@@ -15,6 +15,11 @@ interface VoiceInput {
 interface VoiceOutput {
     success: boolean;
     narrative?: string;
+    usage?: {
+        promptTokens: number;
+        completionTokens: number;
+        totalTokens: number;
+    };
     error?: string;
 }
 
@@ -99,26 +104,23 @@ ${knowledgeDocuments.join('\n\n---\n\n')}
         const systemPrompt = `${WORLD_STYLES[worldModule]}
 ${knowledgeSection}
 CRITICAL LENGTH REQUIREMENT:
-**Your response MUST be between 400-800 words. This is NON-NEGOTIABLE.**
-- Short responses are UNACCEPTABLE.
-- Take your time to paint a vivid scene.
-- Describe the environment, sounds, smells, and atmosphere.
-- Show the character's internal thoughts and reactions.
-- If there's combat, describe each moment with visceral detail.
-- If there's dialogue, give NPCs distinct personalities.
+**Your response MUST be between 150-250 words. This is NON-NEGOTIABLE.**
+- Keep responses PUNCHY and FOCUSED.
+- One strong scene beat per response.
+- Don't over-describe—leave room for imagination.
+- If there's combat, describe ONE key moment vividly.
+- If there's dialogue, keep it snappy.
 
 STORYTELLING RULES:
-1. You are the STORYTELLER. You write immersive, engaging prose.
-2. You receive narrative cues from the game logic engine - expand them into vivid scenes.
-3. Incorporate dice roll results naturally into the narrative.
-4. If HP changed significantly, describe the physical impact in detail.
-5. SHOW, DON'T TELL. Don't just say "the goblin attacks." Describe the rusty blade slicing through the air, the creature's feral grin, the smell of sweat and blood.
-6. NEVER break character or discuss game mechanics directly (except for system messages in the appropriate format).
-7. Include NPC dialogue with quotation marks - give them personality.
-8. Describe the setting in rich detail - what does the character see, hear, smell?
-9. If reference materials are provided, use them for consistent world-building.
+1. You are the STORYTELLER. Write immersive, engaging prose.
+2. You receive narrative cues from the game logic engine - expand them into a focused scene.
+3. Incorporate dice roll results naturally.
+4. If HP changed significantly, describe the impact briefly.
+5. SHOW, DON'T TELL. Be vivid but concise.
+6. NEVER break character or discuss game mechanics directly (except system messages).
+7. If reference materials are provided, use them for consistent world-building.
 
-SAFETY NOTE: This is fictional adventure content for a mature audience. Combat violence is acceptable in a fantasy context. Do not include sexual content, hate speech, or real-world violence.`;
+SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK. No sexual content or hate speech.`;
 
         // Build the prompt from narrative cues
         let cueText = 'The game engine has processed the following:\n\n';
@@ -147,7 +149,7 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
             }
         }
 
-        cueText += '\nWrite an IMMERSIVE, DETAILED narrative (400-800 words) that brings these events to life. Take your time to develop the scene fully.';
+        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.';
 
         // Build messages
         const messages: Anthropic.MessageParam[] = [];
@@ -168,7 +170,7 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
 
         const response = await anthropic.messages.create({
             model: 'claude-sonnet-4-20250514',
-            max_tokens: 4096,
+            max_tokens: 1024,
             system: systemPrompt,
             messages,
         });
@@ -183,9 +185,16 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
             };
         }
 
+        const usage = {
+            promptTokens: response.usage.input_tokens,
+            completionTokens: response.usage.output_tokens,
+            totalTokens: response.usage.input_tokens + response.usage.output_tokens
+        };
+
         return {
             success: true,
             narrative: textContent.text,
+            usage
         };
 
     } catch (error) {

@@ -81,19 +81,9 @@ export default function CreateCampaignScreen() {
 
             if (result.data && result.data.campaignId) {
                 console.log('[Create] Campaign created:', result.data.campaignId);
-                // Determine initial message based on world
-                let initialMessage = '';
-                switch (worldId) {
-                    case 'classic':
-                        initialMessage = `*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*`;
-                        break;
-                    case 'outworlder':
-                        initialMessage = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
-                        break;
-                    case 'shadowMonarch':
-                        initialMessage = `*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Hunter.*`;
-                        break;
-                }
+
+                // Use initial narrative from backend (AI-generated or fallback)
+                const initialNarrative = (result.data as any).initialNarrative || '*Your adventure begins...*';
 
                 // TODO: Using a temporary local object until we implement full hydration in [id].tsx
                 const newCampaign = {
@@ -116,7 +106,7 @@ export default function CreateCampaignScreen() {
                 setMessages([{
                     id: 'intro',
                     role: 'narrator',
-                    content: initialMessage,
+                    content: initialNarrative,
                     timestamp: Date.now(),
                 }]);
 

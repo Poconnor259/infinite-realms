@@ -100,6 +100,8 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         console.log('[Brain] Result:', JSON.stringify(brainResult.data));
         // Step 2: Generate narrative with Voice (Narrator)
         let narrativeText;
+        let totalPromptTokens = brainResult.usage?.promptTokens || 0;
+        let totalCompletionTokens = brainResult.usage?.completionTokens || 0;
         if (!anthropicKey) {
             // Fallback if no Anthropic key available
             narrativeText = brainResult.data?.narrativeCue ||
@@ -116,6 +118,10 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
                 apiKey: anthropicKey,
                 knowledgeDocuments: voiceKnowledgeDocs,
             });
+            if (voiceResult.usage) {
+                totalPromptTokens += voiceResult.usage.promptTokens;
+                totalCompletionTokens += voiceResult.usage.completionTokens;
+            }
             if (!voiceResult.success) {
                 narrativeText = brainResult.data?.narrativeCue ||
                     'The narrator seems momentarily distracted...';
@@ -124,7 +130,29 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
                 narrativeText = voiceResult.narrative || '';
             }
         }
-        // Step 3: Save state to Firestore (if authenticated)
+        const totalTokens = totalPromptTokens + totalCompletionTokens;
+        // Step 3: Save messages to Firestore
+        if (auth) {
+            const messagesRef = db.collection('users')
+                .doc(auth.uid)
+                .collection('campaigns')
+                .doc(campaignId)
+                .collection('messages');
+            // Save user message
+            await messagesRef.add({
+                role: 'user',
+                content: userInput,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+            });
+            // Save narrator response
+            await messagesRef.add({
+                role: 'narrator',
+                content: narrativeText,
+                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                tokenUsage: { prompt: totalPromptTokens, completion: totalCompletionTokens, total: totalTokens },
+            });
+        }
+        // Step 4: Save state to Firestore (if authenticated)
         if (auth) {
             try {
                 await db.collection('users')
@@ -138,8 +166,21 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
                 // Increment user's turn/token usage
                 await db.collection('users').doc(auth.uid).update({
                     turnsUsed: admin.firestore.FieldValue.increment(1),
+                    tokensPrompt: admin.firestore.FieldValue.increment(totalPromptTokens),
+                    tokensCompletion: admin.firestore.FieldValue.increment(totalCompletionTokens),
+                    tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
                     lastActive: admin.firestore.FieldValue.serverTimestamp(),
                 });
+                // Track global daily usage
+                const today = new Date().toISOString().split('T')[0];
+                await db.collection('systemStats').doc('tokens').collection('daily').doc(today).set({
+                    date: today,
+                    tokensPrompt: admin.firestore.FieldValue.increment(totalPromptTokens),
+                    tokensCompletion: admin.firestore.FieldValue.increment(totalCompletionTokens),
+                    tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
+                    turns: admin.firestore.FieldValue.increment(1),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                }, { merge: true });
             }
             catch (dbError) {
                 console.error('Failed to save state to Firestore:', dbError);
@@ -162,7 +203,7 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
     }
 });
 // ==================== CAMPAIGN MANAGEMENT ====================
-exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
+exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey], cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -172,6 +213,52 @@ exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, 
         .collection('campaigns')
         .doc();
     const now = admin.firestore.FieldValue.serverTimestamp();
+    // Get API keys
+    const anthropicKey = anthropicApiKey.value();
+    // Get knowledge for generating intro (limit to 2 most relevant docs to save tokens)
+    const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule, 'voice', 2);
+    // Generate initial narrative with Claude
+    let initialNarrative = '';
+    if (anthropicKey) {
+        try {
+            const voiceResult = await (0, voice_1.generateNarrative)({
+                narrativeCues: [{
+                        type: 'description',
+                        content: `A new ${worldModule} adventure begins. The character ${characterName || 'our hero'} is about to start their journey.`,
+                        emotion: 'mysterious',
+                    }],
+                worldModule,
+                chatHistory: [],
+                stateChanges: {},
+                diceRolls: [],
+                apiKey: anthropicKey,
+                knowledgeDocuments: voiceKnowledgeDocs,
+            });
+            if (voiceResult.success && voiceResult.narrative) {
+                initialNarrative = voiceResult.narrative;
+            }
+        }
+        catch (narrativeError) {
+            console.error('[CreateCampaign] Narrative generation failed:', narrativeError);
+        }
+    }
+    // Fallback to hardcoded intro if AI generation failed
+    if (!initialNarrative) {
+        switch (worldModule) {
+            case 'classic':
+                initialNarrative = `*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*`;
+                break;
+            case 'outworlder':
+                initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
+                break;
+            case 'shadowMonarch':
+                initialNarrative = `*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Hunter.*`;
+                break;
+            default:
+                initialNarrative = `*Your adventure begins...*`;
+        }
+    }
+    // Save campaign
     await campaignRef.set({
         id: campaignRef.id,
         name,
@@ -185,7 +272,13 @@ exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, 
         createdAt: now,
         updatedAt: now,
     });
-    return { campaignId: campaignRef.id };
+    // Save initial message
+    await campaignRef.collection('messages').add({
+        role: 'narrator',
+        content: initialNarrative,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    return { campaignId: campaignRef.id, initialNarrative };
 });
 exports.deleteCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
@@ -271,12 +364,23 @@ exports.getAdminDashboardData = (0, https_1.onCall)({ cors: true, invoker: 'publ
                 role: d.role || 'user',
                 tier: d.tier || 'scout',
                 turnsUsed: d.turnsUsed || 0,
+                tokensPrompt: d.tokensPrompt || 0,
+                tokensCompletion: d.tokensCompletion || 0,
+                tokensTotal: d.tokensTotal || 0,
                 isAnonymous: !!d.isAnonymous,
                 createdAt: formatTimestamp(d.createdAt),
                 lastActive: formatTimestamp(d.lastActive),
             };
         });
-        return { users };
+        // Fetch last 30 days of daily stats
+        const dailyStatsSnapshot = await db.collection('systemStats')
+            .doc('tokens')
+            .collection('daily')
+            .orderBy('date', 'desc')
+            .limit(30)
+            .get();
+        const dailyStats = dailyStatsSnapshot.docs.map(doc => doc.data());
+        return { users, dailyStats };
     }
     catch (error) {
         console.error('getAdminDashboardData Error:', error);
@@ -399,11 +503,12 @@ exports.deleteKnowledgeDocument = (0, https_1.onCall)({ cors: true, invoker: 'pu
 });
 // Helper for game logic to fetch knowledge documents
 // modelFilter: 'brain' for OpenAI, 'voice' for Claude
-const getKnowledgeForModule = async (worldModule, modelFilter) => {
+// maxDocs: limit number of documents to reduce token usage
+const getKnowledgeForModule = async (worldModule, modelFilter, maxDocs = 3) => {
     const snapshot = await db.collection('knowledgeBase')
         .where('enabled', '==', true)
         .get();
-    return snapshot.docs
+    const docs = snapshot.docs
         .filter(doc => {
         const data = doc.data();
         const moduleMatch = data.worldModule === 'global' || data.worldModule === worldModule;
@@ -412,8 +517,16 @@ const getKnowledgeForModule = async (worldModule, modelFilter) => {
     })
         .map(doc => {
         const data = doc.data();
-        return `[${data.category.toUpperCase()}: ${data.name}]\n${data.content}`;
-    });
+        return {
+            text: `[${data.category.toUpperCase()}: ${data.name}]\n${data.content}`,
+            category: data.category,
+            length: data.content.length,
+        };
+    })
+        // Prioritize shorter docs to minimize token usage
+        .sort((a, b) => a.length - b.length)
+        .slice(0, maxDocs);
+    return docs.map(d => d.text);
 };
 exports.getKnowledgeForModule = getKnowledgeForModule;
 //# sourceMappingURL=index.js.map
