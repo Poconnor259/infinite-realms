@@ -70,7 +70,7 @@ export default function AdminConfigScreen() {
                                 <Ionicons name="star" size={20} color={colors.status.warning} />
                                 <View>
                                     <Text style={styles.tierName}>Hero</Text>
-                                    <Text style={styles.tierPrice}>$5/month</Text>
+                                    <Text style={styles.tierPrice}>$9.99/month</Text>
                                 </View>
                             </View>
                             <View style={styles.tierLimit}>
