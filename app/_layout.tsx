@@ -7,7 +7,7 @@ import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
 import { useSettingsStore, useUserStore } from '../lib/store';
-import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser } from '../lib/firebase';
+import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser } from '../lib/firebase';
 
 import { useRouter, useSegments } from 'expo-router';
 
@@ -28,18 +28,24 @@ export default function RootLayout() {
         // Listen for auth changes
         const unsubscribe = onAuthChange(async (firebaseUser) => {
             if (firebaseUser) {
-                // Get or create user profile
+                // Get or create user profile with latest data
                 await createOrUpdateUser(firebaseUser.uid, {
+                    email: firebaseUser.email || '',
+                    displayName: firebaseUser.displayName || '',
                     lastActive: Date.now()
                 });
+
+                // Fetch full user profile to get role and tier
+                const userDoc = await getUser(firebaseUser.uid);
 
                 // Update store
                 useUserStore.getState().setUser({
                     id: firebaseUser.uid,
                     email: firebaseUser.email || '',
                     isAnonymous: firebaseUser.isAnonymous,
-                    createdAt: Date.now(),
-                    tier: 'scout', // Default tier, should fetch from DB in real app
+                    createdAt: userDoc?.createdAt || Date.now(),
+                    tier: userDoc?.tier || 'scout',
+                    role: userDoc?.role || 'user',
                 });
 
                 // If on auth group, go back to home (except verify-email)

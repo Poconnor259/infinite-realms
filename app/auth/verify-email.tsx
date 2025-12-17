@@ -1,15 +1,34 @@
 
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 import { useUserStore } from '../../lib/store';
+import { resendVerificationEmail } from '../../lib/firebase';
 
 export default function VerifyEmailScreen() {
     const router = useRouter();
     const user = useUserStore((state) => state.user);
+    const [sending, setSending] = React.useState(false);
+
+    const handleResend = async () => {
+        if (!user) return;
+        setSending(true);
+        try {
+            await resendVerificationEmail(user as any);
+            Alert.alert('Sent', 'Verification email sent again. Please check your inbox and spam folder.');
+        } catch (error: any) {
+            if (error.code === 'auth/too-many-requests') {
+                Alert.alert('Too Many Requests', 'Please wait a while before trying again.');
+            } else {
+                Alert.alert('Error', error.message);
+            }
+        } finally {
+            setSending(false);
+        }
+    };
 
     return (
         <View style={styles.container}>
@@ -34,6 +53,19 @@ export default function VerifyEmailScreen() {
                 <Text style={styles.secondaryText}>
                     Can't find it? Check your spam folder.
                 </Text>
+
+                {/* Resend Button */}
+                <AnimatedPressable
+                    style={[styles.button, styles.resendButton]}
+                    onPress={handleResend}
+                    disabled={sending}
+                >
+                    {sending ? (
+                        <ActivityIndicator color={colors.primary[600]} />
+                    ) : (
+                        <Text style={styles.resendButtonText}>Resend Email</Text>
+                    )}
+                </AnimatedPressable>
 
                 <AnimatedPressable
                     style={styles.button}
@@ -114,6 +146,17 @@ const styles = StyleSheet.create({
         width: '100%',
         alignItems: 'center',
         ...shadows.md,
+        marginBottom: spacing.md,
+    },
+    resendButton: {
+        backgroundColor: colors.background.tertiary,
+        borderWidth: 1,
+        borderColor: colors.primary[600],
+    },
+    resendButtonText: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: 'bold',
+        color: colors.primary[600],
     },
     buttonText: {
         fontSize: typography.fontSize.lg,

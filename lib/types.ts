@@ -257,6 +257,7 @@ export interface User {
     };
     isAnonymous?: boolean;
     createdAt: number;
+    role?: 'user' | 'admin';
 }
 
 // ==================== TURNS & MONETIZATION ====================

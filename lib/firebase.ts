@@ -142,6 +142,16 @@ export async function signInWithGoogle() {
     }
 }
 
+export async function resendVerificationEmail(user: User): Promise<void> {
+    try {
+        await sendEmailVerification(user);
+        console.log('Verification email resent to:', user.email);
+    } catch (error: any) {
+        console.error('Failed to resend verification email:', error);
+        throw error;
+    }
+}
+
 export async function resetPassword(email: string): Promise<{ success: boolean; error: string | null }> {
     try {
         await sendPasswordResetEmail(auth, email);
@@ -257,16 +267,24 @@ export async function loadCampaign(userId: string, campaignId: string) {
 }
 
 // User profile
+// User profile
 export async function createOrUpdateUser(userId: string, data: Partial<{
     email: string;
     displayName: string;
     tier: string;
     turnsUsed: number;
     lastActive: any;
+    role: 'user' | 'admin';
 }>) {
     const ref = doc(db, 'users', userId);
     await setDoc(ref, {
         ...data,
         lastActive: serverTimestamp(),
     }, { merge: true });
+}
+
+export async function getUser(userId: string): Promise<any> {
+    const ref = doc(db, 'users', userId);
+    const snap = await getDoc(ref);
+    return snap.exists() ? snap.data() : null;
 }

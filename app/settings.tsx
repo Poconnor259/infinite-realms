@@ -138,6 +138,15 @@ export default function SettingsScreen() {
                 {/* Account Section */}
                 <FadeInView delay={0}>
                     <SettingsSection title="Account">
+                        {user?.role === 'admin' && (
+                            <SettingsRow
+                                label="Admin Dashboard"
+                                sublabel="Manage users and system settings"
+                                icon="shield-checkmark-outline"
+                                iconColor={colors.status.info}
+                                onPress={() => router.push('/admin')}
+                            />
+                        )}
                         {user?.isAnonymous ? (
                             <SettingsRow
                                 label="Sign In / Create Account"
