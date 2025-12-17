@@ -21,9 +21,17 @@
 | 👤 Shadow Monarch | Solo Leveling | Daily quests, shadow army, gate dungeons |
 
 ### Subscription Tiers
-- **Scout (Free)**: GPT-4o-mini only, limited worlds
-- **Hero ($9.99/mo)**: Claude 3.5 narration, all worlds, cloud sync
-- **Legend (BYOK)**: Bring your own API keys for unlimited access
+
+All tiers use the same hybrid AI system:
+- **GPT-4o-mini** handles game logic, state updates, inventory, and dice rolls
+- **Claude 3.5 Sonnet** generates immersive narrative and storytelling
+
+| Tier | Monthly Turns | Price | Notes |
+|------|---------------|-------|-------|
+| **Scout** (Free) | 50 | Free | Full AI experience with limited turns |
+| **Hero** | 500 | $5/month | 10x more turns |
+| **Legend** (BYOK) | Unlimited | Free (use your keys) | Bring your own API keys |
+
 
 ## 🚀 Getting Started
 
