@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../lib/theme';
-import { useSettingsStore, useUserStore } from '../lib/store';
+import { useSettingsStore, useUserStore, useTurnsStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser } from '../lib/firebase';
 
 import { useRouter, useSegments } from 'expo-router';
@@ -15,6 +15,7 @@ export default function RootLayout() {
     const loadSettings = useSettingsStore((state) => state.loadSettings);
     const router = useRouter();
     const segments = useSegments();
+    const setTier = useTurnsStore((state) => state.setTier);
 
     // Load Ionicons font for web
     const [fontsLoaded] = useFonts({
@@ -40,6 +41,10 @@ export default function RootLayout() {
 
                 // Fetch full user profile to get role and tier
                 const userDoc = await getUser(firebaseUser.uid);
+                const userTier = userDoc?.tier || 'scout';
+
+                // Sync tier to turns store
+                setTier(userTier);
 
                 // Update store
                 useUserStore.getState().setUser({
@@ -47,7 +52,7 @@ export default function RootLayout() {
                     email: firebaseUser.email || '',
                     isAnonymous: firebaseUser.isAnonymous,
                     createdAt: userDoc?.createdAt || Date.now(),
-                    tier: userDoc?.tier || 'scout',
+                    tier: userTier,
                     role: userDoc?.role || 'user',
                 });
             } else {

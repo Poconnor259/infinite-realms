@@ -98,16 +98,25 @@ ${knowledgeDocuments.join('\n\n---\n\n')}
 
         const systemPrompt = `${WORLD_STYLES[worldModule]}
 ${knowledgeSection}
-IMPORTANT RULES:
+CRITICAL LENGTH REQUIREMENT:
+**Your response MUST be between 400-800 words. This is NON-NEGOTIABLE.**
+- Short responses are UNACCEPTABLE.
+- Take your time to paint a vivid scene.
+- Describe the environment, sounds, smells, and atmosphere.
+- Show the character's internal thoughts and reactions.
+- If there's combat, describe each moment with visceral detail.
+- If there's dialogue, give NPCs distinct personalities.
+
+STORYTELLING RULES:
 1. You are the STORYTELLER. You write immersive, engaging prose.
 2. You receive narrative cues from the game logic engine - expand them into vivid scenes.
 3. Incorporate dice roll results naturally into the narrative.
-4. If HP changed significantly, describe the physical impact.
-5. AIM FOR 300-600 WORDS. Avoid brevity. Flesh out the scene, the atmosphere, and the character's internal state.
-6. SHOW, DON'T TELL. Don't just say "the goblin attacks." Describe the rusty blade slicing through the air and the smell of ozone.
-7. NEVER break character or discuss game mechanics directly (except for system messages in the appropriate format).
-8. You may include brief NPC dialogue with quotation marks.
-9. If reference materials are provided, use them for consistent world-building and narrative style.
+4. If HP changed significantly, describe the physical impact in detail.
+5. SHOW, DON'T TELL. Don't just say "the goblin attacks." Describe the rusty blade slicing through the air, the creature's feral grin, the smell of sweat and blood.
+6. NEVER break character or discuss game mechanics directly (except for system messages in the appropriate format).
+7. Include NPC dialogue with quotation marks - give them personality.
+8. Describe the setting in rich detail - what does the character see, hear, smell?
+9. If reference materials are provided, use them for consistent world-building.
 
 SAFETY NOTE: This is fictional adventure content for a mature audience. Combat violence is acceptable in a fantasy context. Do not include sexual content, hate speech, or real-world violence.`;
 
@@ -138,7 +147,7 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
             }
         }
 
-        cueText += '\nWrite an engaging narrative that brings these events to life. Use your full creative writing abilities.';
+        cueText += '\nWrite an IMMERSIVE, DETAILED narrative (400-800 words) that brings these events to life. Take your time to develop the scene fully.';
 
         // Build messages
         const messages: Anthropic.MessageParam[] = [];
@@ -159,7 +168,7 @@ SAFETY NOTE: This is fictional adventure content for a mature audience. Combat v
 
         const response = await anthropic.messages.create({
             model: 'claude-opus-4-5-20250514',
-            max_tokens: 1500,
+            max_tokens: 2500,
             system: systemPrompt,
             messages,
         });

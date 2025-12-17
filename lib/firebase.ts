@@ -283,10 +283,16 @@ export async function getUserCampaigns(userId: string) {
     const q = query(campaignsCol, orderBy('updatedAt', 'desc'), limit(20));
     const snapshot = await getDocs(q);
 
-    return snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-    }));
+    return snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+            id: doc.id,
+            ...data,
+            // Convert Firestore Timestamps to milliseconds for frontend
+            createdAt: data.createdAt?.toMillis?.() || data.createdAt || Date.now(),
+            updatedAt: data.updatedAt?.toMillis?.() || data.updatedAt || Date.now(),
+        };
+    });
 }
 
 // User profile
