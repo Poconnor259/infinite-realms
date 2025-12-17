@@ -15,6 +15,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography } from '../lib/theme';
 import { useSettingsStore, useUserStore } from '../lib/store';
+import { signOut } from '../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 
 interface SettingsSectionProps {
@@ -84,6 +85,7 @@ export default function SettingsScreen() {
         setPreference,
         setApiKey,
     } = useSettingsStore();
+    const user = useUserStore((state) => state.user);
 
     const [showByokSection, setShowByokSection] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
@@ -136,15 +138,51 @@ export default function SettingsScreen() {
                 {/* Account Section */}
                 <FadeInView delay={0}>
                     <SettingsSection title="Account">
-                        <SettingsRow
-                            label="Sign In"
-                            sublabel="Sync your campaigns across devices"
-                            icon="person-circle-outline"
-                            iconColor={colors.primary[400]}
-                            onPress={() => {
-                                Alert.alert('Coming Soon', 'Authentication will be added with Firebase integration.');
-                            }}
-                        />
+                        {user?.isAnonymous ? (
+                            <SettingsRow
+                                label="Sign In / Create Account"
+                                sublabel="Sync your campaigns across devices"
+                                icon="person-circle-outline"
+                                iconColor={colors.primary[400]}
+                                onPress={() => router.push('/auth/signin')}
+                            />
+                        ) : (
+                            <>
+                                <SettingsRow
+                                    label="Account"
+                                    sublabel={user?.email || 'Signed In'}
+                                    icon="person-outline"
+                                    iconColor={colors.primary[400]}
+                                    onPress={() => { }}
+                                />
+                                <SettingsRow
+                                    label="Sign Out"
+                                    sublabel="Log out of your account"
+                                    icon="log-out-outline"
+                                    iconColor={colors.status.error}
+                                    onPress={async () => {
+                                        if (Platform.OS === 'web') {
+                                            if (window.confirm('Are you sure you want to sign out?')) {
+                                                await signOut();
+                                                router.replace('/');
+                                            }
+                                        } else {
+                                            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+                                                { text: 'Cancel', style: 'cancel' },
+                                                {
+                                                    text: 'Sign Out',
+                                                    style: 'destructive',
+                                                    onPress: async () => {
+                                                        await signOut();
+                                                        router.replace('/');
+                                                    }
+                                                }
+                                            ]);
+                                        }
+                                    }}
+                                />
+                            </>
+                        )}
                         <SettingsRow
                             label="Subscription"
                             sublabel="Scout (Free)"

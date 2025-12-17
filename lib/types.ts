@@ -255,6 +255,7 @@ export interface User {
         anthropic?: string;
         google?: string;
     };
+    isAnonymous?: boolean;
     createdAt: number;
 }
 

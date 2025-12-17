@@ -33,6 +33,7 @@ export default function RootLayout() {
                 useUserStore.getState().setUser({
                     id: firebaseUser.uid,
                     email: firebaseUser.email || '',
+                    isAnonymous: firebaseUser.isAnonymous,
                     createdAt: Date.now(),
                     tier: 'scout', // Default tier, should fetch from DB in real app
                 });

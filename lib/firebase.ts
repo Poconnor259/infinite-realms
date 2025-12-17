@@ -9,6 +9,8 @@ import {
     updateProfile,
     linkWithCredential,
     EmailAuthProvider,
+    GoogleAuthProvider,
+    signInWithPopup,
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
@@ -118,6 +120,17 @@ export async function signOut(): Promise<void> {
         console.log('User signed out');
     } catch (error) {
         console.error('Sign out failed:', error);
+        throw error;
+    }
+}
+
+export async function signInWithGoogle() {
+    try {
+        const provider = new GoogleAuthProvider();
+        const result = await signInWithPopup(auth, provider);
+        return result.user;
+    } catch (error: any) {
+        console.error('Google sign-in failed:', error);
         throw error;
     }
 }

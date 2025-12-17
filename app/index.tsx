@@ -10,7 +10,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
-import { useGameStore, getDefaultModuleState, useTurnsStore } from '../lib/store';
+import { useGameStore, getDefaultModuleState, useTurnsStore, useUserStore } from '../lib/store';
 import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import type { WorldModuleType, Campaign } from '../lib/types';
@@ -79,6 +79,7 @@ export default function HomeScreen() {
     const router = useRouter();
     const { setCurrentCampaign, setMessages } = useGameStore();
     const [campaigns] = useState<Campaign[]>(SAMPLE_CAMPAIGNS);
+    const user = useUserStore((state) => state.user);
 
     const handleCampaignPress = (campaign: Campaign) => {
         setCurrentCampaign(campaign);
@@ -119,6 +120,15 @@ export default function HomeScreen() {
                 <View>
                     <Text style={styles.greeting}>Welcome to</Text>
                     <Text style={styles.title}>Infinite Realms</Text>
+                    {user?.isAnonymous && (
+                        <AnimatedPressable
+                            style={styles.createAccountLink}
+                            onPress={() => router.push('/auth/signup')}
+                        >
+                            <Text style={styles.createAccountText}>Create Account / Sign In</Text>
+                            <Ionicons name="arrow-forward" size={16} color={colors.primary[400]} />
+                        </AnimatedPressable>
+                    )}
                 </View>
                 <AnimatedPressable
                     style={styles.settingsButton}
@@ -334,6 +344,17 @@ const styles = StyleSheet.create({
         color: colors.text.muted,
         fontSize: typography.fontSize.sm,
     },
+    createAccountLink: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.xs,
+        gap: spacing.xs,
+    },
+    createAccountText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.primary[400],
+        fontWeight: '600',
+    },
     section: {
         marginBottom: spacing.xl,
     },
@@ -396,6 +417,7 @@ const styles = StyleSheet.create({
     miniHpFill: {
         height: '100%',
         borderRadius: 2,
+        overflow: 'hidden',
     },
     miniHpText: {
         color: colors.text.muted,

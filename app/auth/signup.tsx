@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../lib/theme';
-import { signUpWithEmail, linkAnonymousToEmail } from '../../lib/firebase';
+import { signUpWithEmail, linkAnonymousToEmail, signInWithGoogle } from '../../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 import { auth } from '../../lib/firebase';
 
@@ -219,6 +219,39 @@ export default function SignUpScreen() {
                                 </Text>
                             )}
                         </AnimatedPressable>
+
+                        {/* Divider */}
+                        {!isAnonymous && (
+                            <View style={styles.divider}>
+                                <View style={styles.dividerLine} />
+                                <Text style={styles.dividerText}>or</Text>
+                                <View style={styles.dividerLine} />
+                            </View>
+                        )}
+
+                        {/* Google Sign In */}
+                        {!isAnonymous && (
+                            <AnimatedPressable
+                                style={styles.googleButton}
+                                onPress={async () => {
+                                    setIsLoading(true);
+                                    try {
+                                        const user = await signInWithGoogle();
+                                        if (user) {
+                                            router.replace('/');
+                                        }
+                                    } catch (error: any) {
+                                        Alert.alert('Google Sign In Failed', error.message);
+                                    } finally {
+                                        setIsLoading(false);
+                                    }
+                                }}
+                                disabled={isLoading}
+                            >
+                                <Ionicons name="logo-google" size={20} color={colors.text.primary} />
+                                <Text style={styles.googleButtonText}>Continue with Google</Text>
+                            </AnimatedPressable>
+                        )}
                     </FadeInView>
 
                     {/* Sign In Link */}
@@ -319,6 +352,37 @@ const styles = StyleSheet.create({
     signUpButtonText: {
         fontSize: typography.fontSize.lg,
         fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginVertical: spacing.lg,
+    },
+    dividerLine: {
+        flex: 1,
+        height: 1,
+        backgroundColor: colors.border.default,
+    },
+    dividerText: {
+        marginHorizontal: spacing.md,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+    },
+    googleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        height: 50,
+        gap: spacing.sm,
+    },
+    googleButtonText: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
         color: colors.text.primary,
     },
     footer: {

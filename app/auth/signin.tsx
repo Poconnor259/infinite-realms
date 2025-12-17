@@ -14,7 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../lib/theme';
-import { signInWithEmail, signInAnonymouslyIfNeeded, resetPassword } from '../../lib/firebase';
+import { signInWithEmail, signInAnonymouslyIfNeeded, resetPassword, signInWithGoogle } from '../../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 
 export default function SignInScreen() {
@@ -61,6 +61,20 @@ export default function SignInScreen() {
         await signInAnonymouslyIfNeeded();
         setIsLoading(false);
         router.replace('/');
+    };
+
+    const handleGoogleSignIn = async () => {
+        setIsLoading(true);
+        try {
+            const user = await signInWithGoogle();
+            if (user) {
+                router.replace('/');
+            }
+        } catch (error: any) {
+            Alert.alert('Google Sign In Failed', error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -155,6 +169,18 @@ export default function SignInScreen() {
                             ) : (
                                 <Text style={styles.signInButtonText}>Sign In</Text>
                             )}
+                        </AnimatedPressable>
+                    </FadeInView>
+
+                    {/* Google Sign In */}
+                    <FadeInView style={styles.socialAuth} delay={150}>
+                        <AnimatedPressable
+                            style={styles.googleButton}
+                            onPress={handleGoogleSignIn}
+                            disabled={isLoading}
+                        >
+                            <Ionicons name="logo-google" size={20} color={colors.text.primary} />
+                            <Text style={styles.googleButtonText}>Sign in with Google</Text>
                         </AnimatedPressable>
                     </FadeInView>
 
@@ -275,6 +301,25 @@ const styles = StyleSheet.create({
     signInButtonText: {
         fontSize: typography.fontSize.lg,
         fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    socialAuth: {
+        marginBottom: spacing.md,
+    },
+    googleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        height: 50,
+        gap: spacing.sm,
+    },
+    googleButtonText: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
         color: colors.text.primary,
     },
     divider: {
