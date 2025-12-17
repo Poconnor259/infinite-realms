@@ -9,10 +9,12 @@ import { getAllUsers } from '../../lib/firebase';
 import { User } from '../../lib/types';
 import { useSettingsStore } from '../../lib/store';
 
-// Estimated Pricing (Defaults)
-const DEFAULT_INPUT_COST = 5.00; // $5.00 per 1M tokens (GPT-4o / Claude 3.5 Sonnet range)
-const DEFAULT_OUTPUT_COST = 15.00; // $15.00 per 1M tokens
-const AVG_TOKENS_PER_TURN = 750; // Estimate: 250 in + 500 out
+// Actual Pricing (as of Dec 2024)
+// Brain: GPT-4o-mini - $0.15/1M in, $0.60/1M out
+// Voice: Claude Sonnet 4 - $3/1M in, $15/1M out
+// Per turn: ~$0.0005 (Brain) + ~$0.021 (Voice) = ~$0.0215 total
+const DEFAULT_COST_PER_1K_TURNS = 21.50; // $0.0215 per turn × 1000
+const AVG_TOKENS_PER_TURN = 3400; // ~2500 in + ~900 out (total for both models)
 
 export default function AdminCostsScreen() {
     const router = useRouter();
@@ -20,7 +22,7 @@ export default function AdminCostsScreen() {
     const [users, setUsers] = useState<User[]>([]);
 
     // Calculator States
-    const [costPer1kTurns, setCostPer1kTurns] = useState('2.50'); // Simple blended cost estimate
+    const [costPer1kTurns, setCostPer1kTurns] = useState('21.50'); // Based on actual model costs
     const [firebaseCostPerUser, setFirebaseCostPerUser] = useState('0.005'); // Est daily cost per active user
 
     useEffect(() => {
@@ -135,7 +137,8 @@ export default function AdminCostsScreen() {
             <View style={styles.infoBox}>
                 <Ionicons name="information-circle" size={20} color={colors.status.info} />
                 <Text style={styles.infoText}>
-                    These are estimates. Actual billing depends on token length (avg {AVG_TOKENS_PER_TURN} tokens/turn presumed) and complexity.
+                    Using GPT-4o-mini (Brain) + Claude Sonnet 4 (Voice). Cost per turn: ~$0.0215.
+                    {'\n'}Scout (15 turns): ~$0.32 | Hero (300 turns): ~$6.45
                 </Text>
             </View>
         </ScrollView>
