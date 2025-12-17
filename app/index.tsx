@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
     Image,
+    ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -13,41 +14,8 @@ import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme
 import { useGameStore, getDefaultModuleState, useTurnsStore, useUserStore } from '../lib/store';
 import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
+import { getUserCampaigns } from '../lib/firebase';
 import type { WorldModuleType, Campaign } from '../lib/types';
-
-// Sample campaigns for demo
-const SAMPLE_CAMPAIGNS: Campaign[] = [
-    {
-        id: 'demo_classic',
-        userId: 'demo',
-        name: 'The Lost Mines',
-        worldModule: 'classic',
-        createdAt: Date.now() - 86400000 * 3,
-        updatedAt: Date.now() - 3600000,
-        character: {
-            id: 'char_1',
-            name: 'Thorin Ironforge',
-            hp: { current: 28, max: 35 },
-            level: 3,
-        },
-        moduleState: getDefaultModuleState('classic'),
-    },
-    {
-        id: 'demo_outworlder',
-        userId: 'demo',
-        name: 'Greenstone Trials',
-        worldModule: 'outworlder',
-        createdAt: Date.now() - 86400000 * 7,
-        updatedAt: Date.now() - 86400000,
-        character: {
-            id: 'char_2',
-            name: 'Jason Asano',
-            hp: { current: 95, max: 100 },
-            level: 12,
-        },
-        moduleState: getDefaultModuleState('outworlder'),
-    },
-];
 
 const WORLD_INFO: Record<WorldModuleType, {
     name: string;
@@ -78,8 +46,30 @@ const WORLD_INFO: Record<WorldModuleType, {
 export default function HomeScreen() {
     const router = useRouter();
     const { setCurrentCampaign, setMessages } = useGameStore();
-    const [campaigns] = useState<Campaign[]>(SAMPLE_CAMPAIGNS);
     const user = useUserStore((state) => state.user);
+    const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Load user's campaigns from Firestore
+    useEffect(() => {
+        async function loadCampaigns() {
+            if (!user?.id) {
+                setLoading(false);
+                return;
+            }
+
+            try {
+                const userCampaigns = await getUserCampaigns(user.id);
+                setCampaigns(userCampaigns as Campaign[]);
+            } catch (error) {
+                console.error('Failed to load campaigns:', error);
+            } finally {
+                setLoading(false);
+            }
+        }
+
+        loadCampaigns();
+    }, [user?.id]);
 
     const handleCampaignPress = (campaign: Campaign) => {
         setCurrentCampaign(campaign);
@@ -172,15 +162,32 @@ export default function HomeScreen() {
                 </FadeInView>
 
                 {/* Campaigns Section */}
-                {campaigns.length > 0 && (
+                {loading ? (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>
+                            Continue Your Journey
+                        </Text>
+                        <View style={styles.loadingContainer}>
+                            <ActivityIndicator size="small" color={colors.primary[400]} />
+                            <Text style={styles.loadingText}>Loading campaigns...</Text>
+                        </View>
+                    </View>
+                ) : campaigns.length > 0 ? (
                     <View style={styles.section}>
                         <Text style={styles.sectionTitle}>
                             Continue Your Journey
                         </Text>
 
                         {campaigns.map((campaign, index) => {
-                            const worldInfo = WORLD_INFO[campaign.worldModule];
-                            const hpPercent = (campaign.character.hp.current / campaign.character.hp.max) * 100;
+                            const worldInfo = WORLD_INFO[campaign.worldModule] || {
+                                name: 'Unknown',
+                                icon: '❓',
+                                color: colors.text.muted,
+                                description: 'Unknown World',
+                            };
+                            const hpPercent = campaign.character?.hp
+                                ? (campaign.character.hp.current / campaign.character.hp.max) * 100
+                                : 100;
 
                             return (
                                 <FadeInView key={campaign.id} delay={300 + index * 100}>
@@ -236,7 +243,7 @@ export default function HomeScreen() {
                             );
                         })}
                     </View>
-                )}
+                ) : null}
 
                 {/* World Modules Preview */}
                 <FadeInView style={styles.section} delay={500}>
@@ -295,6 +302,17 @@ const styles = StyleSheet.create({
         backgroundColor: colors.background.tertiary,
         justifyContent: 'center',
         alignItems: 'center',
+    },
+    loadingContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.lg,
+        gap: spacing.sm,
+    },
+    loadingText: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
     },
     turnsMeterContainer: {
         paddingHorizontal: spacing.lg,

@@ -278,6 +278,17 @@ export async function loadCampaign(userId: string, campaignId: string) {
     return snap.exists() ? snap.data() : null;
 }
 
+export async function getUserCampaigns(userId: string) {
+    const campaignsCol = collection(db, 'users', userId, 'campaigns');
+    const q = query(campaignsCol, orderBy('updatedAt', 'desc'), limit(20));
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+    }));
+}
+
 // User profile
 // User profile
 export async function createOrUpdateUser(userId: string, data: Partial<{
