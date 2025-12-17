@@ -9,8 +9,12 @@ import { colors } from '../lib/theme';
 import { useSettingsStore, useUserStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser } from '../lib/firebase';
 
+import { useRouter, useSegments } from 'expo-router';
+
 export default function RootLayout() {
     const loadSettings = useSettingsStore((state) => state.loadSettings);
+    const router = useRouter();
+    const segments = useSegments();
 
     // Load Ionicons font for web
     const [fontsLoaded] = useFonts({
@@ -37,15 +41,27 @@ export default function RootLayout() {
                     createdAt: Date.now(),
                     tier: 'scout', // Default tier, should fetch from DB in real app
                 });
+
+                // If on auth group, go back to home (except verify-email)
+                const inAuthGroup = segments[0] === 'auth';
+                const isVerifyEmail = segments[0] === 'auth' && segments[1] === 'verify-email';
+
+                if (inAuthGroup && !isVerifyEmail) {
+                    router.replace('/');
+                }
             } else {
                 useUserStore.getState().setUser(null);
-                // Auto sign-in if needed
-                signInAnonymouslyIfNeeded();
+
+                // Redirect to signin if not already there
+                const inAuthGroup = segments[0] === 'auth';
+                if (!inAuthGroup) {
+                    router.replace('/auth/signin');
+                }
             }
         });
 
         return () => unsubscribe();
-    }, []);
+    }, [segments]);
 
     return (
         <GestureHandlerRootView style={styles.container}>

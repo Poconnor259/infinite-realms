@@ -11,6 +11,7 @@ import {
     EmailAuthProvider,
     GoogleAuthProvider,
     signInWithPopup,
+    sendEmailVerification,
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
@@ -70,6 +71,12 @@ export async function signUpWithEmail(
         // Update display name if provided
         if (displayName && result.user) {
             await updateProfile(result.user, { displayName });
+        }
+
+        // Send verification email
+        if (result.user) {
+            await sendEmailVerification(result.user);
+            console.log('Verification email sent to:', email);
         }
 
         console.log('User signed up:', result.user.uid);

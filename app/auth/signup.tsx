@@ -61,13 +61,7 @@ export default function SignUpScreen() {
         if (result.error) {
             Alert.alert('Sign Up Failed', result.error);
         } else if (result.user) {
-            Alert.alert(
-                'Success!',
-                isAnonymous
-                    ? 'Your account has been created and your progress is saved!'
-                    : 'Welcome to Infinite Realms!',
-                [{ text: 'OK', onPress: () => router.replace('/') }]
-            );
+            router.replace('/auth/verify-email');
         }
     };
 
