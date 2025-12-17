@@ -293,7 +293,7 @@ function formatTimestamp(val: any): string | number | null {
     return val; // String or other
 }
 
-export const getAdminDashboardData = onCall({ cors: true }, async (request) => {
+export const getAdminDashboardData = onCall({ cors: true, invoker: 'public' }, async (request) => {
     try {
         if (!request.auth) {
             throw new HttpsError('unauthenticated', 'User must be signed in');
@@ -338,7 +338,7 @@ export const getAdminDashboardData = onCall({ cors: true }, async (request) => {
     }
 });
 
-export const adminUpdateUser = onCall({ cors: true }, async (request) => {
+export const adminUpdateUser = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -370,7 +370,7 @@ interface KnowledgeDocument {
     enabled: boolean;
 }
 
-export const addKnowledgeDocument = onCall({ cors: true }, async (request) => {
+export const addKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -406,7 +406,7 @@ export const addKnowledgeDocument = onCall({ cors: true }, async (request) => {
     return { id: docRef.id, success: true };
 });
 
-export const getKnowledgeDocuments = onCall({ cors: true }, async (request) => {
+export const getKnowledgeDocuments = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -441,7 +441,7 @@ export const getKnowledgeDocuments = onCall({ cors: true }, async (request) => {
     return { documents };
 });
 
-export const updateKnowledgeDocument = onCall({ cors: true }, async (request) => {
+export const updateKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -473,7 +473,7 @@ export const updateKnowledgeDocument = onCall({ cors: true }, async (request) =>
     return { success: true };
 });
 
-export const deleteKnowledgeDocument = onCall({ cors: true }, async (request) => {
+export const deleteKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }

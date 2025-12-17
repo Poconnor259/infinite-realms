@@ -246,7 +246,7 @@ function formatTimestamp(val) {
         return new Date(val).toISOString();
     return val; // String or other
 }
-exports.getAdminDashboardData = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.getAdminDashboardData = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     try {
         if (!request.auth) {
             throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
@@ -286,7 +286,7 @@ exports.getAdminDashboardData = (0, https_1.onCall)({ cors: true }, async (reque
         throw new https_1.HttpsError('internal', error.message || 'Unknown error');
     }
 });
-exports.adminUpdateUser = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.adminUpdateUser = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -298,7 +298,7 @@ exports.adminUpdateUser = (0, https_1.onCall)({ cors: true }, async (request) =>
     await db.collection('users').doc(targetUserId).update(updates);
     return { success: true };
 });
-exports.addKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.addKnowledgeDocument = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -327,7 +327,7 @@ exports.addKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (reques
     });
     return { id: docRef.id, success: true };
 });
-exports.getKnowledgeDocuments = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.getKnowledgeDocuments = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -357,7 +357,7 @@ exports.getKnowledgeDocuments = (0, https_1.onCall)({ cors: true }, async (reque
     });
     return { documents };
 });
-exports.updateKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.updateKnowledgeDocument = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -381,7 +381,7 @@ exports.updateKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (req
     });
     return { success: true };
 });
-exports.deleteKnowledgeDocument = (0, https_1.onCall)({ cors: true }, async (request) => {
+exports.deleteKnowledgeDocument = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }

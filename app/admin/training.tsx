@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getKnowledgeDocs, addKnowledgeDoc, updateKnowledgeDoc, deleteKnowledgeDoc, KnowledgeDocument } from '../../lib/firebase';
+import * as DocumentPicker from 'expo-document-picker';
 
 type WorldModule = 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
 type Category = 'lore' | 'rules' | 'characters' | 'locations' | 'other';
@@ -46,6 +47,7 @@ export default function AdminTrainingScreen() {
     const [formCategory, setFormCategory] = useState<Category>('lore');
     const [formTargetModel, setFormTargetModel] = useState<TargetModel>('both');
     const [formContent, setFormContent] = useState('');
+    const [formError, setFormError] = useState<string | null>(null);
 
     useEffect(() => {
         loadDocuments();
@@ -58,20 +60,50 @@ export default function AdminTrainingScreen() {
             setDocuments(docs);
         } catch (error) {
             console.error('Failed to load documents:', error);
-            Alert.alert('Error', 'Failed to load knowledge base');
+            Alert.alert('Error', 'Failed to load knowledge base: ' + (error as any).message);
         } finally {
             setLoading(false);
         }
     };
 
+    const handlePickDocument = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['text/*', 'application/json', 'text/markdown'],
+                copyToCacheDirectory: true,
+            });
+
+            if (result.canceled) return;
+
+            const file = result.assets[0];
+
+            // On web, we can fetch the blob URI to get text content
+            const response = await fetch(file.uri);
+            const text = await response.text();
+
+            setFormContent(text);
+
+            // Auto-fill name if empty
+            if (!formName && file.name) {
+                setFormName(file.name.split('.')[0]);
+            }
+
+            Alert.alert('Success', 'File imported successfully');
+        } catch (error) {
+            console.error('File pick error:', error);
+            Alert.alert('Error', 'Failed to read file');
+        }
+    };
+
     const handleAdd = async () => {
         if (!formName.trim() || !formContent.trim()) {
-            Alert.alert('Error', 'Name and content are required');
+            setFormError('Name and content are required');
             return;
         }
 
         try {
             setSaving(true);
+            setFormError(null); // Clear previous errors
             const id = await addKnowledgeDoc({
                 name: formName.trim(),
                 worldModule: formModule,
@@ -98,12 +130,15 @@ export default function AdminTrainingScreen() {
             setFormModule('global');
             setFormCategory('lore');
             setFormTargetModel('both');
+            setFormError(null);
             setShowForm(false);
 
             Alert.alert('Success', 'Document added successfully');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Failed to add document:', error);
-            Alert.alert('Error', 'Failed to add document');
+            const errorMsg = error?.message || 'Unknown error occurred';
+            setFormError(errorMsg);
+            Alert.alert('Error', 'Failed to add document: ' + errorMsg);
         } finally {
             setSaving(false);
         }
@@ -294,6 +329,22 @@ export default function AdminTrainingScreen() {
                         </View>
 
                         <Text style={styles.formLabel}>Content</Text>
+
+                        <AnimatedPressable
+                            style={styles.importButton}
+                            onPress={handlePickDocument}
+                        >
+                            <Ionicons name="document-text-outline" size={18} color={colors.primary[400]} />
+                            <Text style={styles.importButtonText}>Import from File (.txt, .md, .json)</Text>
+                        </AnimatedPressable>
+
+                        {formError && (
+                            <View style={styles.errorBox}>
+                                <Ionicons name="alert-circle" size={16} color={colors.status.error} />
+                                <Text style={styles.errorText}>{formError}</Text>
+                            </View>
+                        )}
+
                         <TextInput
                             style={[styles.input, styles.textArea]}
                             value={formContent}
@@ -695,5 +746,31 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.secondary,
         lineHeight: 20,
+    },
+    importButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.sm,
+        marginBottom: spacing.xs,
+    },
+    importButtonText: {
+        color: colors.primary[400],
+        fontSize: typography.fontSize.sm,
+        fontWeight: '500',
+    },
+    errorBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        backgroundColor: colors.status.error + '20',
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        marginBottom: spacing.sm,
+    },
+    errorText: {
+        flex: 1,
+        color: colors.status.error,
+        fontSize: typography.fontSize.sm,
     },
 });
