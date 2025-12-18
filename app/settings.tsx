@@ -79,6 +79,7 @@ export default function SettingsScreen() {
         hapticFeedback,
         soundEffects,
         narratorVoice,
+        alternatingColors,
         openaiKey,
         anthropicKey,
         googleKey,
@@ -246,6 +247,20 @@ export default function SettingsScreen() {
                                     onValueChange={(value) => setPreference('narratorVoice', value)}
                                     trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
                                     thumbColor={narratorVoice ? colors.primary[300] : colors.text.muted}
+                                />
+                            }
+                        />
+                        <SettingsRow
+                            label="Alternating Message Colors"
+                            sublabel="Use different colors for narrator messages"
+                            icon="color-palette-outline"
+                            iconColor="#f59e0b"
+                            rightElement={
+                                <Switch
+                                    value={alternatingColors}
+                                    onValueChange={(value) => setPreference('alternatingColors', value)}
+                                    trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
+                                    thumbColor={alternatingColors ? colors.primary[300] : colors.text.muted}
                                 />
                             }
                         />

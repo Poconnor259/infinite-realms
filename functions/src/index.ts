@@ -89,22 +89,23 @@ export const processGameAction = onCall(
                 };
             }
 
-            // Fetch knowledge base documents for this world module
-            console.log(`[Knowledge] Fetching documents for ${worldModule}...`);
-            const brainKnowledgeDocs = await getKnowledgeForModule(worldModule, 'brain');
+            // Fetch knowledge base documents for Voice only (Brain just needs game rules)
+            // This optimization saves ~3-5k tokens per turn
+            console.log(`[Knowledge] Fetching documents for ${worldModule} (Voice only)...`);
             const voiceKnowledgeDocs = await getKnowledgeForModule(worldModule, 'voice');
-            console.log(`[Knowledge] Found ${brainKnowledgeDocs.length} brain docs, ${voiceKnowledgeDocs.length} voice docs`);
+            console.log(`[Knowledge] Found ${voiceKnowledgeDocs.length} voice docs`);
 
             // Step 1: Process with Brain (Logic Engine)
             console.log(`[Brain] Processing action for campaign ${campaignId}: "${userInput}"`);
 
+            // Brain only needs last 3 messages for context (saves ~2k tokens)
             const brainResult = await processWithBrain({
                 userInput,
                 worldModule,
                 currentState,
-                chatHistory: chatHistory.slice(-10),
+                chatHistory: chatHistory.slice(-3),
                 apiKey: openaiKey,
-                knowledgeDocuments: brainKnowledgeDocs,
+                // No knowledge docs for Brain - it just needs game rules which are in the system prompt
             });
 
             if (!brainResult.success) {
@@ -128,10 +129,11 @@ export const processGameAction = onCall(
             } else {
                 console.log('[Voice] Generating narrative with Claude');
 
+                // Voice gets knowledge docs for lore, but only last 4 messages for narrative flow
                 const voiceResult = await generateNarrative({
                     narrativeCues: brainResult.data?.narrativeCues || [],
                     worldModule,
-                    chatHistory: chatHistory.slice(-6),
+                    chatHistory: chatHistory.slice(-4),
                     stateChanges: brainResult.data?.stateUpdates || {},
                     diceRolls: brainResult.data?.diceRolls || [],
                     apiKey: anthropicKey,
@@ -489,7 +491,10 @@ interface KnowledgeDocument {
     enabled: boolean;
 }
 
-export const addKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, async (request) => {
+export const addKnowledgeDocument = onCall({
+    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    invoker: 'public'
+}, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -525,7 +530,10 @@ export const addKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, as
     return { id: docRef.id, success: true };
 });
 
-export const getKnowledgeDocuments = onCall({ cors: true, invoker: 'public' }, async (request) => {
+export const getKnowledgeDocuments = onCall({
+    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    invoker: 'public'
+}, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -560,7 +568,10 @@ export const getKnowledgeDocuments = onCall({ cors: true, invoker: 'public' }, a
     return { documents };
 });
 
-export const updateKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, async (request) => {
+export const updateKnowledgeDocument = onCall({
+    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    invoker: 'public'
+}, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -592,7 +603,10 @@ export const updateKnowledgeDocument = onCall({ cors: true, invoker: 'public' },
     return { success: true };
 });
 
-export const deleteKnowledgeDocument = onCall({ cors: true, invoker: 'public' }, async (request) => {
+export const deleteKnowledgeDocument = onCall({
+    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    invoker: 'public'
+}, async (request) => {
     if (!request.auth) {
         throw new HttpsError('unauthenticated', 'User must be signed in');
     }

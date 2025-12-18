@@ -316,6 +316,7 @@ interface SettingsState {
     hapticFeedback: boolean;
     soundEffects: boolean;
     narratorVoice: boolean;
+    alternatingColors: boolean;
 
     // Actions
     setApiKey: (provider: 'openai' | 'anthropic' | 'google', key: string | null) => void;
@@ -330,6 +331,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     hapticFeedback: true,
     soundEffects: true,
     narratorVoice: false,
+    alternatingColors: true,
 
     setApiKey: (provider, key) => {
         // Store securely (will use expo-secure-store in production)
@@ -357,6 +359,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const hapticFeedback = storage.getString('pref_hapticFeedback');
         const soundEffects = storage.getString('pref_soundEffects');
         const narratorVoice = storage.getString('pref_narratorVoice');
+        const alternatingColors = storage.getString('pref_alternatingColors');
 
         set({
             openaiKey,
@@ -365,6 +368,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             hapticFeedback: hapticFeedback ? JSON.parse(hapticFeedback) : true,
             soundEffects: soundEffects ? JSON.parse(soundEffects) : true,
             narratorVoice: narratorVoice ? JSON.parse(narratorVoice) : false,
+            alternatingColors: alternatingColors ? JSON.parse(alternatingColors) : true,
         });
     },
 }));

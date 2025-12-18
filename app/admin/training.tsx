@@ -42,6 +42,7 @@ export default function AdminTrainingScreen() {
 
     // Form state
     const [showForm, setShowForm] = useState(false);
+    const [editingId, setEditingId] = useState<string | null>(null);
     const [formName, setFormName] = useState('');
     const [formModule, setFormModule] = useState<WorldModule>('global');
     const [formCategory, setFormCategory] = useState<Category>('lore');
@@ -142,6 +143,79 @@ export default function AdminTrainingScreen() {
         } finally {
             setSaving(false);
         }
+    };
+
+    const handleEdit = (doc: KnowledgeDocument) => {
+        setEditingId(doc.id);
+        setFormName(doc.name);
+        setFormModule(doc.worldModule);
+        setFormCategory(doc.category);
+        setFormTargetModel(doc.targetModel || 'both');
+        setFormContent(doc.content);
+        setFormError(null);
+        setShowForm(true);
+        setExpandedId(null);
+    };
+
+    const handleUpdate = async () => {
+        if (!editingId || !formName.trim() || !formContent.trim()) {
+            setFormError('Name and content are required');
+            return;
+        }
+
+        try {
+            setSaving(true);
+            setFormError(null);
+            await updateKnowledgeDoc(editingId, {
+                name: formName.trim(),
+                worldModule: formModule,
+                category: formCategory,
+                targetModel: formTargetModel,
+                content: formContent.trim(),
+            });
+
+            // Update local state
+            setDocuments(documents.map(d =>
+                d.id === editingId ? {
+                    ...d,
+                    name: formName.trim(),
+                    worldModule: formModule,
+                    category: formCategory,
+                    targetModel: formTargetModel,
+                    content: formContent.trim(),
+                } : d
+            ));
+
+            // Reset form
+            setFormName('');
+            setFormContent('');
+            setFormModule('global');
+            setFormCategory('lore');
+            setFormTargetModel('both');
+            setFormError(null);
+            setShowForm(false);
+            setEditingId(null);
+
+            Alert.alert('Success', 'Document updated successfully');
+        } catch (error: any) {
+            console.error('Failed to update document:', error);
+            const errorMsg = error?.message || 'Unknown error occurred';
+            setFormError(errorMsg);
+            Alert.alert('Error', 'Failed to update document: ' + errorMsg);
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setFormName('');
+        setFormContent('');
+        setFormModule('global');
+        setFormCategory('lore');
+        setFormTargetModel('both');
+        setFormError(null);
+        setShowForm(false);
     };
 
     const handleToggle = async (doc: KnowledgeDocument) => {
@@ -246,10 +320,18 @@ export default function AdminTrainingScreen() {
             {/* Add Button */}
             <AnimatedPressable
                 style={styles.addButton}
-                onPress={() => setShowForm(!showForm)}
+                onPress={() => {
+                    if (showForm && editingId) {
+                        handleCancelEdit();
+                    } else {
+                        setShowForm(!showForm);
+                    }
+                }}
             >
                 <Ionicons name={showForm ? "close" : "add"} size={20} color={colors.text.primary} />
-                <Text style={styles.addButtonText}>{showForm ? 'Cancel' : 'Add Document'}</Text>
+                <Text style={styles.addButtonText}>
+                    {showForm ? (editingId ? 'Cancel Edit' : 'Cancel') : 'Add Document'}
+                </Text>
             </AnimatedPressable>
 
             {/* Add Form */}
@@ -358,7 +440,7 @@ export default function AdminTrainingScreen() {
 
                         <AnimatedPressable
                             style={[styles.submitButton, saving && styles.submitButtonDisabled]}
-                            onPress={handleAdd}
+                            onPress={editingId ? handleUpdate : handleAdd}
                             disabled={saving}
                         >
                             {saving ? (
@@ -366,7 +448,9 @@ export default function AdminTrainingScreen() {
                             ) : (
                                 <>
                                     <Ionicons name="cloud-upload" size={20} color={colors.text.primary} />
-                                    <Text style={styles.submitButtonText}>Upload Document</Text>
+                                    <Text style={styles.submitButtonText}>
+                                        {editingId ? 'Update Document' : 'Upload Document'}
+                                    </Text>
                                 </>
                             )}
                         </AnimatedPressable>
@@ -430,6 +514,14 @@ export default function AdminTrainingScreen() {
                                     <Text style={styles.docButtonText}>
                                         {expandedId === doc.id ? 'Hide' : 'Preview'}
                                     </Text>
+                                </AnimatedPressable>
+
+                                <AnimatedPressable
+                                    style={styles.docButton}
+                                    onPress={() => handleEdit(doc)}
+                                >
+                                    <Ionicons name="create-outline" size={16} color={colors.primary[400]} />
+                                    <Text style={[styles.docButtonText, { color: colors.primary[400] }]}>Edit</Text>
                                 </AnimatedPressable>
 
                                 <AnimatedPressable

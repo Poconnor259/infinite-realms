@@ -74,15 +74,7 @@ export default function HomeScreen() {
     }, [user?.id]);
 
     const handleCampaignPress = (campaign: Campaign) => {
-        setCurrentCampaign(campaign);
-        setMessages([
-            {
-                id: 'welcome',
-                role: 'narrator',
-                content: `Welcome back, ${campaign.character.name}. Your adventure continues...`,
-                timestamp: Date.now(),
-            },
-        ]);
+        // Just navigate - the campaign page will load the data
         router.push(`/campaign/${campaign.id}`);
     };
 

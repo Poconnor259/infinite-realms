@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
 import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { useSettingsStore } from '../../lib/store';
 import type { Message } from '../../lib/types';
 
 interface MessageBubbleProps {
@@ -12,11 +13,16 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
     const isBlueBox = message.content.includes('『') || message.content.includes('[DAILY QUEST]');
+    const alternatingColors = useSettingsStore((state) => state.alternatingColors);
 
     const getBubbleStyle = () => {
         if (isUser) return styles.userBubble;
         if (isSystem) return styles.systemBubble;
         if (isBlueBox) return styles.blueBoxBubble;
+        // Alternate narrator bubble colors only if setting is enabled
+        if (alternatingColors) {
+            return index % 2 === 0 ? styles.narratorBubble : styles.narratorBubbleAlt;
+        }
         return styles.narratorBubble;
     };
 
@@ -24,6 +30,10 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
         if (isUser) return styles.userText;
         if (isSystem) return styles.systemText;
         if (isBlueBox) return styles.blueBoxText;
+        // Use slightly different text color for alternating bubbles only if setting is enabled
+        if (alternatingColors) {
+            return index % 2 === 0 ? styles.narratorText : styles.narratorTextAlt;
+        }
         return styles.narratorText;
     };
 
@@ -127,6 +137,15 @@ const styles = StyleSheet.create({
     },
     narratorText: {
         color: colors.text.secondary,
+        fontSize: typography.fontSize.md,
+        lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
+    },
+    narratorBubbleAlt: {
+        backgroundColor: colors.background.secondary,
+        borderBottomLeftRadius: borderRadius.sm,
+    },
+    narratorTextAlt: {
+        color: colors.text.primary,
         fontSize: typography.fontSize.md,
         lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
     },
