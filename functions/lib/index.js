@@ -209,7 +209,7 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
-    const { name, worldModule, characterName } = request.data;
+    const { name, worldModule, characterName, initialCharacter } = request.data;
     const campaignRef = db.collection('users')
         .doc(request.auth.uid)
         .collection('campaigns')
@@ -260,16 +260,26 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
                 initialNarrative = `*Your adventure begins...*`;
         }
     }
+    // Use initialCharacter if provided, otherwise create a basic character
+    const character = initialCharacter || {
+        id: `char_${Date.now()}`,
+        name: characterName || 'Unnamed Hero',
+        hp: { current: 100, max: 100 },
+        level: 1,
+    };
+    // Ensure character has an ID
+    if (!character.id) {
+        character.id = `char_${Date.now()}`;
+    }
     // Save campaign
     await campaignRef.set({
         id: campaignRef.id,
         name,
         worldModule,
-        character: {
-            id: `char_${Date.now()}`,
-            name: characterName || 'Unnamed Hero',
-            hp: { current: 100, max: 100 },
-            level: 1,
+        character,
+        moduleState: {
+            type: worldModule,
+            character,
         },
         createdAt: now,
         updatedAt: now,

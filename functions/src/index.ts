@@ -243,7 +243,7 @@ export const createCampaign = onCall(
             throw new HttpsError('unauthenticated', 'User must be signed in');
         }
 
-        const { name, worldModule, characterName } = request.data;
+        const { name, worldModule, characterName, initialCharacter } = request.data;
 
         const campaignRef = db.collection('users')
             .doc(request.auth.uid)
@@ -300,16 +300,28 @@ export const createCampaign = onCall(
             }
         }
 
+        // Use initialCharacter if provided, otherwise create a basic character
+        const character = initialCharacter || {
+            id: `char_${Date.now()}`,
+            name: characterName || 'Unnamed Hero',
+            hp: { current: 100, max: 100 },
+            level: 1,
+        };
+
+        // Ensure character has an ID
+        if (!character.id) {
+            character.id = `char_${Date.now()}`;
+        }
+
         // Save campaign
         await campaignRef.set({
             id: campaignRef.id,
             name,
             worldModule,
-            character: {
-                id: `char_${Date.now()}`,
-                name: characterName || 'Unnamed Hero',
-                hp: { current: 100, max: 100 },
-                level: 1,
+            character,
+            moduleState: {
+                type: worldModule,
+                character,
             },
             createdAt: now,
             updatedAt: now,

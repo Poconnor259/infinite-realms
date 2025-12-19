@@ -26,7 +26,7 @@ const WORLD_MODULES = [
     },
     {
         id: 'shadowMonarch',
-        name: 'Shadow Monarch',
+        name: 'PRAXIS: Operation Dark Tide',
         description: 'Solo Leveling inspired system with shadow army mechanics',
         icon: 'skull' as const,
         color: colors.gold.main,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -13,13 +13,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from '../../lib/theme';
+import { spacing, borderRadius, typography, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useGameStore, useUserStore } from '../../lib/store';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 import { createCampaign, signInAnonymouslyIfNeeded } from '../../lib/firebase';
-import type { WorldModuleType } from '../../lib/types';
+import { ClassicCharacterCreation } from '../../components/character/ClassicCharacterCreation';
+import { OutworlderCharacterCreation } from '../../components/character/OutworlderCharacterCreation';
+import { ShadowMonarchCharacterCreation } from '../../components/character/ShadowMonarchCharacterCreation';
+import type { WorldModuleType, ModuleCharacter } from '../../lib/types';
 
-const WORLD_INFO: Record<string, { name: string; icon: string; color: string; description: string }> = {
+const getWorldInfo = (colors: any): Record<string, { name: string; icon: string; color: string; description: string }> => ({
     classic: {
         name: 'The Classic',
         icon: '⚔️',
@@ -33,14 +37,17 @@ const WORLD_INFO: Record<string, { name: string; icon: string; color: string; de
         description: 'You are about to be reincarnated. What will you call yourself?',
     },
     shadowMonarch: {
-        name: 'Shadow Monarch',
+        name: 'PRAXIS: Operation Dark Tide',
         icon: '👤',
         color: '#8b5cf6',
         description: 'The System is initializing. Enter your Hunter name.',
     },
-};
+});
 
 export default function CreateCampaignScreen() {
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    const WORLD_INFO = useMemo(() => getWorldInfo(colors), [colors]);
     const router = useRouter();
     const params = useLocalSearchParams<{ world: WorldModuleType }>();
     const worldId = params.world || 'classic';
@@ -50,8 +57,15 @@ export default function CreateCampaignScreen() {
 
     const [characterName, setCharacterName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
+    const [step, setStep] = useState<'name' | 'character'>('name');
+    const [characterData, setCharacterData] = useState<ModuleCharacter | null>(null);
 
-    const handleCreate = async () => {
+    const handleCharacterComplete = async (character: ModuleCharacter) => {
+        setCharacterData(character);
+        await handleCreate(character);
+    };
+
+    const handleCreate = async (character: ModuleCharacter) => {
         console.log('[Create] handleCreate called');
         if (!characterName.trim()) {
             Alert.alert('Required', 'Please enter a character name.');
@@ -70,12 +84,13 @@ export default function CreateCampaignScreen() {
                 throw new Error("Failed to sign in anonymously");
             }
 
-            // Call Cloud Function to create campaign
+            // Call Cloud Function to create campaign with character data
             console.log('[Create] Calling createCampaign cloud function...');
             const result = await createCampaign({
-                name: world.name, // Campaign name defaults to world name for now
+                name: world.name,
                 worldModule: worldId as WorldModuleType,
                 characterName: characterName.trim(),
+                initialCharacter: character,
             });
             console.log('[Create] Cloud function result:', result);
 
@@ -93,13 +108,11 @@ export default function CreateCampaignScreen() {
                     worldModule: worldId as WorldModuleType,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
-                    character: {
-                        id: 'char_new',
-                        name: characterName.trim(),
-                        hp: { current: 100, max: 100 },
-                        level: 1,
+                    character: character,
+                    moduleState: {
+                        type: worldId,
+                        character: character,
                     },
-                    moduleState: {},
                 };
 
                 setCurrentCampaign(newCampaign as any);
@@ -122,6 +135,30 @@ export default function CreateCampaignScreen() {
         }
     };
 
+    // Render character creation step based on world module
+    if (step === 'character') {
+        if (worldId === 'classic') {
+            return <ClassicCharacterCreation
+                characterName={characterName}
+                onComplete={handleCharacterComplete}
+                onBack={() => setStep('name')}
+            />;
+        } else if (worldId === 'outworlder') {
+            return <OutworlderCharacterCreation
+                characterName={characterName}
+                onComplete={handleCharacterComplete}
+                onBack={() => setStep('name')}
+            />;
+        } else if (worldId === 'shadowMonarch') {
+            return <ShadowMonarchCharacterCreation
+                characterName={characterName}
+                onComplete={handleCharacterComplete}
+                onBack={() => setStep('name')}
+            />;
+        }
+    }
+
+    // Render name input step
     return (
         <SafeAreaView style={styles.container} edges={['bottom']}>
             <KeyboardAvoidingView
@@ -159,14 +196,9 @@ export default function CreateCampaignScreen() {
                             onChangeText={setCharacterName}
                             autoFocus
                             maxLength={30}
-                            onSubmitEditing={handleCreate}
-                            onKeyPress={(e) => {
-                                // Web-only: Handle Enter vs Shift+Enter
-                                if (Platform.OS === 'web' && (e as any).nativeEvent.key === 'Enter') {
-                                    if (!(e as any).nativeEvent.shiftKey && characterName.trim()) {
-                                        e.preventDefault();
-                                        handleCreate();
-                                    }
+                            onSubmitEditing={() => {
+                                if (characterName.trim()) {
+                                    setStep('character');
                                 }
                             }}
                         />
@@ -179,20 +211,18 @@ export default function CreateCampaignScreen() {
                     <AnimatedPressable
                         style={[
                             styles.createButton,
-                            (!characterName.trim() || isCreating) && styles.createButtonDisabled,
+                            !characterName.trim() && styles.createButtonDisabled,
                             { backgroundColor: world.color }
                         ]}
-                        onPress={handleCreate}
-                        disabled={!characterName.trim() || isCreating}
+                        onPress={() => {
+                            if (characterName.trim()) {
+                                setStep('character');
+                            }
+                        }}
+                        disabled={!characterName.trim()}
                     >
-                        {isCreating ? (
-                            <ActivityIndicator color="#fff" />
-                        ) : (
-                            <>
-                                <Text style={styles.createButtonText}>Begin Adventure</Text>
-                                <Ionicons name="arrow-forward" size={20} color="#fff" />
-                            </>
-                        )}
+                        <Text style={styles.createButtonText}>Next</Text>
+                        <Ionicons name="arrow-forward" size={20} color="#fff" />
                     </AnimatedPressable>
                 </FadeInView>
             </KeyboardAvoidingView>
@@ -200,7 +230,7 @@ export default function CreateCampaignScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

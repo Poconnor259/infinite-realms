@@ -5,7 +5,7 @@ import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
-import { colors } from '../lib/theme';
+import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore, useTurnsStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser } from '../lib/firebase';
 
@@ -16,6 +16,7 @@ export default function RootLayout() {
     const router = useRouter();
     const segments = useSegments();
     const setTier = useTurnsStore((state) => state.setTier);
+    const { colors, isDark } = useThemeColors();
 
     // Load Ionicons font for web
     const [fontsLoaded] = useFonts({
@@ -93,8 +94,8 @@ export default function RootLayout() {
     }, [user, segments, isLoading]);
 
     return (
-        <GestureHandlerRootView style={styles.container}>
-            <StatusBar style="light" />
+        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+            <StatusBar style={isDark ? 'light' : 'dark'} />
             <Stack
                 screenOptions={{
                     headerStyle: {
@@ -126,6 +127,9 @@ export default function RootLayout() {
                     options={{
                         title: 'Choose Your World',
                         presentation: 'modal',
+                        headerStyle: {
+                            backgroundColor: colors.background.secondary, // Modal usually slightly different
+                        }
                     }}
                 />
                 <Stack.Screen
@@ -133,23 +137,12 @@ export default function RootLayout() {
                     options={{
                         title: 'Settings',
                         presentation: 'modal',
-                    }}
-                />
-                <Stack.Screen
-                    name="character-create"
-                    options={{
-                        title: 'Create Character',
-                        presentation: 'modal',
+                        headerStyle: {
+                            backgroundColor: colors.background.secondary,
+                        }
                     }}
                 />
             </Stack>
         </GestureHandlerRootView>
     );
 }
-
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: colors.background.primary,
-    },
-});

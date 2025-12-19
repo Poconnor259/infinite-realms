@@ -247,11 +247,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             if (campaignData) {
                 // Extract messages from campaign data if available
-                const messages = campaignData.messages || [];
-                delete campaignData.messages; // Remove from campaign object
+                const { messages = [], ...rest } = campaignData;
 
                 set({
-                    currentCampaign: campaignData as Campaign,
+                    currentCampaign: rest as Campaign,
                     messages,
                     isLoading: false
                 });
@@ -317,6 +316,7 @@ interface SettingsState {
     soundEffects: boolean;
     narratorVoice: boolean;
     alternatingColors: boolean;
+    themeMode: 'light' | 'dark' | 'system';
 
     // Actions
     setApiKey: (provider: 'openai' | 'anthropic' | 'google', key: string | null) => void;
@@ -332,6 +332,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     soundEffects: true,
     narratorVoice: false,
     alternatingColors: true,
+    themeMode: 'system',
 
     setApiKey: (provider, key) => {
         // Store securely (will use expo-secure-store in production)
@@ -360,6 +361,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const soundEffects = storage.getString('pref_soundEffects');
         const narratorVoice = storage.getString('pref_narratorVoice');
         const alternatingColors = storage.getString('pref_alternatingColors');
+        const themeMode = storage.getString('pref_themeMode');
 
         set({
             openaiKey,
@@ -369,6 +371,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             soundEffects: soundEffects ? JSON.parse(soundEffects) : true,
             narratorVoice: narratorVoice ? JSON.parse(narratorVoice) : false,
             alternatingColors: alternatingColors ? JSON.parse(alternatingColors) : true,
+            themeMode: themeMode ? JSON.parse(themeMode) : 'system',
         });
     },
 }));

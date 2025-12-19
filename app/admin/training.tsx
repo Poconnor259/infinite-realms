@@ -1,9 +1,10 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Alert, Platform, Switch } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getKnowledgeDocs, addKnowledgeDoc, updateKnowledgeDoc, deleteKnowledgeDoc, KnowledgeDocument } from '../../lib/firebase';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,7 +17,7 @@ const WORLD_MODULES: { value: WorldModule; label: string }[] = [
     { value: 'global', label: 'Global (All Modules)' },
     { value: 'classic', label: 'Classic D&D' },
     { value: 'outworlder', label: 'Outworlder (HWFWM)' },
-    { value: 'shadowMonarch', label: 'Shadow Monarch' },
+    { value: 'shadowMonarch', label: 'PRAXIS: Operation Dark Tide' },
 ];
 
 const CATEGORIES: { value: Category; label: string }[] = [
@@ -39,6 +40,8 @@ export default function AdminTrainingScreen() {
     const [saving, setSaving] = useState(false);
     const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
     const [expandedId, setExpandedId] = useState<string | null>(null);
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     // Form state
     const [showForm, setShowForm] = useState(false);
@@ -558,7 +561,7 @@ export default function AdminTrainingScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

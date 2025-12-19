@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Platform } from 'react-native';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { spacing, borderRadius, typography } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useSettingsStore } from '../../lib/store';
 import type { Message } from '../../lib/types';
 
@@ -14,6 +15,9 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
     const isSystem = message.role === 'system';
     const isBlueBox = message.content.includes('『') || message.content.includes('[DAILY QUEST]');
     const alternatingColors = useSettingsStore((state) => state.alternatingColors);
+
+    const { colors, isDark } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const getBubbleStyle = () => {
         if (isUser) return styles.userBubble;
@@ -92,7 +96,7 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         paddingHorizontal: spacing.md,
         marginBottom: spacing.md,
@@ -113,25 +117,25 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.lg,
     },
     userBubble: {
-        backgroundColor: colors.primary[600],
+        backgroundColor: colors.chat.user,
         borderBottomRightRadius: borderRadius.sm,
     },
     narratorBubble: {
-        backgroundColor: colors.background.tertiary,
+        backgroundColor: colors.chat.narrator,
         borderBottomLeftRadius: borderRadius.sm,
     },
     systemBubble: {
-        backgroundColor: colors.status.info + '20',
+        backgroundColor: colors.chat.system + '20', // Add transparency if hex
         borderWidth: 1,
-        borderColor: colors.status.info + '40',
+        borderColor: colors.chat.system + '40',
     },
     blueBoxBubble: {
-        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+        backgroundColor: colors.chat.blueBox + '20',
         borderWidth: 1,
-        borderColor: 'rgba(59, 130, 246, 0.3)',
+        borderColor: colors.chat.blueBox + '50',
     },
     userText: {
-        color: colors.text.primary,
+        color: colors.text.inverse, // User bubble is usually dark/colored, so inverse text
         fontSize: typography.fontSize.md,
         lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
     },
@@ -141,7 +145,7 @@ const styles = StyleSheet.create({
         lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
     },
     narratorBubbleAlt: {
-        backgroundColor: colors.background.secondary,
+        backgroundColor: colors.background.tertiary, // Use tertiary for alternation
         borderBottomLeftRadius: borderRadius.sm,
     },
     narratorTextAlt: {
@@ -155,7 +159,7 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
     },
     blueBoxText: {
-        color: '#3b82f6',
+        color: colors.status.info,
         fontSize: typography.fontSize.md,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     },
@@ -166,7 +170,7 @@ const styles = StyleSheet.create({
         marginVertical: spacing.sm,
     },
     codeText: {
-        color: '#3b82f6',
+        color: colors.status.info,
         fontSize: typography.fontSize.sm,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
     },

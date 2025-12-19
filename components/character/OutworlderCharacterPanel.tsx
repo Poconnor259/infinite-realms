@@ -1,0 +1,328 @@
+import React, { useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { spacing, borderRadius, typography } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
+import type { OutworlderModuleState } from '../../lib/types';
+
+interface OutworlderCharacterPanelProps {
+    moduleState: OutworlderModuleState;
+}
+
+export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPanelProps) {
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    const { character } = moduleState;
+
+    // Early return if character data is not available
+    if (!character) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
+                <Text style={{ color: colors.text.secondary, textAlign: 'center', marginBottom: spacing.sm }}>
+                    Character stats will appear here
+                </Text>
+                <Text style={{ color: colors.text.muted, textAlign: 'center', fontSize: typography.fontSize.sm }}>
+                    Send your first message to begin your adventure
+                </Text>
+            </View>
+        );
+    }
+
+    const getRankColor = (rank: string) => {
+        switch (rank) {
+            case 'Iron': return '#6B7280';
+            case 'Bronze': return '#CD7F32';
+            case 'Silver': return '#C0C0C0';
+            case 'Gold': return colors.gold.main;
+            case 'Diamond': return '#B9F2FF';
+            default: return colors.text.secondary;
+        }
+    };
+
+    return (
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            {/* Character Header */}
+            <View style={styles.header}>
+                <Text style={styles.characterName}>{character.name}</Text>
+                <View style={[styles.rankBadge, { backgroundColor: getRankColor(character.rank) + '20' }]}>
+                    <Text style={[styles.rankText, { color: getRankColor(character.rank) }]}>
+                        {character.rank} Rank
+                    </Text>
+                </View>
+                <Text style={styles.characterSubtitle}>Level {character.level}</Text>
+            </View>
+
+            {/* HP Bar */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Hit Points</Text>
+                <View style={styles.resourceContainer}>
+                    <View style={styles.resourceBar}>
+                        <View
+                            style={[
+                                styles.resourceFill,
+                                {
+                                    width: `${(character.hp.current / character.hp.max) * 100}%`,
+                                    backgroundColor: colors.status.error
+                                }
+                            ]}
+                        />
+                    </View>
+                    <Text style={styles.resourceText}>
+                        {character.hp.current} / {character.hp.max}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Spirit Bar */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Spirit</Text>
+                <View style={styles.resourceContainer}>
+                    <View style={styles.resourceBar}>
+                        <View
+                            style={[
+                                styles.resourceFill,
+                                {
+                                    width: `${(character.spirit.current / character.spirit.max) * 100}%`,
+                                    backgroundColor: '#8B5CF6'
+                                }
+                            ]}
+                        />
+                    </View>
+                    <Text style={styles.resourceText}>
+                        {character.spirit.current} / {character.spirit.max}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Mana Bar */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Mana</Text>
+                <View style={styles.resourceContainer}>
+                    <View style={styles.resourceBar}>
+                        <View
+                            style={[
+                                styles.resourceFill,
+                                {
+                                    width: `${(character.mana.current / character.mana.max) * 100}%`,
+                                    backgroundColor: '#3B82F6'
+                                }
+                            ]}
+                        />
+                    </View>
+                    <Text style={styles.resourceText}>
+                        {character.mana.current} / {character.mana.max}
+                    </Text>
+                </View>
+            </View>
+
+            {/* Essences */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Essences ({(character.essences || []).length}/4)</Text>
+                {(character.essences || []).map((essence, idx) => (
+                    <View key={idx} style={styles.essenceItem}>
+                        <Text style={styles.essenceName}>{essence}</Text>
+                    </View>
+                ))}
+                {character.confluence && (
+                    <View style={[styles.essenceItem, styles.confluenceItem]}>
+                        <Text style={styles.confluenceLabel}>Confluence:</Text>
+                        <Text style={styles.confluenceName}>{character.confluence}</Text>
+                    </View>
+                )}
+                {(!character.essences || character.essences.length === 0) && (
+                    <Text style={styles.emptyText}>No essences absorbed yet</Text>
+                )}
+            </View>
+
+            {/* Abilities */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Abilities</Text>
+                {(character.abilities || []).map((ability, idx) => (
+                    <View key={idx} style={styles.abilityItem}>
+                        <View style={styles.abilityHeader}>
+                            <Text style={styles.abilityName}>{ability.name}</Text>
+                            <Text style={[styles.abilityRank, { color: getRankColor(ability.rank) }]}>
+                                {ability.rank}
+                            </Text>
+                        </View>
+                        <Text style={styles.abilityEssence}>From: {ability.essence}</Text>
+                        <Text style={styles.abilityType}>{ability.type}</Text>
+                        {ability.currentCooldown > 0 && (
+                            <Text style={styles.abilityCooldown}>
+                                Cooldown: {ability.currentCooldown}
+                            </Text>
+                        )}
+                    </View>
+                ))}
+                {(!character.abilities || character.abilities.length === 0) && (
+                    <Text style={styles.emptyText}>No abilities unlocked</Text>
+                )}
+            </View>
+
+            {/* Loot */}
+            {moduleState.lootAwarded && moduleState.lootAwarded.length > 0 && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Recent Loot</Text>
+                    {moduleState.lootAwarded.map((item, idx) => (
+                        <View key={idx} style={styles.lootItem}>
+                            <Text style={styles.lootName}>{item.name}</Text>
+                            {item.quantity > 1 && (
+                                <Text style={styles.lootQuantity}>×{item.quantity}</Text>
+                            )}
+                        </View>
+                    ))}
+                </View>
+            )}
+        </ScrollView>
+    );
+}
+
+const createStyles = (colors: any) => StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: colors.background.secondary,
+    },
+    header: {
+        padding: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+        alignItems: 'center',
+    },
+    characterName: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.xs,
+    },
+    rankBadge: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        borderRadius: borderRadius.full,
+        marginBottom: spacing.xs,
+    },
+    rankText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    characterSubtitle: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+    },
+    section: {
+        padding: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+    },
+    sectionTitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+        color: colors.text.primary,
+        marginBottom: spacing.sm,
+    },
+    resourceContainer: {
+        gap: spacing.xs,
+    },
+    resourceBar: {
+        height: 20,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        overflow: 'hidden',
+    },
+    resourceFill: {
+        height: '100%',
+        borderRadius: borderRadius.md,
+    },
+    resourceText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        textAlign: 'center',
+    },
+    essenceItem: {
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.xs,
+    },
+    essenceName: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        fontWeight: '500',
+    },
+    confluenceItem: {
+        backgroundColor: colors.gold.main + '20',
+        borderWidth: 1,
+        borderColor: colors.gold.main,
+    },
+    confluenceLabel: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        marginBottom: spacing.xs,
+    },
+    confluenceName: {
+        fontSize: typography.fontSize.sm,
+        color: colors.gold.main,
+        fontWeight: '600',
+    },
+    abilityItem: {
+        padding: spacing.sm,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.sm,
+    },
+    abilityHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    abilityName: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.primary,
+        fontWeight: '600',
+        flex: 1,
+    },
+    abilityRank: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    abilityEssence: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        marginBottom: spacing.xs,
+    },
+    abilityType: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.secondary,
+        textTransform: 'capitalize',
+    },
+    abilityCooldown: {
+        fontSize: typography.fontSize.xs,
+        color: colors.status.warning,
+        marginTop: spacing.xs,
+    },
+    lootItem: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.sm,
+        marginBottom: spacing.xs,
+    },
+    lootName: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+    },
+    lootQuantity: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+    },
+    emptyText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+        fontStyle: 'italic',
+        textAlign: 'center',
+        paddingVertical: spacing.md,
+    },
+});

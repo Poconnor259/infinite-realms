@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
     StyleSheet,
     ScrollView,
+    TouchableOpacity, // Added TouchableOpacity import
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
+import { Logo } from '../components/ui/Logo';
+import { spacing, borderRadius, typography, shadows } from '../lib/theme';
+import { useThemeColors } from '../lib/hooks/useTheme';
 
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import type { WorldModuleType } from '../lib/types';
@@ -25,7 +28,7 @@ interface WorldModule {
     lockReason?: string;
 }
 
-const WORLD_MODULES: WorldModule[] = [
+const getWorldModules = (colors: any): WorldModule[] => [
     {
         id: 'classic',
         name: 'The Classic',
@@ -56,11 +59,11 @@ const WORLD_MODULES: WorldModule[] = [
     },
     {
         id: 'shadowMonarch',
-        name: 'Shadow Monarch',
+        name: 'PRAXIS: Operation Dark Tide',
         subtitle: 'Solo Leveling',
         icon: '👤',
         color: '#8b5cf6',
-        description: 'Start as the weakest hunter and rise to become the Shadow Monarch. Complete daily quests, clear dungeons, and build your shadow army.',
+        description: 'Join PRAXIS, an elite tactical unit operating in a world of supernatural threats. Complete missions, upgrade your gear, and lead covert operations against dark forces.',
         features: [
             'Daily quest system with penalties',
             'Shadow extraction and army management',
@@ -72,6 +75,9 @@ const WORLD_MODULES: WorldModule[] = [
 
 export default function WorldSelectScreen() {
     const router = useRouter();
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    const WORLD_MODULES = useMemo(() => getWorldModules(colors), [colors]);
     const [selectedWorld, setSelectedWorld] = useState<WorldModuleType | null>(null);
 
     const handleWorldSelect = (worldId: WorldModuleType) => {
@@ -84,7 +90,11 @@ export default function WorldSelectScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {/* Header */}
+            <View style={styles.header}>
+                <Logo size={32} />
+            </View>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -173,10 +183,16 @@ export default function WorldSelectScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,
+    },
+    header: {
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
     },
     scrollView: {
         flex: 1,

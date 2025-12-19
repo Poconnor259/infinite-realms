@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -9,29 +9,35 @@ import {
     Platform,
     ActivityIndicator,
     Animated,
+    Alert,
 } from 'react-native';
+import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn } from '../../lib/firebase';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { spacing, borderRadius, typography } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useGameStore, useTurnsStore } from '../../lib/store';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { HPBar } from '../../components/hud/HPBar';
 import { StatRow, ResourceBar } from '../../components/hud/StatCard';
+import { CharacterPanel } from '../../components/character/CharacterPanel';
+import { Logo } from '../../components/ui/Logo';
 import type { Message, WorldModuleType } from '../../lib/types';
 
-const WORLD_INFO: Record<WorldModuleType, { name: string; icon: string; color: string }> = {
+const getWorldInfo = (colors: any): Record<WorldModuleType, { name: string; icon: string; color: string }> => ({
     classic: { name: 'The Classic', icon: '⚔️', color: colors.gold.main },
     outworlder: { name: 'The Outworlder', icon: '🌌', color: '#10b981' },
-    shadowMonarch: { name: 'Shadow Monarch', icon: '👤', color: '#8b5cf6' },
-};
+    shadowMonarch: { name: 'PRAXIS: Operation Dark Tide', icon: '👤', color: '#8b5cf6' },
+});
 
 // Turn Counter Component
 function TurnCounter() {
     const { getRemaining, tier } = useTurnsStore();
     const remaining = getRemaining();
     const router = useRouter();
+    const { colors } = useThemeColors();
 
     const displayText = remaining === Infinity ? '∞' : remaining.toString();
     const lowTurns = typeof remaining === 'number' && remaining < 10;
@@ -73,6 +79,8 @@ export default function CampaignScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
     const router = useRouter();
     const flatListRef = useRef<FlatList>(null);
+    const { colors, isDark } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const {
         currentCampaign,
@@ -82,6 +90,30 @@ export default function CampaignScreen() {
         loadCampaign,
         error,
     } = useGameStore();
+
+    const [isDeleting, setIsDeleting] = useState(false);
+    const [menuVisible, setMenuVisible] = useState(false);
+    const [panelVisible, setPanelVisible] = useState(false);
+    const [isDesktop, setIsDesktop] = useState(() => {
+        if (Platform.OS === 'web' && typeof window !== 'undefined') {
+            return window.innerWidth >= 768;
+        }
+        return false;
+    });
+
+    // Handle window resize for responsive panel
+    useEffect(() => {
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+
+        const handleResize = () => {
+            if (typeof window !== 'undefined') {
+                setIsDesktop(window.innerWidth >= 768);
+            }
+        };
+
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     useEffect(() => {
         if (!id) return;
@@ -121,9 +153,13 @@ export default function CampaignScreen() {
         setMenuVisible(false);
 
         // Use window.confirm for web compatibility
-        const confirmed = Platform.OS === 'web'
-            ? window.confirm(`Are you sure you want to delete "${currentCampaign?.name}"? This cannot be undone.`)
-            : await new Promise<boolean>((resolve) => {
+        let confirmed = false;
+        if (Platform.OS === 'web') {
+            // @ts-ignore
+            confirmed = window.confirm(`Are you sure you want to delete "${currentCampaign?.name}"? This cannot be undone.`);
+        } else {
+            confirmed = await new Promise<boolean>((resolve) => {
+                // @ts-ignore
                 Alert.alert(
                     'Delete Campaign',
                     `Are you sure you want to delete "${currentCampaign?.name}"? This cannot be undone.`,
@@ -133,6 +169,7 @@ export default function CampaignScreen() {
                     ]
                 );
             });
+        }
 
         if (!confirmed || !currentCampaign) return;
 
@@ -143,8 +180,10 @@ export default function CampaignScreen() {
         } catch (error) {
             console.error('Failed to delete campaign:', error);
             if (Platform.OS === 'web') {
+                // @ts-ignore
                 window.alert('Failed to delete campaign');
             } else {
+                // @ts-ignore
                 Alert.alert('Error', 'Failed to delete campaign');
             }
             setIsDeleting(false);
@@ -178,7 +217,7 @@ export default function CampaignScreen() {
         );
     }
 
-    const worldInfo = WORLD_INFO[currentCampaign.worldModule];
+    const worldInfo = getWorldInfo(colors)[currentCampaign.worldModule];
     const character = currentCampaign.character;
     const moduleState = currentCampaign.moduleState;
 
@@ -296,108 +335,140 @@ export default function CampaignScreen() {
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <KeyboardAvoidingView
-                style={styles.keyboardView}
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={0}
-            >
-                {/* Header */}
-                <View style={styles.header}>
-                    <TouchableOpacity
-                        style={styles.headerButton}
-                        onPress={() => router.back()}
+            <View style={[styles.contentWrapper, isDesktop && styles.desktopLayout]}>
+                {/* Main Chat Area */}
+                <View style={[styles.chatContainer, isDesktop && styles.chatContainerDesktop]}>
+                    <KeyboardAvoidingView
+                        style={styles.keyboardView}
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        keyboardVerticalOffset={0}
                     >
-                        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-                    </TouchableOpacity>
+                        {/* Header */}
+                        <View style={styles.header}>
+                            <Logo size={32} />
+                            <TouchableOpacity
+                                style={styles.headerButton}
+                                onPress={() => router.back()}
+                            >
+                                <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                            </TouchableOpacity>
 
-                    <View style={styles.headerCenter}>
-                        <View style={styles.campaignHeader}>
-                            <Text style={styles.worldIcon}>{worldInfo.icon}</Text>
-                            <View>
-                                <Text style={styles.campaignTitle} numberOfLines={1}>
-                                    {currentCampaign.name}
-                                </Text>
-                                <Text style={styles.characterInfo}>
-                                    {character.name} • Lv.{character.level}
-                                </Text>
+                            <View style={styles.headerCenter}>
+                                <View style={styles.campaignHeader}>
+                                    <Text style={styles.worldIcon}>{worldInfo.icon}</Text>
+                                    <View>
+                                        <Text style={styles.campaignTitle} numberOfLines={1}>
+                                            {currentCampaign.name}
+                                        </Text>
+                                        <Text style={styles.characterInfo}>
+                                            {character.name} • Lv.{character.level}
+                                        </Text>
+                                    </View>
+                                </View>
                             </View>
-                        </View>
-                    </View>
 
-                    <TurnCounter />
+                            <TurnCounter />
+
+                            {/* Inventory Button (Mobile) */}
+                            {!isDesktop && (
+                                <TouchableOpacity
+                                    style={styles.headerButton}
+                                    onPress={() => setPanelVisible(!panelVisible)}
+                                >
+                                    <Ionicons
+                                        name={panelVisible ? "close" : "bag-outline"}
+                                        size={24}
+                                        color={colors.text.primary}
+                                    />
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Collapsible HUD */}
+                        <Animated.View style={[styles.hudContainer, { maxHeight: hudHeight, opacity: hudAnimation }]}>
+                            <View style={styles.hpSection}>
+                                <HPBar
+                                    current={character.hp.current}
+                                    max={character.hp.max}
+                                    size="md"
+                                />
+                            </View>
+                            {renderModuleHud()}
+                        </Animated.View>
+
+                        {/* HUD Toggle */}
+                        <TouchableOpacity
+                            style={styles.hudToggle}
+                            onPress={toggleHud}
+                        >
+                            <Ionicons
+                                name={hudExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={20}
+                                color={colors.text.muted}
+                            />
+                        </TouchableOpacity>
+
+                        {/* Chat Messages */}
+                        <FlatList
+                            ref={flatListRef}
+                            data={messages}
+                            renderItem={renderMessage}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.messageList}
+                            showsVerticalScrollIndicator={false}
+                            ListEmptyComponent={
+                                <View style={styles.emptyChat}>
+                                    <Text style={styles.emptyChatIcon}>📜</Text>
+                                    <Text style={styles.emptyChatText}>Your adventure awaits...</Text>
+                                    <Text style={styles.emptyChatHint}>
+                                        Type your first action to begin
+                                    </Text>
+                                </View>
+                            }
+                        />
+
+                        {/* Loading Indicator */}
+                        {isLoading && (
+                            <View style={styles.loadingContainer}>
+                                <ActivityIndicator color={colors.primary[400]} />
+                                <Text style={styles.loadingText}>The narrator is writing...</Text>
+                            </View>
+                        )}
+
+                        {/* Error Display */}
+                        {error && (
+                            <View style={styles.errorBanner}>
+                                <Ionicons name="alert-circle" size={16} color={colors.status.error} />
+                                <Text style={styles.errorBannerText}>{error}</Text>
+                            </View>
+                        )}
+
+                        {/* Chat Input */}
+                        <ChatInput
+                            onSend={handleSend}
+                            disabled={isLoading}
+                            placeholder="What do you do?"
+                        />
+                    </KeyboardAvoidingView>
                 </View>
 
-                {/* Collapsible HUD */}
-                <Animated.View style={[styles.hudContainer, { maxHeight: hudHeight, opacity: hudAnimation }]}>
-                    <View style={styles.hpSection}>
-                        <HPBar
-                            current={character.hp.current}
-                            max={character.hp.max}
-                            size="md"
-                        />
-                    </View>
-                    {renderModuleHud()}
-                </Animated.View>
-
-                {/* HUD Toggle */}
-                <TouchableOpacity
-                    style={styles.hudToggle}
-                    onPress={toggleHud}
-                >
-                    <Ionicons
-                        name={hudExpanded ? 'chevron-up' : 'chevron-down'}
-                        size={20}
-                        color={colors.text.muted}
+                {/* Character Panel - Desktop Sidebar / Mobile Drawer */}
+                {(isDesktop || panelVisible) && currentCampaign && (<View style={[
+                    styles.panelContainer,
+                    !isDesktop && styles.panelMobile
+                ]}>
+                    <CharacterPanel
+                        moduleState={currentCampaign.moduleState}
+                        worldModule={currentCampaign.worldModule}
                     />
-                </TouchableOpacity>
-
-                {/* Chat Messages */}
-                <FlatList
-                    ref={flatListRef}
-                    data={messages}
-                    renderItem={renderMessage}
-                    keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.messageList}
-                    showsVerticalScrollIndicator={false}
-                    ListEmptyComponent={
-                        <View style={styles.emptyChat}>
-                            <Text style={styles.emptyChatIcon}>📜</Text>
-                            <Text style={styles.emptyChatText}>Your adventure awaits...</Text>
-                            <Text style={styles.emptyChatHint}>
-                                Type your first action to begin
-                            </Text>
-                        </View>
-                    }
-                />
-
-                {/* Loading Indicator */}
-                {isLoading && (
-                    <View style={styles.loadingContainer}>
-                        <ActivityIndicator color={colors.primary[400]} />
-                        <Text style={styles.loadingText}>The narrator is writing...</Text>
-                    </View>
+                </View>
                 )}
-
-                {/* Error Display */}
-                {error && (
-                    <View style={styles.errorBanner}>
-                        <Ionicons name="alert-circle" size={16} color={colors.status.error} />
-                        <Text style={styles.errorBannerText}>{error}</Text>
-                    </View>
-                )}
-
-                {/* Chat Input */}
-                <ChatInput
-                    onSend={handleSend}
-                    disabled={isLoading}
-                    placeholder="What do you do?"
-                />
-            </KeyboardAvoidingView>
+            </View>
         </SafeAreaView>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,
@@ -637,5 +708,35 @@ const styles = StyleSheet.create({
     menuItemText: {
         fontSize: typography.fontSize.md,
         fontWeight: '500' as const,
+    },
+    contentWrapper: {
+        flex: 1,
+    },
+    desktopLayout: {
+        flexDirection: 'row' as const,
+    },
+    chatContainer: {
+        flex: 1,
+    },
+    chatContainerDesktop: {
+        maxWidth: 'calc(100% - 320px)' as any,
+    },
+    panelContainer: {
+        width: 320,
+        borderLeftWidth: 1,
+        borderLeftColor: colors.border.default,
+        backgroundColor: colors.background.secondary,
+    },
+    panelMobile: {
+        position: 'absolute' as const,
+        top: 0,
+        right: 0,
+        bottom: 0,
+        zIndex: 1000,
+        shadowColor: '#000',
+        shadowOffset: { width: -2, height: 0 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 5,
     },
 });

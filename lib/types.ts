@@ -107,6 +107,12 @@ export interface OutworlderCharacter extends Character {
     rank: 'Iron' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
     essences: string[]; // max 4
     confluence?: string;
+    stats: {
+        power: number;
+        speed: number;
+        spirit: number;
+        recovery: number;
+    };
     abilities: OutworlderAbility[];
     spirit: {
         current: number;
@@ -141,7 +147,7 @@ export interface OutworlderModuleState {
 // ==================== SHADOW MONARCH (SOLO LEVELING) ====================
 
 export interface ShadowMonarchCharacter extends Character {
-    job: 'None' | 'Necromancer' | 'Shadow Monarch';
+    job: 'None' | 'Necromancer' | 'PRAXIS Operative';
     title?: string;
     stats: {
         strength: number;

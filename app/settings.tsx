@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -13,25 +13,17 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../lib/theme';
+import { Logo } from '../components/ui/Logo';
+import { spacing, borderRadius, typography } from '../lib/theme';
+import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore } from '../lib/store';
 import { signOut } from '../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 
+// Helper types
 interface SettingsSectionProps {
     title: string;
     children: React.ReactNode;
-}
-
-function SettingsSection({ title, children }: SettingsSectionProps) {
-    return (
-        <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{title}</Text>
-            <View style={styles.sectionContent}>
-                {children}
-            </View>
-        </View>
-    );
 }
 
 interface SettingsRowProps {
@@ -43,54 +35,84 @@ interface SettingsRowProps {
     onPress?: () => void;
 }
 
-function SettingsRow({ label, sublabel, icon, iconColor, rightElement, onPress }: SettingsRowProps) {
-    const content = (
-        <>
-            {icon && (
-                <View style={[styles.rowIcon, { backgroundColor: (iconColor || colors.primary[400]) + '20' }]}>
-                    <Ionicons name={icon} size={20} color={iconColor || colors.primary[400]} />
-                </View>
-            )}
-            <View style={styles.rowContent}>
-                <Text style={styles.rowLabel}>{label}</Text>
-                {sublabel && <Text style={styles.rowSublabel}>{sublabel}</Text>}
-            </View>
-            {rightElement}
-            {onPress && !rightElement && (
-                <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
-            )}
-        </>
-    );
-
-    if (onPress) {
-        return (
-            <AnimatedPressable style={styles.row} onPress={onPress}>
-                {content}
-            </AnimatedPressable>
-        );
-    }
-
-    return <View style={styles.row}>{content}</View>;
-}
-
 export default function SettingsScreen() {
     const router = useRouter();
+    const { colors, theme: activeTheme, isDark } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
     const {
         hapticFeedback,
         soundEffects,
         narratorVoice,
         alternatingColors,
+        themeMode,
         openaiKey,
         anthropicKey,
         googleKey,
         setPreference,
         setApiKey,
     } = useSettingsStore();
+
     const user = useUserStore((state) => state.user);
 
     const [showByokSection, setShowByokSection] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [keyInput, setKeyInput] = useState('');
+
+    // Helper components defined inside to access dynamic styles
+    const Section = ({ title, children }: SettingsSectionProps) => (
+        <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{title}</Text>
+            <View style={styles.sectionContent}>
+                {children}
+            </View>
+        </View>
+    );
+
+    const Row = ({ label, sublabel, icon, iconColor, rightElement, onPress }: SettingsRowProps) => {
+        const content = (
+            <>
+                {icon && (
+                    <View style={[styles.rowIcon, { backgroundColor: (iconColor || colors.primary[400]) + '20' }]}>
+                        <Ionicons name={icon} size={20} color={iconColor || colors.primary[400]} />
+                    </View>
+                )}
+                <View style={styles.rowContent}>
+                    <Text style={styles.rowLabel}>{label}</Text>
+                    {sublabel && <Text style={styles.rowSublabel}>{sublabel}</Text>}
+                </View>
+                {rightElement}
+                {onPress && !rightElement && (
+                    <Ionicons name="chevron-forward" size={20} color={colors.text.muted} />
+                )}
+            </>
+        );
+
+        if (onPress) {
+            return (
+                <AnimatedPressable style={styles.row} onPress={onPress}>
+                    {content}
+                </AnimatedPressable>
+            );
+        }
+
+        return <View style={styles.row}>{content}</View>;
+    };
+
+    const handleThemeToggle = () => {
+        const modes: ('system' | 'light' | 'dark')[] = ['system', 'light', 'dark'];
+        const currentIndex = modes.indexOf(themeMode);
+        const nextMode = modes[(currentIndex + 1) % modes.length];
+        setPreference('themeMode', nextMode);
+    };
+
+    const getThemeLabel = (mode: 'system' | 'light' | 'dark') => {
+        switch (mode) {
+            case 'system': return 'System Default';
+            case 'light': return 'Light Mode';
+            case 'dark': return 'Dark Mode';
+        }
+    };
 
     const handleSaveKey = (provider: 'openai' | 'anthropic' | 'google') => {
         if (keyInput.trim()) {
@@ -102,13 +124,11 @@ export default function SettingsScreen() {
 
     const handleRemoveKey = (provider: 'openai' | 'anthropic' | 'google') => {
         if (Platform.OS === 'web') {
-            // Web-friendly confirmation
-            // @ts-ignore - confirm exists on window
+            // @ts-ignore
             if (window.confirm(`Are you sure you want to remove your ${provider.toUpperCase()} API key?`)) {
                 setApiKey(provider, null);
             }
         } else {
-            // Native Alert
             Alert.alert(
                 'Remove API Key',
                 `Are you sure you want to remove your ${provider.toUpperCase()} API key?`,
@@ -130,7 +150,11 @@ export default function SettingsScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top']}>
+            {/* Header */}
+            <View style={styles.header}>
+                <Logo size={32} />
+            </View>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -138,9 +162,9 @@ export default function SettingsScreen() {
             >
                 {/* Account Section */}
                 <FadeInView delay={0}>
-                    <SettingsSection title="Account">
+                    <Section title="Account">
                         {user?.role === 'admin' && (
-                            <SettingsRow
+                            <Row
                                 label="Admin Dashboard"
                                 sublabel="Manage users and system settings"
                                 icon="shield-checkmark-outline"
@@ -149,7 +173,7 @@ export default function SettingsScreen() {
                             />
                         )}
                         {user?.isAnonymous ? (
-                            <SettingsRow
+                            <Row
                                 label="Sign In / Create Account"
                                 sublabel="Sync your campaigns across devices"
                                 icon="person-circle-outline"
@@ -158,20 +182,21 @@ export default function SettingsScreen() {
                             />
                         ) : (
                             <>
-                                <SettingsRow
+                                <Row
                                     label="Account"
                                     sublabel={user?.email || 'Signed In'}
                                     icon="person-outline"
                                     iconColor={colors.primary[400]}
                                     onPress={() => { }}
                                 />
-                                <SettingsRow
+                                <Row
                                     label="Sign Out"
                                     sublabel="Log out of your account"
                                     icon="log-out-outline"
                                     iconColor={colors.status.error}
                                     onPress={async () => {
                                         if (Platform.OS === 'web') {
+                                            // @ts-ignore
                                             if (window.confirm('Are you sure you want to sign out?')) {
                                                 await signOut();
                                                 router.replace('/');
@@ -193,7 +218,7 @@ export default function SettingsScreen() {
                                 />
                             </>
                         )}
-                        <SettingsRow
+                        <Row
                             label="Subscription"
                             sublabel="Scout (Free)"
                             icon="star-outline"
@@ -202,13 +227,21 @@ export default function SettingsScreen() {
                                 Alert.alert('Coming Soon', 'Subscriptions will be added with RevenueCat integration.');
                             }}
                         />
-                    </SettingsSection>
+                    </Section>
                 </FadeInView>
 
                 {/* Preferences Section */}
                 <FadeInView delay={100}>
-                    <SettingsSection title="Preferences">
-                        <SettingsRow
+                    <Section title="Preferences">
+                        <Row
+                            label="Appearance"
+                            sublabel={getThemeLabel(themeMode)}
+                            icon={themeMode === 'light' ? 'sunny-outline' : themeMode === 'dark' ? 'moon-outline' : 'contrast-outline'}
+                            iconColor={colors.primary[400]}
+                            onPress={handleThemeToggle}
+                        />
+
+                        <Row
                             label="Haptic Feedback"
                             sublabel="Vibrate on actions"
                             icon="phone-portrait-outline"
@@ -222,7 +255,7 @@ export default function SettingsScreen() {
                                 />
                             }
                         />
-                        <SettingsRow
+                        <Row
                             label="Sound Effects"
                             sublabel="Play audio for game events"
                             icon="volume-medium-outline"
@@ -236,7 +269,7 @@ export default function SettingsScreen() {
                                 />
                             }
                         />
-                        <SettingsRow
+                        <Row
                             label="Narrator Voice"
                             sublabel="Text-to-speech for story (Beta)"
                             icon="mic-outline"
@@ -250,7 +283,7 @@ export default function SettingsScreen() {
                                 />
                             }
                         />
-                        <SettingsRow
+                        <Row
                             label="Alternating Message Colors"
                             sublabel="Use different colors for narrator messages"
                             icon="color-palette-outline"
@@ -264,12 +297,12 @@ export default function SettingsScreen() {
                                 />
                             }
                         />
-                    </SettingsSection>
+                    </Section>
                 </FadeInView>
 
                 {/* BYOK Section */}
                 <FadeInView delay={200}>
-                    <SettingsSection title="Bring Your Own Key (BYOK)">
+                    <Section title="Bring Your Own Key (BYOK)">
                         <TouchableOpacity
                             style={styles.byokHeader}
                             onPress={() => setShowByokSection(!showByokSection)}
@@ -417,13 +450,13 @@ export default function SettingsScreen() {
                                 )}
                             </View>
                         )}
-                    </SettingsSection>
+                    </Section>
                 </FadeInView>
 
                 {/* Data Section */}
                 <FadeInView delay={300}>
-                    <SettingsSection title="Data">
-                        <SettingsRow
+                    <Section title="Data">
+                        <Row
                             label="Export My Data"
                             sublabel="Download all campaigns as JSON"
                             icon="download-outline"
@@ -432,7 +465,7 @@ export default function SettingsScreen() {
                                 Alert.alert('Export', 'Your campaign data will be exported as JSON.');
                             }}
                         />
-                        <SettingsRow
+                        <Row
                             label="Clear Cache"
                             sublabel="Free up device storage"
                             icon="trash-outline"
@@ -448,41 +481,47 @@ export default function SettingsScreen() {
                                 );
                             }}
                         />
-                    </SettingsSection>
+                    </Section>
                 </FadeInView>
 
                 {/* About Section */}
                 <FadeInView delay={400}>
-                    <SettingsSection title="About">
-                        <SettingsRow
+                    <Section title="About">
+                        <Row
                             label="Version"
                             sublabel="1.0.0 (Build 1)"
                             icon="information-circle-outline"
                             iconColor={colors.text.muted}
                         />
-                        <SettingsRow
+                        <Row
                             label="Terms of Service"
                             icon="document-text-outline"
                             iconColor={colors.text.muted}
                             onPress={() => { }}
                         />
-                        <SettingsRow
+                        <Row
                             label="Privacy Policy"
                             icon="shield-checkmark-outline"
                             iconColor={colors.text.muted}
                             onPress={() => { }}
                         />
-                    </SettingsSection>
+                    </Section>
                 </FadeInView>
             </ScrollView>
         </SafeAreaView>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,
+    },
+    header: {
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
     },
     scrollView: {
         flex: 1,

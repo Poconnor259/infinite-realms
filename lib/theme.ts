@@ -1,7 +1,7 @@
 // Theme configuration for Infinite Realms
 // Dark fantasy theme with ethereal blues, deep purples, and gold accents
 
-export const colors = {
+export const darkColors = {
     // Primary palette
     primary: {
         50: '#f0e6ff',
@@ -70,6 +70,79 @@ export const colors = {
         glow: '#9966ff',
     },
 };
+
+export const lightColors = {
+    // Primary palette (same as dark for now, might tune later)
+    primary: {
+        50: '#f0e6ff',
+        100: '#d4bfff',
+        200: '#b794ff',
+        300: '#9966ff',
+        400: '#7c3aed',
+        500: '#6d28d9',
+        600: '#5b21b6',
+        700: '#4c1d95',
+        800: '#3b1578',
+        900: '#2e1065',
+    },
+
+    // Gold accent
+    gold: {
+        light: '#fcd34d',
+        main: '#f59e0b',
+        dark: '#d97706',
+    },
+
+    // Background colors (Clean white/slate theme)
+    background: {
+        primary: '#f8fafc',    // Slate 50 (App background)
+        secondary: '#ffffff',  // White (Content background)
+        tertiary: '#ffffff',   // Card backgrounds (with shadow)
+        elevated: '#f1f5f9',   // Slate 100
+    },
+
+    // Text colors
+    text: {
+        primary: '#0f172a',    // Slate 900 (Headers)
+        secondary: '#334155',  // Slate 700 (Body)
+        muted: '#64748b',      // Slate 500
+        inverse: '#f8fafc',    // White text on dark accents
+    },
+
+    // Status colors (same)
+    status: {
+        success: '#10b981',
+        warning: '#f59e0b',
+        error: '#ef4444',
+        info: '#3b82f6',
+    },
+
+    // HP Bar
+    hp: {
+        full: '#10b981',
+        medium: '#f59e0b',
+        low: '#ef4444',
+        critical: '#991b1b',
+    },
+
+    // Chat bubble colors
+    chat: {
+        user: '#7c3aed',       // Primary 400 (Lighter than dark mode user)
+        narrator: '#f1f5f9',   // Slate 100
+        system: '#eff6ff',     // Blue 50
+        blueBox: '#dbeafe',    // Blue 100
+    },
+
+    // Border colors
+    border: {
+        default: '#e2e8f0',    // Slate 200
+        light: '#cbd5e1',      // Slate 300
+        glow: '#7c3aed',       // Primary 400
+    },
+};
+
+// Default export for backward compatibility
+export const colors = darkColors;
 
 export const spacing = {
     xs: 4,

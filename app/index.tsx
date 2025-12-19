@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
     View,
     Text,
@@ -12,19 +12,20 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
-import { useGameStore, getDefaultModuleState, useTurnsStore, useUserStore } from '../lib/store';
+import { spacing, borderRadius, typography, shadows } from '../lib/theme';
+import { useThemeColors } from '../lib/hooks/useTheme';
+import { useGameStore, getDefaultModuleState, useTurnsStore, useUserStore, useSettingsStore } from '../lib/store';
 import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import { getUserCampaigns, deleteCampaignFn } from '../lib/firebase';
 import type { WorldModuleType, Campaign } from '../lib/types';
 
-const WORLD_INFO: Record<WorldModuleType, {
+const getWorldInfo = (colors: any): Record<WorldModuleType, {
     name: string;
     icon: string;
     color: string;
     description: string;
-}> = {
+}> => ({
     classic: {
         name: 'The Classic',
         icon: '⚔️',
@@ -38,19 +39,34 @@ const WORLD_INFO: Record<WorldModuleType, {
         description: 'HWFWM Essence System',
     },
     shadowMonarch: {
-        name: 'Shadow Monarch',
+        name: 'PRAXIS: Operation Dark Tide',
         icon: '👤',
         color: '#8b5cf6',
         description: 'Solo Leveling System',
     },
-};
+});
 
 export default function HomeScreen() {
     const router = useRouter();
+    const { colors, isDark } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+    const WORLD_INFO = useMemo(() => getWorldInfo(colors), [colors]);
+
     const { setCurrentCampaign, setMessages } = useGameStore();
     const user = useUserStore((state) => state.user);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
     const [loading, setLoading] = useState(true);
+    const { themeMode, setPreference } = useSettingsStore();
+
+    const toggleTheme = () => {
+        if (themeMode === 'system') {
+            setPreference('themeMode', isDark ? 'light' : 'dark');
+        } else if (themeMode === 'dark') {
+            setPreference('themeMode', 'light');
+        } else {
+            setPreference('themeMode', 'dark');
+        }
+    };
 
     // Load user's campaigns from Firestore
     useEffect(() => {
@@ -139,12 +155,24 @@ export default function HomeScreen() {
                         </AnimatedPressable>
                     )}
                 </View>
-                <AnimatedPressable
-                    style={styles.settingsButton}
-                    onPress={() => router.push('/settings')}
-                >
-                    <Ionicons name="settings-outline" size={24} color={colors.text.secondary} />
-                </AnimatedPressable>
+                <View style={styles.headerButtons}>
+                    <AnimatedPressable
+                        style={styles.themeButton}
+                        onPress={toggleTheme}
+                    >
+                        <Ionicons
+                            name={isDark ? 'sunny-outline' : 'moon-outline'}
+                            size={22}
+                            color={colors.text.secondary}
+                        />
+                    </AnimatedPressable>
+                    <AnimatedPressable
+                        style={styles.settingsButton}
+                        onPress={() => router.push('/settings')}
+                    >
+                        <Ionicons name="settings-outline" size={24} color={colors.text.secondary} />
+                    </AnimatedPressable>
+                </View>
             </FadeInView>
 
             {/* Turns Usage Meter */}
@@ -305,7 +333,7 @@ export default function HomeScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,
@@ -330,6 +358,19 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
+        backgroundColor: colors.background.tertiary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    headerButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    themeButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: colors.background.tertiary,
         justifyContent: 'center',
         alignItems: 'center',

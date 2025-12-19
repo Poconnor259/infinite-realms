@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { spacing, borderRadius, typography } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useTurnsStore } from '../../lib/store';
 
 interface TurnsMeterProps {
@@ -11,6 +12,8 @@ interface TurnsMeterProps {
 
 export function TurnsMeter({ compact = false }: TurnsMeterProps) {
     const router = useRouter();
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const { used, tier, getLimit, getRemaining, getUsagePercent } = useTurnsStore();
 
     const limit = getLimit();
@@ -107,7 +110,7 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         backgroundColor: colors.background.tertiary,
         borderRadius: borderRadius.lg,

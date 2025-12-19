@@ -243,6 +243,7 @@ export interface CreateCampaignRequest {
     name: string;
     worldModule: string;
     characterName: string;
+    initialCharacter?: any; // ModuleCharacter type - will be validated by backend
 }
 
 export interface CreateCampaignResponse {
