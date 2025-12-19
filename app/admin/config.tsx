@@ -3,39 +3,43 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
+import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { SUBSCRIPTION_LIMITS, TOP_UP_PACKAGES, SUBSCRIPTION_PRICING } from '../../lib/types';
 
-const WORLD_MODULES = [
-    {
-        id: 'classic',
-        name: 'Classic D&D',
-        description: 'Standard 5th Edition rules with traditional fantasy setting',
-        icon: 'book' as const,
-        color: colors.status.success,
-        enabled: true,
-    },
-    {
-        id: 'outworlder',
-        name: 'Outworlder (HWFWM)',
-        description: 'He Who Fights With Monsters style essence-based system',
-        icon: 'sparkles' as const,
-        color: colors.status.info,
-        enabled: true,
-    },
-    {
-        id: 'shadowMonarch',
-        name: 'PRAXIS: Operation Dark Tide',
-        description: 'Solo Leveling inspired system with shadow army mechanics',
-        icon: 'skull' as const,
-        color: colors.gold.main,
-        enabled: true,
-    },
-];
-
 export default function AdminConfigScreen() {
     const router = useRouter();
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
+    const WORLD_MODULES = useMemo(() => [
+        {
+            id: 'classic',
+            name: 'Classic D&D',
+            description: 'Standard 5th Edition rules with traditional fantasy setting',
+            icon: 'book' as const,
+            color: colors.status.success,
+            enabled: true,
+        },
+        {
+            id: 'outworlder',
+            name: 'Outworlder (HWFWM)',
+            description: 'He Who Fights With Monsters style essence-based system',
+            icon: 'sparkles' as const,
+            color: colors.status.info,
+            enabled: true,
+        },
+        {
+            id: 'shadowMonarch',
+            name: 'PRAXIS: Operation Dark Tide',
+            description: 'Solo Leveling inspired system with shadow army mechanics',
+            icon: 'skull' as const,
+            color: colors.gold.main,
+            enabled: true,
+        },
+    ], [colors]);
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -193,7 +197,7 @@ export default function AdminConfigScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

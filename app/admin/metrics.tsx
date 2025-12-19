@@ -3,7 +3,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
+import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getAdminData } from '../../lib/firebase';
 import { User, SUBSCRIPTION_PRICING } from '../../lib/types';
@@ -13,6 +15,8 @@ export default function AdminMetricsScreen() {
     const [loading, setLoading] = useState(true);
     const [users, setUsers] = useState<User[]>([]);
     const [refreshing, setRefreshing] = useState(false);
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         loadData();
@@ -263,7 +267,7 @@ export default function AdminMetricsScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

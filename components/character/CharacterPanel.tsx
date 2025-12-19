@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import type { ModuleState, WorldModuleType } from '../../lib/types';
 import { ClassicCharacterPanel } from './ClassicCharacterPanel';
 import { OutworlderCharacterPanel } from './OutworlderCharacterPanel';
-import { ShadowMonarchCharacterPanel } from './ShadowMonarchCharacterPanel';
+import { TacticalCharacterPanel } from './TacticalCharacterPanel';
 
 interface CharacterPanelProps {
     moduleState: ModuleState;
@@ -15,7 +15,7 @@ export function CharacterPanel({ moduleState, worldModule }: CharacterPanelProps
         <View style={styles.container}>
             {worldModule === 'classic' && <ClassicCharacterPanel moduleState={moduleState as any} />}
             {worldModule === 'outworlder' && <OutworlderCharacterPanel moduleState={moduleState as any} />}
-            {worldModule === 'shadowMonarch' && <ShadowMonarchCharacterPanel moduleState={moduleState as any} />}
+            {worldModule === 'tactical' && <TacticalCharacterPanel moduleState={moduleState as any} />}
         </View>
     );
 }

@@ -17,20 +17,26 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
-import { useGameStore, useTurnsStore } from '../../lib/store';
+import { useGameStore, useTurnsStore, useUserStore } from '../../lib/store';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { HPBar } from '../../components/hud/HPBar';
 import { StatRow, ResourceBar } from '../../components/hud/StatCard';
 import { CharacterPanel } from '../../components/character/CharacterPanel';
 import { Logo } from '../../components/ui/Logo';
-import type { Message, WorldModuleType } from '../../lib/types';
+import type { Message, WorldModuleType, ClassicModuleState, OutworlderModuleState, TacticalModuleState } from '../../lib/types';
 
-const getWorldInfo = (colors: any): Record<WorldModuleType, { name: string; icon: string; color: string }> => ({
-    classic: { name: 'The Classic', icon: '⚔️', color: colors.gold.main },
-    outworlder: { name: 'The Outworlder', icon: '🌌', color: '#10b981' },
-    shadowMonarch: { name: 'PRAXIS: Operation Dark Tide', icon: '👤', color: '#8b5cf6' },
-});
+const getWorldInfo = (colors: any): Record<string, { name: string; icon: string; color: string }> => {
+    const info: Record<string, { name: string; icon: string; color: string }> = {
+        classic: { name: 'The Classic', icon: '⚔️', color: colors.gold.main },
+        outworlder: { name: 'The Outworlder', icon: '🌌', color: '#10b981' },
+        tactical: { name: 'PRAXIS: Operation Dark Tide', icon: '👤', color: '#8b5cf6' },
+    };
+    // Add legacy mappings
+    info['shadow-monarch'] = info.tactical;
+    info['shadowMonarch'] = info.tactical;
+    return info;
+};
 
 // Turn Counter Component
 function TurnCounter() {
@@ -90,6 +96,8 @@ export default function CampaignScreen() {
         loadCampaign,
         error,
     } = useGameStore();
+    const user = useUserStore((state) => state.user);
+    const isUserLoading = useUserStore((state) => state.isLoading);
 
     const [isDeleting, setIsDeleting] = useState(false);
     const [menuVisible, setMenuVisible] = useState(false);
@@ -116,13 +124,13 @@ export default function CampaignScreen() {
     }, []);
 
     useEffect(() => {
-        if (!id) return;
+        if (!id || isUserLoading || !user) return;
 
         // If we don't have a campaign, or it's the wrong one, load it
         if (!currentCampaign || currentCampaign.id !== id) {
             loadCampaign(id);
         }
-    }, [id, currentCampaign, loadCampaign]);
+    }, [id, currentCampaign, loadCampaign, isUserLoading, user]);
 
     const [hudExpanded, setHudExpanded] = useState(true);
     const hudAnimation = useRef(new Animated.Value(1)).current;
@@ -190,7 +198,7 @@ export default function CampaignScreen() {
         }
     };
 
-    if (isLoading && !currentCampaign) {
+    if ((isLoading || isUserLoading) && !currentCampaign) {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
@@ -217,15 +225,19 @@ export default function CampaignScreen() {
         );
     }
 
-    const worldInfo = getWorldInfo(colors)[currentCampaign.worldModule];
+    const worldInfo = getWorldInfo(colors)[currentCampaign.worldModule] || {
+        name: 'Unknown World',
+        icon: '🌍',
+        color: colors.text.muted
+    };
     const character = currentCampaign.character;
     const moduleState = currentCampaign.moduleState;
 
     // Render module-specific HUD
     const renderModuleHud = () => {
-        switch (moduleState.type) {
+        switch (moduleState.type as any) {
             case 'classic':
-                const classicState = moduleState;
+                const classicState = moduleState as ClassicModuleState;
                 return (
                     <View style={styles.moduleHud}>
                         <StatRow stats={classicState.character.stats} />
@@ -249,7 +261,7 @@ export default function CampaignScreen() {
                 );
 
             case 'outworlder':
-                const outworlderState = moduleState;
+                const outworlderState = moduleState as OutworlderModuleState;
                 return (
                     <View style={styles.moduleHud}>
                         <View style={styles.hudRow}>
@@ -283,37 +295,38 @@ export default function CampaignScreen() {
                     </View>
                 );
 
+            case 'tactical':
             case 'shadowMonarch':
-                const shadowState = moduleState;
+                const tacticalState = moduleState as TacticalModuleState;
                 return (
                     <View style={styles.moduleHud}>
                         <View style={styles.hudRow}>
                             <View style={styles.jobBadge}>
-                                <Text style={styles.jobText}>{shadowState.character.job}</Text>
+                                <Text style={styles.jobText}>{tacticalState.character.job}</Text>
                             </View>
-                            {shadowState.character.title && (
+                            {tacticalState.character.title && (
                                 <View style={styles.titleBadge}>
-                                    <Text style={styles.titleText}>{shadowState.character.title}</Text>
+                                    <Text style={styles.titleText}>{tacticalState.character.title}</Text>
                                 </View>
                             )}
                         </View>
                         <ResourceBar
-                            label="Mana"
-                            current={shadowState.character.mana.current}
-                            max={shadowState.character.mana.max}
+                            label="Tactical Energy"
+                            current={tacticalState.character.mana.current}
+                            max={tacticalState.character.mana.max}
                             color="#3b82f6"
-                            icon="💧"
-                        />
-                        <ResourceBar
-                            label="Fatigue"
-                            current={shadowState.character.fatigue.current}
-                            max={shadowState.character.fatigue.max}
-                            color="#f59e0b"
                             icon="⚡"
                         />
-                        <View style={styles.shadowArmyPreview}>
-                            <Text style={styles.shadowLabel}>
-                                👤 Shadow Army: {shadowState.character.shadowArmy.length}
+                        <ResourceBar
+                            label="Fatigue Status"
+                            current={tacticalState.character.fatigue.current}
+                            max={tacticalState.character.fatigue.max}
+                            color="#f59e0b"
+                            icon="🔋"
+                        />
+                        <View style={styles.tacticalSquadPreview}>
+                            <Text style={styles.tacticalSquadLabel}>
+                                👥 Tactical Squad: {tacticalState.character.tacticalSquad.length}
                             </Text>
                         </View>
                     </View>
@@ -599,13 +612,13 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         fontWeight: '600',
     },
-    shadowArmyPreview: {
+    tacticalSquadPreview: {
         backgroundColor: colors.background.tertiary,
         padding: spacing.sm,
         borderRadius: borderRadius.md,
         marginTop: spacing.xs,
     },
-    shadowLabel: {
+    tacticalSquadLabel: {
         color: colors.text.secondary,
         fontSize: typography.fontSize.sm,
     },

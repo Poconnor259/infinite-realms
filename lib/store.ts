@@ -9,7 +9,7 @@ import type {
     BrainResponse,
     ClassicModuleState,
     OutworlderModuleState,
-    ShadowMonarchModuleState,
+    TacticalModuleState,
 } from './types';
 import { SUBSCRIPTION_LIMITS } from './types';
 import { loadCampaign as fetchCampaign, processGameAction } from './firebase';
@@ -415,6 +415,12 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                     level: 1,
                     rank: 'Iron',
                     essences: [],
+                    stats: {
+                        power: 10,
+                        speed: 10,
+                        spirit: 10,
+                        recovery: 10,
+                    },
                     abilities: [],
                     spirit: { current: 100, max: 100 },
                     mana: { current: 100, max: 100 },
@@ -422,12 +428,12 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                 lootAwarded: [],
             } as OutworlderModuleState;
 
-        case 'shadowMonarch':
+        case 'tactical':
             return {
-                type: 'shadowMonarch',
+                type: 'tactical',
                 character: {
                     id: `char_${Date.now()}`,
-                    name: 'Hunter',
+                    name: 'Operative',
                     hp: { current: 100, max: 100 },
                     level: 1,
                     job: 'None',
@@ -442,11 +448,11 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                     mana: { current: 100, max: 100 },
                     fatigue: { current: 0, max: 100 },
                     skills: [],
-                    shadowArmy: [],
+                    tacticalSquad: [],
                 },
                 inDungeon: false,
                 penaltyZoneActive: false,
-            } as ShadowMonarchModuleState;
+            } as TacticalModuleState;
     }
 }
 

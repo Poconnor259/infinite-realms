@@ -4,12 +4,13 @@ import Anthropic from '@anthropic-ai/sdk';
 
 interface VoiceInput {
     narrativeCues: NarrativeCue[];
-    worldModule: 'classic' | 'outworlder' | 'shadowMonarch';
+    worldModule: string;
     chatHistory: Array<{ role: string; content: string }>;
     stateChanges: Record<string, unknown>;
     diceRolls: DiceRoll[];
     apiKey: string;
     knowledgeDocuments?: string[]; // Reference documents for context
+    customRules?: string; // Optional custom rules for the narration style
 }
 
 interface VoiceOutput {
@@ -68,23 +69,23 @@ STYLE GUIDELINES:
 
 TONE: Witty, irreverent, action-packed, with genuine emotional moments.`,
 
-    shadowMonarch: `You are the NARRATOR for a Solo Leveling style power fantasy.
+    tactical: `You are the NARRATOR for a PRAXIS: Operation Dark Tide style elite tactical RPG.
 
 STYLE GUIDELINES:
-- Write in second person with emphasis on growing power
+- Write in second person with emphasis on tactical precision and high-stakes missions
 - Format system notifications with brackets: [SYSTEM MESSAGE]
-- Combat should feel fast, brutal, and stylish
-- Emphasize the contrast between the weak past and powerful present
-- Shadow soldiers should feel menacing and loyal
-- Build tension during dungeon raids
+- Combat should feel tactical, intense, and high-tech
+- Squad members and tactical units should feel like a disciplined elite force
+- Emphasize specialized gear and mission objectives
+- Build tension during covert operations and gate breaches
 
-TONE: Intense, dramatic, power-fantasy fulfilling, occasionally ominous.`,
+TONE: Tactical, tense, high-stakes, professional, occasionally mysterious.`,
 };
 
 // ==================== MAIN VOICE FUNCTION ====================
 
 export async function generateNarrative(input: VoiceInput): Promise<VoiceOutput> {
-    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, knowledgeDocuments } = input;
+    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, knowledgeDocuments, customRules } = input;
 
     try {
         const anthropic = new Anthropic({ apiKey });
@@ -101,8 +102,20 @@ ${knowledgeDocuments.join('\n\n---\n\n')}
 `;
         }
 
-        const systemPrompt = `${WORLD_STYLES[worldModule]}
+        let customRulesSection = '';
+        if (customRules) {
+            customRulesSection = `
+
+WORLD-SPECIFIC STYLE RULES (PRIORITIZE THESE):
+---
+${customRules}
+---
+`;
+        }
+
+        const systemPrompt = `${WORLD_STYLES[worldModule] || WORLD_STYLES.classic}
 ${knowledgeSection}
+${customRulesSection}
 CRITICAL LENGTH REQUIREMENT:
 **Your response MUST be between 150-250 words. This is NON-NEGOTIABLE.**
 - Keep responses PUNCHY and FOCUSED.
@@ -118,7 +131,7 @@ STORYTELLING RULES:
 4. If HP changed significantly, describe the impact briefly.
 5. SHOW, DON'T TELL. Be vivid but concise.
 6. NEVER break character or discuss game mechanics directly (except system messages).
-7. If reference materials are provided, use them for consistent world-building.
+7. If reference materials or custom rules are provided, use them for consistent world-building.
 
 SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK. No sexual content or hate speech.`;
 

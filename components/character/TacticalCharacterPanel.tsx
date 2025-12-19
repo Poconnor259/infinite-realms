@@ -2,13 +2,13 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
-import type { ShadowMonarchModuleState } from '../../lib/types';
+import type { TacticalModuleState } from '../../lib/types';
 
-interface ShadowMonarchCharacterPanelProps {
-    moduleState: ShadowMonarchModuleState;
+interface TacticalCharacterPanelProps {
+    moduleState: TacticalModuleState;
 }
 
-export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharacterPanelProps) {
+export function TacticalCharacterPanel({ moduleState }: TacticalCharacterPanelProps) {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
     const { character } = moduleState;
@@ -18,10 +18,10 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: spacing.lg }}>
                 <Text style={{ color: colors.text.secondary, textAlign: 'center', marginBottom: spacing.sm }}>
-                    Character stats will appear here
+                    Awaiting tactical data...
                 </Text>
                 <Text style={{ color: colors.text.muted, textAlign: 'center', fontSize: typography.fontSize.sm }}>
-                    Send your first message to begin your adventure
+                    Initialize comms to sync profile.
                 </Text>
             </View>
         );
@@ -51,9 +51,9 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
                 <Text style={styles.characterLevel}>Level {character.level}</Text>
             </View>
 
-            {/* HP Bar */}
+            {/* Vitality (HP) Bar */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Hit Points</Text>
+                <Text style={styles.sectionTitle}>Vitality (HP)</Text>
                 <View style={styles.resourceContainer}>
                     <View style={styles.resourceBar}>
                         <View
@@ -72,9 +72,9 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
                 </View>
             </View>
 
-            {/* Mana Bar */}
+            {/* Tactical Energy (Mana) Bar */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Mana</Text>
+                <Text style={styles.sectionTitle}>Tactical Energy</Text>
                 <View style={styles.resourceContainer}>
                     <View style={styles.resourceBar}>
                         <View
@@ -95,7 +95,7 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
 
             {/* Fatigue Bar */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Fatigue</Text>
+                <Text style={styles.sectionTitle}>Fatigue Status</Text>
                 <View style={styles.resourceContainer}>
                     <View style={styles.resourceBar}>
                         <View
@@ -117,7 +117,7 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
             {/* Stats */}
             <View style={styles.section}>
                 <View style={styles.statsHeader}>
-                    <Text style={styles.sectionTitle}>Stats</Text>
+                    <Text style={styles.sectionTitle}>Aptitude Levels</Text>
                     {character.statPoints > 0 && (
                         <Text style={styles.statPoints}>
                             {character.statPoints} points available
@@ -138,7 +138,7 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
 
             {/* Skills */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Skills</Text>
+                <Text style={styles.sectionTitle}>Tactical Skills</Text>
                 {character.skills.map((skill, idx) => (
                     <View key={idx} style={styles.skillItem}>
                         <View style={styles.skillHeader}>
@@ -150,63 +150,63 @@ export function ShadowMonarchCharacterPanel({ moduleState }: ShadowMonarchCharac
                         <View style={styles.skillMeta}>
                             <Text style={styles.skillType}>{skill.type}</Text>
                             {skill.manaCost && (
-                                <Text style={styles.skillCost}>MP: {skill.manaCost}</Text>
+                                <Text style={styles.skillCost}>Energy: {skill.manaCost}</Text>
                             )}
                         </View>
                     </View>
                 ))}
                 {character.skills.length === 0 && (
-                    <Text style={styles.emptyText}>No skills learned</Text>
+                    <Text style={styles.emptyText}>No specialized skills registered</Text>
                 )}
             </View>
 
-            {/* Shadow Army */}
+            {/* Tactical Squad */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                    Shadow Army ({character.shadowArmy.filter(s => s.status === 'active').length})
+                    Tactical Squad ({character.tacticalSquad.filter(s => s.status === 'active').length})
                 </Text>
-                {character.shadowArmy
-                    .filter(shadow => shadow.status === 'active')
-                    .map((shadow) => (
-                        <View key={shadow.id} style={styles.shadowItem}>
-                            <View style={styles.shadowHeader}>
-                                <Text style={styles.shadowName}>{shadow.name}</Text>
-                                <Text style={styles.shadowRank}>{shadow.rank}</Text>
+                {character.tacticalSquad
+                    .filter(unit => unit.status === 'active')
+                    .map((unit) => (
+                        <View key={unit.id} style={styles.unitItem}>
+                            <View style={styles.unitHeader}>
+                                <Text style={styles.unitName}>{unit.name}</Text>
+                                <Text style={styles.unitRank}>{unit.rank}</Text>
                             </View>
-                            <Text style={styles.shadowType}>{shadow.type}</Text>
+                            <Text style={styles.unitType}>{unit.type}</Text>
                         </View>
                     ))}
-                {character.shadowArmy.filter(s => s.status === 'active').length === 0 && (
-                    <Text style={styles.emptyText}>No shadows extracted</Text>
+                {character.tacticalSquad.filter(s => s.status === 'active').length === 0 && (
+                    <Text style={styles.emptyText}>No active squad members</Text>
                 )}
             </View>
 
-            {/* Daily Quest */}
+            {/* Daily Objectives */}
             {moduleState.dailyQuest && (
                 <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Daily Quest</Text>
+                    <Text style={styles.sectionTitle}>Daily Objectives</Text>
                     <View style={styles.questItem}>
                         <Text style={styles.questTask}>
-                            Run: {moduleState.dailyQuest.runKm.current}/{moduleState.dailyQuest.runKm.target} km
+                            Tactical Run: {moduleState.dailyQuest.runKm.current}/{moduleState.dailyQuest.runKm.target} km
                         </Text>
                     </View>
                     <View style={styles.questItem}>
                         <Text style={styles.questTask}>
-                            Push-ups: {moduleState.dailyQuest.pushups.current}/{moduleState.dailyQuest.pushups.target}
+                            Strength Drill: {moduleState.dailyQuest.pushups.current}/{moduleState.dailyQuest.pushups.target}
                         </Text>
                     </View>
                     <View style={styles.questItem}>
                         <Text style={styles.questTask}>
-                            Sit-ups: {moduleState.dailyQuest.situps.current}/{moduleState.dailyQuest.situps.target}
+                            Core Stability: {moduleState.dailyQuest.situps.current}/{moduleState.dailyQuest.situps.target}
                         </Text>
                     </View>
                     <View style={styles.questItem}>
                         <Text style={styles.questTask}>
-                            Squats: {moduleState.dailyQuest.squats.current}/{moduleState.dailyQuest.squats.target}
+                            Power Training: {moduleState.dailyQuest.squats.current}/{moduleState.dailyQuest.squats.target}
                         </Text>
                     </View>
                     {moduleState.dailyQuest.completed && (
-                        <Text style={styles.questCompleted}>✓ Completed</Text>
+                        <Text style={styles.questCompleted}>✓ Mission Complete</Text>
                     )}
                 </View>
             )}
@@ -343,7 +343,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.xs,
         color: '#3B82F6',
     },
-    shadowItem: {
+    unitItem: {
         padding: spacing.sm,
         backgroundColor: colors.background.tertiary,
         borderRadius: borderRadius.md,
@@ -351,22 +351,22 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderLeftWidth: 3,
         borderLeftColor: '#8B5CF6',
     },
-    shadowHeader: {
+    unitHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: spacing.xs,
     },
-    shadowName: {
+    unitName: {
         fontSize: typography.fontSize.sm,
         color: colors.text.primary,
         fontWeight: '600',
     },
-    shadowRank: {
+    unitRank: {
         fontSize: typography.fontSize.xs,
         color: colors.text.muted,
     },
-    shadowType: {
+    unitType: {
         fontSize: typography.fontSize.xs,
         color: colors.text.secondary,
     },

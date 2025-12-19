@@ -3,15 +3,15 @@ import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable } from '../ui/Animated';
-import type { ShadowMonarchCharacter } from '../../lib/types';
+import type { TacticalCharacter } from '../../lib/types';
 
-interface ShadowMonarchCharacterCreationProps {
+interface TacticalCharacterCreationProps {
     characterName: string;
-    onComplete: (character: ShadowMonarchCharacter) => void;
+    onComplete: (character: TacticalCharacter) => void;
     onBack: () => void;
 }
 
-export function ShadowMonarchCharacterCreation({ characterName, onComplete, onBack }: ShadowMonarchCharacterCreationProps) {
+export function TacticalCharacterCreation({ characterName, onComplete, onBack }: TacticalCharacterCreationProps) {
     const { colors } = useThemeColors();
 
     const [stats, setStats] = React.useState({
@@ -35,7 +35,7 @@ export function ShadowMonarchCharacterCreation({ characterName, onComplete, onBa
     };
 
     const handleCreate = () => {
-        const character: ShadowMonarchCharacter = {
+        const character: TacticalCharacter = {
             id: 'temp-id', // Will be replaced by backend
             name: characterName,
             level: 1,
@@ -47,7 +47,7 @@ export function ShadowMonarchCharacterCreation({ characterName, onComplete, onBa
             mana: { current: 10 + (stats.intelligence - 10) * 2, max: 10 + (stats.intelligence - 10) * 2 },
             fatigue: { current: 0, max: 100 },
             skills: [],
-            shadowArmy: [],
+            tacticalSquad: [],
         };
 
         onComplete(character);
@@ -64,21 +64,21 @@ export function ShadowMonarchCharacterCreation({ characterName, onComplete, onBa
     return (
         <ScrollView style={[styles.container, { backgroundColor: colors.background.primary }]}>
             <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.text.primary }]}>The System Awakens</Text>
+                <Text style={[styles.title, { color: colors.text.primary }]}>System Initialization</Text>
                 <Text style={[styles.subtitle, { color: colors.text.secondary }]}>{characterName}</Text>
 
                 <View style={[styles.systemMessage, { backgroundColor: colors.background.secondary }]}>
                     <Text style={[styles.systemTitle, { color: colors.primary[500] }]}>
-                        [SYSTEM INITIALIZATION]
+                        [PRAXIS COMMAND]
                     </Text>
                     <Text style={[styles.systemText, { color: colors.text.secondary }]}>
-                        Welcome, Player.
+                        Welcome, Operative.
                     </Text>
                     <Text style={[styles.systemText, { color: colors.text.secondary }]}>
-                        You have been selected by the System.
+                        Initialize your tactical profile.
                     </Text>
                     <Text style={[styles.systemText, { color: colors.text.secondary }]}>
-                        Allocate your bonus points to initialize your stats.
+                        Allocate your aptitude points below.
                     </Text>
                 </View>
 
@@ -132,7 +132,7 @@ export function ShadowMonarchCharacterCreation({ characterName, onComplete, onBa
                 </View>
 
                 <Text style={[styles.note, { color: colors.text.muted }]}>
-                    Stat points chosen here will determine your base potential. Choose wisely.
+                    Your initial aptitude will determine your field effectiveness. Choose wisely.
                 </Text>
 
                 {/* Buttons */}
@@ -153,7 +153,7 @@ export function ShadowMonarchCharacterCreation({ characterName, onComplete, onBa
                         onPress={handleCreate}
                     >
                         <Text style={[styles.buttonText, { color: remainingPoints === 0 ? '#fff' : colors.text.muted }]}>
-                            Accept
+                            Confirm
                         </Text>
                     </AnimatedPressable>
                 </View>

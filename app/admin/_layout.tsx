@@ -3,11 +3,12 @@ import React, { useEffect } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { useUserStore } from '../../lib/store';
 import { ActivityIndicator, View } from 'react-native';
-import { colors } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 
 export default function AdminLayout() {
     const user = useUserStore((state) => state.user);
     const router = useRouter();
+    const { colors } = useThemeColors();
 
     useEffect(() => {
         if (!user || user.role !== 'admin') {
@@ -37,6 +38,7 @@ export default function AdminLayout() {
         >
             <Stack.Screen name="index" options={{ title: 'Admin Dashboard' }} />
             <Stack.Screen name="users" options={{ title: 'User Management' }} />
+            <Stack.Screen name="worlds" options={{ title: 'World Management' }} />
             <Stack.Screen name="costs" options={{ title: 'Cost Estimator' }} />
             <Stack.Screen name="training" options={{ title: 'Knowledge Base' }} />
             <Stack.Screen name="metrics" options={{ title: 'System Metrics' }} />

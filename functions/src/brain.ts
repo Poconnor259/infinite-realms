@@ -6,11 +6,12 @@ import { z } from 'zod';
 
 interface BrainInput {
     userInput: string;
-    worldModule: 'classic' | 'outworlder' | 'shadowMonarch';
+    worldModule: string;
     currentState: Record<string, unknown>;
     chatHistory: Array<{ role: string; content: string }>;
     apiKey: string;
     knowledgeDocuments?: string[]; // Reference documents for context
+    customRules?: string; // Optional custom rules for the AI logic
 }
 
 interface BrainOutput {
@@ -68,15 +69,15 @@ Rules:
 
 Stats to track: HP, Mana, Spirit, Rank, Essences (max 4), Confluence, Abilities with cooldowns.`,
 
-    shadowMonarch: `You are the LOGIC ENGINE for a Solo Leveling style RPG.
+    tactical: `You are the LOGIC ENGINE for a PRAXIS: Operation Dark Tide RPG.
 Rules:
-- Daily quests must be tracked (run, pushups, situps, squats)
-- Failure to complete daily quest triggers penalty zone
-- Shadow extraction can turn defeated enemies into shadow soldiers
-- Stats can be allocated from stat points
-- Gates have ranks from E to S
+- Daily missions must be tracked (physical training, tactical drills)
+- Failure to complete daily missions triggers a penalty zone or mission failure
+- Tactical recruitment and unit management can expand your squad
+- Stats can be allocated from earned mission points
+- Gates and mission zones have ranks from E to S
 
-Stats to track: HP, Mana, Fatigue, STR/AGI/VIT/INT/PER, Stat Points, Shadow Army roster, Job/Title, Skills.`,
+Stats to track: HP, Mana, Fatigue, STR/AGI/VIT/INT/PER, Mission Points, Tactical Squad roster, Rank/Job, Skills.`,
 };
 
 // ==================== JSON SCHEMA FOR RESPONSE ====================
@@ -102,7 +103,7 @@ const BrainResponseSchema = z.object({
 // ==================== MAIN BRAIN FUNCTION ====================
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
-    const { userInput, worldModule, currentState, chatHistory, apiKey, knowledgeDocuments } = input;
+    const { userInput, worldModule, currentState, chatHistory, apiKey, knowledgeDocuments, customRules } = input;
 
     try {
         // Build knowledge base section if documents exist
@@ -117,8 +118,20 @@ ${knowledgeDocuments.join('\n\n---\n\n')}
 `;
         }
 
-        const systemPrompt = `${WORLD_PROMPTS[worldModule]}
+        let customRulesSection = '';
+        if (customRules) {
+            customRulesSection = `
+
+WORLD-SPECIFIC RULES (PRIORITIZE THESE):
+---
+${customRules}
+---
+`;
+        }
+
+        const systemPrompt = `${WORLD_PROMPTS[worldModule] || WORLD_PROMPTS.classic}
 ${knowledgeSection}
+${customRulesSection}
 CRITICAL INSTRUCTIONS:
 1. You are ONLY the logic engine. You process game mechanics, not story.
 2. You MUST respond with valid JSON matching the schema.
@@ -126,7 +139,7 @@ CRITICAL INSTRUCTIONS:
 4. Update only the state fields that changed.
 5. Provide narrative cues for the storyteller, not full prose.
 6. Include any system messages (level ups, achievements, warnings).
-7. If reference materials are provided, use them for world-consistent responses.
+7. If reference materials or custom rules are provided, use them for world-consistent responses.
 
 CURRENT GAME STATE:
 ${JSON.stringify(currentState, null, 2)}

@@ -52,7 +52,24 @@ export interface Campaign {
     moduleState: ModuleState;
 }
 
-export type WorldModuleType = 'classic' | 'outworlder' | 'shadowMonarch';
+export type WorldModuleType = 'classic' | 'outworlder' | 'tactical';
+
+export interface WorldModule {
+    id: string;
+    type: WorldModuleType;
+    name: string;
+    subtitle: string;
+    icon: string;
+    color: string;
+    description: string;
+    features: string[];
+    locked?: boolean;
+    lockReason?: string;
+    customRules?: string;
+    initialNarrative?: string;
+    generateIntro?: boolean;
+    order?: number;
+}
 
 // ==================== D&D 5E (CLASSIC) ====================
 
@@ -144,10 +161,10 @@ export interface OutworlderModuleState {
     lootAwarded: InventoryItem[];
 }
 
-// ==================== SHADOW MONARCH (SOLO LEVELING) ====================
+// ==================== TACTICAL (PRAXIS) ====================
 
-export interface ShadowMonarchCharacter extends Character {
-    job: 'None' | 'Necromancer' | 'PRAXIS Operative';
+export interface TacticalCharacter extends Character {
+    job: 'None' | 'Specialist' | 'PRAXIS Operative';
     title?: string;
     stats: {
         strength: number;
@@ -165,11 +182,11 @@ export interface ShadowMonarchCharacter extends Character {
         current: number;
         max: number;
     };
-    skills: ShadowSkill[];
-    shadowArmy: ShadowSoldier[];
+    skills: TacticalSkill[];
+    tacticalSquad: TacticalUnit[];
 }
 
-export interface ShadowSkill {
+export interface TacticalSkill {
     name: string;
     rank: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
     type: 'active' | 'passive';
@@ -178,7 +195,7 @@ export interface ShadowSkill {
     description: string;
 }
 
-export interface ShadowSoldier {
+export interface TacticalUnit {
     id: string;
     name: string;
     rank: 'Normal' | 'Elite' | 'Knight' | 'General';
@@ -195,9 +212,9 @@ export interface DailyQuest {
     deadline: number; // timestamp
 }
 
-export interface ShadowMonarchModuleState {
-    type: 'shadowMonarch';
-    character: ShadowMonarchCharacter;
+export interface TacticalModuleState {
+    type: 'tactical';
+    character: TacticalCharacter;
     dailyQuest?: DailyQuest;
     inDungeon: boolean;
     gateRank?: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
@@ -209,12 +226,12 @@ export interface ShadowMonarchModuleState {
 export type ModuleState =
     | ClassicModuleState
     | OutworlderModuleState
-    | ShadowMonarchModuleState;
+    | TacticalModuleState;
 
 export type ModuleCharacter =
     | ClassicCharacter
     | OutworlderCharacter
-    | ShadowMonarchCharacter;
+    | TacticalCharacter;
 
 // ==================== AUXILIARY TYPES ====================
 

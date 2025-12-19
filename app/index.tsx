@@ -17,45 +17,25 @@ import { useThemeColors } from '../lib/hooks/useTheme';
 import { useGameStore, getDefaultModuleState, useTurnsStore, useUserStore, useSettingsStore } from '../lib/store';
 import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
-import { getUserCampaigns, deleteCampaignFn } from '../lib/firebase';
-import type { WorldModuleType, Campaign } from '../lib/types';
+import { getUserCampaigns, deleteCampaignFn, getWorlds } from '../lib/firebase';
+import type { WorldModuleType, Campaign, WorldModule } from '../lib/types';
 
-const getWorldInfo = (colors: any): Record<WorldModuleType, {
-    name: string;
-    icon: string;
-    color: string;
-    description: string;
-}> => ({
-    classic: {
-        name: 'The Classic',
-        icon: '⚔️',
-        color: colors.gold.main,
-        description: 'D&D 5e Rules',
-    },
-    outworlder: {
-        name: 'The Outworlder',
-        icon: '🌌',
-        color: '#10b981',
-        description: 'HWFWM Essence System',
-    },
-    shadowMonarch: {
-        name: 'PRAXIS: Operation Dark Tide',
-        icon: '👤',
-        color: '#8b5cf6',
-        description: 'Solo Leveling System',
-    },
-});
+const DEFAULT_WORLD_COLORS: Record<string, string> = {
+    classic: '#ffd700',
+    outworlder: '#10b981',
+    tactical: '#8b5cf6',
+};
 
 export default function HomeScreen() {
     const router = useRouter();
     const { colors, isDark } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
-    const WORLD_INFO = useMemo(() => getWorldInfo(colors), [colors]);
-
     const { setCurrentCampaign, setMessages } = useGameStore();
     const user = useUserStore((state) => state.user);
     const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+    const [availableWorlds, setAvailableWorlds] = useState<WorldModule[]>([]);
     const [loading, setLoading] = useState(true);
+    const [worldsLoading, setWorldsLoading] = useState(true);
     const { themeMode, setPreference } = useSettingsStore();
 
     const toggleTheme = () => {
@@ -67,6 +47,21 @@ export default function HomeScreen() {
             setPreference('themeMode', 'dark');
         }
     };
+
+    // Load available worlds
+    useEffect(() => {
+        async function loadWorlds() {
+            try {
+                const fetchedWorlds = await getWorlds();
+                setAvailableWorlds(fetchedWorlds);
+            } catch (error) {
+                console.error('Failed to load worlds:', error);
+            } finally {
+                setWorldsLoading(false);
+            }
+        }
+        loadWorlds();
+    }, []);
 
     // Load user's campaigns from Firestore
     useEffect(() => {
@@ -226,11 +221,11 @@ export default function HomeScreen() {
                         </Text>
 
                         {campaigns.map((campaign, index) => {
-                            const worldInfo = WORLD_INFO[campaign.worldModule] || {
-                                name: 'Unknown',
+                            const worldInfo = availableWorlds.find(w => w.id === campaign.worldModule) || {
+                                name: 'Unknown World',
                                 icon: '❓',
                                 color: colors.text.muted,
-                                description: 'Unknown World',
+                                subtitle: 'Reference lost',
                             };
                             const hpPercent = campaign.character?.hp
                                 ? (campaign.character.hp.current / campaign.character.hp.max) * 100
@@ -315,15 +310,17 @@ export default function HomeScreen() {
                         showsHorizontalScrollIndicator={false}
                         contentContainerStyle={styles.worldsScroll}
                     >
-                        {Object.entries(WORLD_INFO).map(([key, info], index) => (
+                        {worldsLoading ? (
+                            <ActivityIndicator size="small" color={colors.primary[400]} />
+                        ) : availableWorlds.map((world, index) => (
                             <AnimatedPressable
-                                key={key}
-                                style={[styles.worldCard, { borderColor: info.color + '40' }]}
-                                onPress={() => handleWorldSelect(key)}
+                                key={world.id}
+                                style={[styles.worldCard, { borderColor: (world.color || DEFAULT_WORLD_COLORS[world.type] || '#888') + '40' }]}
+                                onPress={() => handleWorldSelect(world.id)}
                             >
-                                <Text style={styles.worldCardIcon}>{info.icon}</Text>
-                                <Text style={styles.worldCardName}>{info.name}</Text>
-                                <Text style={styles.worldCardDesc}>{info.description}</Text>
+                                <Text style={styles.worldCardIcon}>{world.icon || '🌍'}</Text>
+                                <Text style={styles.worldCardName} numberOfLines={1}>{world.name}</Text>
+                                <Text style={styles.worldCardDesc} numberOfLines={2}>{world.subtitle || world.description || 'Custom World'}</Text>
                             </AnimatedPressable>
                         ))}
                     </ScrollView>

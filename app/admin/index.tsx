@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable } from '../../components/ui/Animated';
 import { FadeInView, StaggeredList } from '../../components/ui/Animated';
 
@@ -12,9 +13,11 @@ interface AdminCardProps {
     description: string;
     icon: keyof typeof Ionicons.glyphMap;
     onPress: () => void;
+    colors: any;
+    styles: any;
 }
 
-function AdminCard({ title, description, icon, onPress }: AdminCardProps) {
+function AdminCard({ title, description, icon, onPress, colors, styles }: AdminCardProps) {
     return (
         <AnimatedPressable style={styles.card} onPress={onPress}>
             <View style={styles.cardIcon}>
@@ -31,6 +34,47 @@ function AdminCard({ title, description, icon, onPress }: AdminCardProps) {
 
 export default function AdminDashboard() {
     const router = useRouter();
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
+
+    const cards = [
+        {
+            title: "User Accounts",
+            description: "Manage users, roles, and subscriptions",
+            icon: "people" as const,
+            onPress: () => router.push('/admin/users')
+        },
+        {
+            title: "World Management",
+            description: "Add, delete, and configure game worlds",
+            icon: "planet-outline" as const,
+            onPress: () => router.push('/admin/worlds')
+        },
+        {
+            title: "AI Training",
+            description: "Fine-tune models and manage datasets",
+            icon: "bulb" as const,
+            onPress: () => router.push('/admin/training')
+        },
+        {
+            title: "System Metrics",
+            description: "View usage stats and system health",
+            icon: "stats-chart" as const,
+            onPress: () => router.push('/admin/metrics')
+        },
+        {
+            title: "Cost Estimator",
+            description: "Track usage and estimated billing",
+            icon: "cash-outline" as const,
+            onPress: () => router.push('/admin/costs')
+        },
+        {
+            title: "Global Config",
+            description: "Update game settings and constants",
+            icon: "settings" as const,
+            onPress: () => router.push('/admin/config')
+        }
+    ];
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -39,42 +83,20 @@ export default function AdminDashboard() {
             </FadeInView>
 
             <StaggeredList style={{ gap: spacing.md }}>
-                <AdminCard
-                    title="User Accounts"
-                    description="Manage users, roles, and subscriptions"
-                    icon="people"
-                    onPress={() => router.push('/admin/users')}
-                />
-                <AdminCard
-                    title="AI Training"
-                    description="Fine-tune models and manage datasets"
-                    icon="bulb"
-                    onPress={() => router.push('/admin/training')}
-                />
-                <AdminCard
-                    title="System Metrics"
-                    description="View usage stats and system health"
-                    icon="stats-chart"
-                    onPress={() => router.push('/admin/metrics')}
-                />
-                <AdminCard
-                    title="Cost Estimator"
-                    description="Track usage and estimated billing"
-                    icon="cash-outline"
-                    onPress={() => router.push('/admin/costs')}
-                />
-                <AdminCard
-                    title="Global Config"
-                    description="Update game settings and constants"
-                    icon="settings"
-                    onPress={() => router.push('/admin/config')}
-                />
+                {cards.map((card, index) => (
+                    <AdminCard
+                        key={index}
+                        {...card}
+                        colors={colors}
+                        styles={styles}
+                    />
+                ))}
             </StaggeredList>
         </ScrollView>
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

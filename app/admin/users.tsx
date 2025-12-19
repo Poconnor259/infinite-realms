@@ -4,7 +4,9 @@ import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TextInput
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import { colors, spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
+import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getAdminData, updateUserRole, updateUserTier } from '../../lib/firebase';
 import { User } from '../../lib/types';
@@ -16,6 +18,8 @@ export default function AdminUsersScreen() {
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState('');
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     useEffect(() => {
         loadData();
@@ -160,7 +164,7 @@ export default function AdminUsersScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

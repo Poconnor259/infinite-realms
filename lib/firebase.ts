@@ -15,6 +15,7 @@ import {
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
+import type { WorldModule } from './types';
 import {
     getFirestore,
     collection,
@@ -23,6 +24,7 @@ import {
     getDoc,
     updateDoc,
     getDocs,
+    deleteDoc,
     serverTimestamp,
     query,
     orderBy,
@@ -220,7 +222,7 @@ export async function linkAnonymousToEmail(
 export interface ProcessInputRequest {
     campaignId: string;
     userInput: string;
-    worldModule: 'classic' | 'outworlder' | 'shadowMonarch';
+    worldModule: 'classic' | 'outworlder' | 'tactical';
     currentState: Record<string, unknown>;
     chatHistory: Array<{ role: string; content: string }>;
     userTier: 'scout' | 'hero' | 'legend';
@@ -384,7 +386,7 @@ export async function updateUserTier(userId: string, tier: 'scout' | 'hero' | 'l
 export interface KnowledgeDocument {
     id: string;
     name: string;
-    worldModule: 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
+    worldModule: 'global' | 'classic' | 'outworlder' | 'tactical';
     content: string;
     category: 'lore' | 'rules' | 'characters' | 'locations' | 'other';
     targetModel: 'brain' | 'voice' | 'both';
@@ -421,4 +423,34 @@ export async function updateKnowledgeDoc(documentId: string, updates: Partial<Kn
 export async function deleteKnowledgeDoc(documentId: string): Promise<void> {
     const deleteFn = httpsCallable(functions, 'deleteKnowledgeDocument');
     await deleteFn({ documentId });
+}
+// ==================== WORLD HELPERS ====================
+
+export const worldsRef = collection(db, 'worlds');
+
+export async function getWorlds(): Promise<WorldModule[]> {
+    try {
+        const q = query(worldsRef, orderBy('order', 'asc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as WorldModule));
+    } catch (error) {
+        console.error('Error fetching worlds:', error);
+        return [];
+    }
+}
+
+export async function saveWorld(world: WorldModule): Promise<void> {
+    const ref = doc(db, 'worlds', world.id);
+    await setDoc(ref, {
+        ...world,
+        updatedAt: serverTimestamp(),
+    }, { merge: true });
+}
+
+export async function deleteWorld(worldId: string): Promise<void> {
+    const ref = doc(db, 'worlds', worldId);
+    await deleteDoc(ref);
 }

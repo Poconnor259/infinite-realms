@@ -59,6 +59,20 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         };
     }
     try {
+        // Resolve world configuration from Firestore
+        let worldData = null;
+        try {
+            const worldDoc = await db.collection('worlds').doc(worldModule).get();
+            if (worldDoc.exists) {
+                worldData = worldDoc.data();
+            }
+        }
+        catch (error) {
+            console.error('[ProcessGameAction] Failed to fetch world:', error);
+        }
+        let engineType = worldData?.type || worldModule; // Fallback to worldModule for legacy
+        if (engineType === 'shadowMonarch')
+            engineType = 'tactical';
         // Determine which API keys to use
         const openaiKey = byokKeys?.openai || openaiApiKey.value();
         const anthropicKey = byokKeys?.anthropic || anthropicApiKey.value();
@@ -78,18 +92,19 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         }
         // Fetch knowledge base documents for Voice only (Brain just needs game rules)
         // This optimization saves ~3-5k tokens per turn
-        console.log(`[Knowledge] Fetching documents for ${worldModule} (Voice only)...`);
-        const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule, 'voice');
+        console.log(`[Knowledge] Fetching documents for ${engineType} (Voice only)...`);
+        const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(engineType, 'voice');
         console.log(`[Knowledge] Found ${voiceKnowledgeDocs.length} voice docs`);
         // Step 1: Process with Brain (Logic Engine)
         console.log(`[Brain] Processing action for campaign ${campaignId}: "${userInput}"`);
         // Brain only needs last 3 messages for context (saves ~2k tokens)
         const brainResult = await (0, brain_1.processWithBrain)({
             userInput,
-            worldModule,
+            worldModule: engineType,
             currentState,
             chatHistory: chatHistory.slice(-3),
             apiKey: openaiKey,
+            customRules: worldData?.customRules, // Pass custom rules directly
             // No knowledge docs for Brain - it just needs game rules which are in the system prompt
         });
         if (!brainResult.success) {
@@ -113,12 +128,13 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
             // Voice gets knowledge docs for lore, but only last 4 messages for narrative flow
             const voiceResult = await (0, voice_1.generateNarrative)({
                 narrativeCues: brainResult.data?.narrativeCues || [],
-                worldModule,
+                worldModule: engineType,
                 chatHistory: chatHistory.slice(-4),
                 stateChanges: brainResult.data?.stateUpdates || {},
                 diceRolls: brainResult.data?.diceRolls || [],
                 apiKey: anthropicKey,
                 knowledgeDocuments: voiceKnowledgeDocs,
+                customRules: worldData?.customRules, // Pass custom rules directly
             });
             if (voiceResult.usage) {
                 totalPromptTokens += voiceResult.usage.promptTokens;
@@ -209,7 +225,21 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
-    const { name, worldModule, characterName, initialCharacter } = request.data;
+    const { name, worldModule: worldId, characterName, initialCharacter } = request.data;
+    // Resolve world configuration from Firestore
+    let worldData = null;
+    try {
+        const worldDoc = await db.collection('worlds').doc(worldId).get();
+        if (worldDoc.exists) {
+            worldData = worldDoc.data();
+        }
+    }
+    catch (error) {
+        console.error('[CreateCampaign] Failed to fetch world:', error);
+    }
+    let engineType = worldData?.type || worldId; // Fallback to worldId for legacy or if doc missing
+    if (engineType === 'shadowMonarch')
+        engineType = 'tactical';
     const campaignRef = db.collection('users')
         .doc(request.auth.uid)
         .collection('campaigns')
@@ -218,23 +248,25 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
     // Get API keys
     const anthropicKey = anthropicApiKey.value();
     // Get knowledge for generating intro (limit to 2 most relevant docs to save tokens)
-    const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(worldModule, 'voice', 2);
+    const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(engineType, 'voice', 2);
     // Generate initial narrative with Claude
-    let initialNarrative = '';
-    if (anthropicKey) {
+    let initialNarrative = worldData?.initialNarrative || '';
+    // Only use AI generation if explicitly enabled for this world
+    if (anthropicKey && worldData?.generateIntro) {
         try {
             const voiceResult = await (0, voice_1.generateNarrative)({
                 narrativeCues: [{
                         type: 'description',
-                        content: `A new ${worldModule} adventure begins. The character ${characterName || 'our hero'} is about to start their journey.`,
+                        content: `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`,
                         emotion: 'mysterious',
                     }],
-                worldModule,
+                worldModule: engineType,
                 chatHistory: [],
                 stateChanges: {},
                 diceRolls: [],
                 apiKey: anthropicKey,
                 knowledgeDocuments: voiceKnowledgeDocs,
+                customRules: worldData?.customRules, // Pass custom rules directly
             });
             if (voiceResult.success && voiceResult.narrative) {
                 initialNarrative = voiceResult.narrative;
@@ -246,15 +278,15 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
     }
     // Fallback to hardcoded intro if AI generation failed
     if (!initialNarrative) {
-        switch (worldModule) {
+        switch (engineType) {
             case 'classic':
                 initialNarrative = `*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*`;
                 break;
             case 'outworlder':
                 initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
                 break;
-            case 'shadowMonarch':
-                initialNarrative = `*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Hunter.*`;
+            case 'tactical':
+                initialNarrative = `*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Operative.*`;
                 break;
             default:
                 initialNarrative = `*Your adventure begins...*`;
@@ -275,10 +307,10 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
     await campaignRef.set({
         id: campaignRef.id,
         name,
-        worldModule,
+        worldModule: worldId,
         character,
         moduleState: {
-            type: worldModule,
+            type: engineType,
             character,
         },
         createdAt: now,

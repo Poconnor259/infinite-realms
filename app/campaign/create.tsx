@@ -17,48 +17,57 @@ import { spacing, borderRadius, typography, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useGameStore, useUserStore } from '../../lib/store';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
-import { createCampaign, signInAnonymouslyIfNeeded } from '../../lib/firebase';
+import { createCampaign, signInAnonymouslyIfNeeded, getWorlds } from '../../lib/firebase';
 import { ClassicCharacterCreation } from '../../components/character/ClassicCharacterCreation';
 import { OutworlderCharacterCreation } from '../../components/character/OutworlderCharacterCreation';
-import { ShadowMonarchCharacterCreation } from '../../components/character/ShadowMonarchCharacterCreation';
-import type { WorldModuleType, ModuleCharacter } from '../../lib/types';
+import { TacticalCharacterCreation } from '../../components/character/TacticalCharacterCreation';
+import type { WorldModule, WorldModuleType, ModuleCharacter } from '../../lib/types';
 
-const getWorldInfo = (colors: any): Record<string, { name: string; icon: string; color: string; description: string }> => ({
-    classic: {
-        name: 'The Classic',
-        icon: '⚔️',
-        color: colors.gold.main,
-        description: 'Prepare your character sheet. Your party awaits properly.',
-    },
-    outworlder: {
-        name: 'The Outworlder',
-        icon: '🌌',
-        color: '#10b981',
-        description: 'You are about to be reincarnated. What will you call yourself?',
-    },
-    shadowMonarch: {
-        name: 'PRAXIS: Operation Dark Tide',
-        icon: '👤',
-        color: '#8b5cf6',
-        description: 'The System is initializing. Enter your Hunter name.',
-    },
-});
+// Helper to get default character creation component
+const CharacterCreationMap: Record<string, any> = {
+    classic: ClassicCharacterCreation,
+    outworlder: OutworlderCharacterCreation,
+    tactical: TacticalCharacterCreation,
+    shadowMonarch: TacticalCharacterCreation,
+};
 
 export default function CreateCampaignScreen() {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
-    const WORLD_INFO = useMemo(() => getWorldInfo(colors), [colors]);
     const router = useRouter();
-    const params = useLocalSearchParams<{ world: WorldModuleType }>();
-    const worldId = params.world || 'classic';
-    const world = WORLD_INFO[worldId];
+    const params = useLocalSearchParams<{ world: string }>();
+    const worldId = params.world;
 
+    const [world, setWorld] = useState<WorldModule | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
     const { setCurrentCampaign, setMessages } = useGameStore();
 
     const [characterName, setCharacterName] = useState('');
     const [isCreating, setIsCreating] = useState(false);
     const [step, setStep] = useState<'name' | 'character'>('name');
     const [characterData, setCharacterData] = useState<ModuleCharacter | null>(null);
+
+    React.useEffect(() => {
+        const loadWorld = async () => {
+            if (!worldId) return;
+            try {
+                const worlds = await getWorlds();
+                const found = worlds.find(w => w.id === worldId);
+                if (found) {
+                    setWorld(found);
+                } else {
+                    Alert.alert('Error', 'World not found');
+                    router.back();
+                }
+            } catch (error) {
+                console.error(error);
+                Alert.alert('Error', 'Failed to load world settings');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadWorld();
+    }, [worldId]);
 
     const handleCharacterComplete = async (character: ModuleCharacter) => {
         setCharacterData(character);
@@ -87,8 +96,8 @@ export default function CreateCampaignScreen() {
             // Call Cloud Function to create campaign with character data
             console.log('[Create] Calling createCampaign cloud function...');
             const result = await createCampaign({
-                name: world.name,
-                worldModule: worldId as WorldModuleType,
+                name: world?.name || 'New Campaign',
+                worldModule: worldId,
                 characterName: characterName.trim(),
                 initialCharacter: character,
             });
@@ -104,13 +113,13 @@ export default function CreateCampaignScreen() {
                 const newCampaign = {
                     id: result.data.campaignId,
                     userId: user.uid,
-                    name: world.name,
-                    worldModule: worldId as WorldModuleType,
+                    name: world?.name || 'New Campaign',
+                    worldModule: worldId,
                     createdAt: Date.now(),
                     updatedAt: Date.now(),
                     character: character,
                     moduleState: {
-                        type: worldId,
+                        type: world?.type || 'classic',
                         character: character,
                     },
                 };
@@ -136,27 +145,24 @@ export default function CreateCampaignScreen() {
     };
 
     // Render character creation step based on world module
-    if (step === 'character') {
-        if (worldId === 'classic') {
-            return <ClassicCharacterCreation
-                characterName={characterName}
-                onComplete={handleCharacterComplete}
-                onBack={() => setStep('name')}
-            />;
-        } else if (worldId === 'outworlder') {
-            return <OutworlderCharacterCreation
-                characterName={characterName}
-                onComplete={handleCharacterComplete}
-                onBack={() => setStep('name')}
-            />;
-        } else if (worldId === 'shadowMonarch') {
-            return <ShadowMonarchCharacterCreation
-                characterName={characterName}
-                onComplete={handleCharacterComplete}
-                onBack={() => setStep('name')}
-            />;
-        }
+    if (step === 'character' && world) {
+        const CharacterComp = CharacterCreationMap[world.type] || ClassicCharacterCreation;
+        return <CharacterComp
+            characterName={characterName}
+            onComplete={handleCharacterComplete}
+            onBack={() => setStep('name')}
+        />;
     }
+
+    if (isLoading) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <ActivityIndicator size="large" color={colors.primary[500]} style={{ marginTop: spacing.xxl }} />
+            </SafeAreaView>
+        );
+    }
+
+    if (!world) return null;
 
     // Render name input step
     return (
@@ -250,7 +256,8 @@ const createStyles = (colors: any) => StyleSheet.create({
         marginLeft: -spacing.sm,
     },
     headerTitle: {
-        ...typography.h3,
+        fontSize: typography.h3.fontSize,
+        fontWeight: typography.h3.fontWeight as any,
         color: colors.text.primary,
     },
     worldCard: {
@@ -273,12 +280,13 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: 40,
     },
     worldName: {
-        ...typography.h2,
+        fontSize: typography.h2.fontSize,
+        fontWeight: typography.h2.fontWeight as any,
         color: colors.text.primary,
         marginBottom: spacing.sm,
     },
     worldDescription: {
-        ...typography.body,
+        fontSize: typography.body.fontSize,
         color: colors.text.secondary,
         textAlign: 'center',
         maxWidth: 260,
@@ -287,7 +295,8 @@ const createStyles = (colors: any) => StyleSheet.create({
         marginBottom: spacing.xl,
     },
     label: {
-        ...typography.label,
+        fontSize: typography.label.fontSize,
+        fontWeight: typography.label.fontWeight as any,
         color: colors.text.secondary,
         marginBottom: spacing.sm,
         marginLeft: spacing.xs,
@@ -297,7 +306,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderRadius: borderRadius.lg,
         padding: spacing.md,
         color: colors.text.primary,
-        ...typography.body,
+        fontSize: typography.body.fontSize,
         borderWidth: 1,
         borderColor: colors.border.default,
     },
@@ -322,7 +331,8 @@ const createStyles = (colors: any) => StyleSheet.create({
         ...shadows.none,
     },
     createButtonText: {
-        ...typography.h4,
+        fontSize: typography.h4.fontSize,
+        fontWeight: typography.h4.fontWeight as any,
         color: '#fff',
     },
 });
