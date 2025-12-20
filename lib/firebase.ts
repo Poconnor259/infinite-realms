@@ -307,6 +307,12 @@ export const processGameAction = httpsCallable<ProcessInputRequest, ProcessInput
     'processGameAction'
 );
 
+// Generate text with AI (for character creation, etc.)
+export const generateText = httpsCallable<
+    { prompt: string; maxLength?: number },
+    { success: boolean; text?: string; error?: string }
+>(functions, 'generateText');
+
 export const deleteCampaignFn = httpsCallable<{ campaignId: string }, { success: boolean }>(
     functions,
     'deleteCampaign'

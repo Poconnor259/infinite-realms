@@ -250,6 +250,103 @@ export const processGameAction = onCall(
     }
 );
 
+// ==================== TEXT GENERATION ENDPOINT ====================
+
+interface GenerateTextRequest {
+    prompt: string;
+    maxLength?: number;
+}
+
+interface GenerateTextResponse {
+    success: boolean;
+    text?: string;
+    error?: string;
+}
+
+export const generateText = onCall(
+    { secrets: [openaiApiKey], cors: true, invoker: 'public' },
+    async (request): Promise<GenerateTextResponse> => {
+        try {
+            const { prompt, maxLength = 150 } = request.data as GenerateTextRequest;
+            const auth = request.auth;
+
+            if (!auth) {
+                throw new HttpsError('unauthenticated', 'User must be authenticated');
+            }
+
+            if (!prompt || typeof prompt !== 'string') {
+                throw new HttpsError('invalid-argument', 'Prompt is required');
+            }
+
+            // Get API key
+            const openaiKey = openaiApiKey.value();
+            if (!openaiKey) {
+                throw new HttpsError('failed-precondition', 'OpenAI API key not configured');
+            }
+
+            console.log(`[GenerateText] Generating text for user ${auth.uid}`);
+
+            // Simple OpenAI call for text generation
+            const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${openaiKey}`,
+                },
+                body: JSON.stringify({
+                    model: 'gpt-4o-mini',
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a creative writing assistant. Generate concise, engaging text based on the user\'s prompt. Keep responses to 2-3 sentences unless otherwise specified.'
+                        },
+                        {
+                            role: 'user',
+                            content: prompt
+                        }
+                    ],
+                    max_tokens: maxLength,
+                    temperature: 0.8,
+                }),
+            });
+
+            if (!response.ok) {
+                const error = await response.text();
+                console.error('[GenerateText] OpenAI error:', error);
+                throw new HttpsError('internal', 'Failed to generate text');
+            }
+
+            const data = await response.json();
+            const generatedText = data.choices[0]?.message?.content?.trim();
+
+            if (!generatedText) {
+                throw new HttpsError('internal', 'No text generated');
+            }
+
+            // Track usage
+            const tokensUsed = data.usage?.total_tokens || 0;
+            await db.collection('users').doc(auth.uid).update({
+                tokensTotal: admin.firestore.FieldValue.increment(tokensUsed),
+                lastActive: admin.firestore.FieldValue.serverTimestamp(),
+            });
+
+            console.log(`[GenerateText] Generated ${generatedText.length} characters, ${tokensUsed} tokens`);
+
+            return {
+                success: true,
+                text: generatedText,
+            };
+
+        } catch (error) {
+            console.error('[GenerateText] Error:', error);
+            return {
+                success: false,
+                error: error instanceof Error ? error.message : 'An unexpected error occurred',
+            };
+        }
+    }
+);
+
 // ==================== CAMPAIGN MANAGEMENT ====================
 
 export const createCampaign = onCall(

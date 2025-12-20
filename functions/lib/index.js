@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.processGameAction = void 0;
+exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.generateText = exports.processGameAction = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
@@ -214,6 +214,75 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
     }
     catch (error) {
         console.error('Game processing error:', error);
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : 'An unexpected error occurred',
+        };
+    }
+});
+exports.generateText = (0, https_1.onCall)({ secrets: [openaiApiKey], cors: true, invoker: 'public' }, async (request) => {
+    try {
+        const { prompt, maxLength = 150 } = request.data;
+        const auth = request.auth;
+        if (!auth) {
+            throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+        }
+        if (!prompt || typeof prompt !== 'string') {
+            throw new https_1.HttpsError('invalid-argument', 'Prompt is required');
+        }
+        // Get API key
+        const openaiKey = openaiApiKey.value();
+        if (!openaiKey) {
+            throw new https_1.HttpsError('failed-precondition', 'OpenAI API key not configured');
+        }
+        console.log(`[GenerateText] Generating text for user ${auth.uid}`);
+        // Simple OpenAI call for text generation
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${openaiKey}`,
+            },
+            body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: 'system',
+                        content: 'You are a creative writing assistant. Generate concise, engaging text based on the user\'s prompt. Keep responses to 2-3 sentences unless otherwise specified.'
+                    },
+                    {
+                        role: 'user',
+                        content: prompt
+                    }
+                ],
+                max_tokens: maxLength,
+                temperature: 0.8,
+            }),
+        });
+        if (!response.ok) {
+            const error = await response.text();
+            console.error('[GenerateText] OpenAI error:', error);
+            throw new https_1.HttpsError('internal', 'Failed to generate text');
+        }
+        const data = await response.json();
+        const generatedText = data.choices[0]?.message?.content?.trim();
+        if (!generatedText) {
+            throw new https_1.HttpsError('internal', 'No text generated');
+        }
+        // Track usage
+        const tokensUsed = data.usage?.total_tokens || 0;
+        await db.collection('users').doc(auth.uid).update({
+            tokensTotal: admin.firestore.FieldValue.increment(tokensUsed),
+            lastActive: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        console.log(`[GenerateText] Generated ${generatedText.length} characters, ${tokensUsed} tokens`);
+        return {
+            success: true,
+            text: generatedText,
+        };
+    }
+    catch (error) {
+        console.error('[GenerateText] Error:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'An unexpected error occurred',

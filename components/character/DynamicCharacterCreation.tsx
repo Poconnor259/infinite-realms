@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable } from '../ui/Animated';
+import { generateText } from '../../lib/firebase';
 import type { GameEngine, ModuleCharacter } from '../../lib/types';
 
 interface DynamicCharacterCreationProps {
@@ -125,43 +126,23 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
 
         setGeneratingField(fieldId);
         try {
-            // Import auth to get token
-            const { auth } = await import('../../lib/firebase');
-            const user = auth.currentUser;
-            if (!user) {
-                console.error('No user logged in');
-                return;
-            }
-
-            const token = await user.getIdToken();
             const aiPrompt = `Generate a ${fieldLabel.toLowerCase()} for a character named ${characterName} in a ${engine.name} game. ${prompt ? `User guidance: ${prompt}` : ''}. Respond with ONLY the generated text, no extra commentary. Keep it to 2-3 sentences.`;
 
-            const response = await fetch('https://us-central1-infinite-realms-5dcba.cloudfunctions.net/processGameAction', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    data: {
-                        campaignId: 'temp-generation',
-                        userInput: aiPrompt,
-                        worldModule: engine.id || 'classic',
-                        currentState: { character: { name: characterName } },
-                        chatHistory: [],
-                        userTier: 'free'
-                    }
-                })
+            const response = await generateText({
+                prompt: aiPrompt,
+                maxLength: 150
             });
 
-            const data = await response.json();
-            if (data.result?.newMessage?.content) {
-                setFormData(prev => ({ ...prev, [fieldId]: data.result.newMessage.content }));
+            if (response.data.success && response.data.text) {
+                setFormData(prev => ({ ...prev, [fieldId]: response.data.text }));
             } else {
-                console.error('AI generation failed:', data);
+                console.error('AI generation failed:', response.data.error);
+                alert('Failed to generate text. Please try again.');
             }
+
         } catch (error) {
             console.error('AI generation error:', error);
+            alert('Failed to generate text. Please try again.');
         } finally {
             setGeneratingField(null);
         }

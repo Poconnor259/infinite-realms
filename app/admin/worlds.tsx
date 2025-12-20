@@ -1116,6 +1116,7 @@ export default function AdminWorldsScreen() {
                                                 name: newEngine.name,
                                                 description: newEngine.description || '',
                                                 stats: newEngine.stats || [],
+                                                statPointBudget: newEngine.statPointBudget,
                                                 resources: newEngine.resources || [],
                                                 progression: newEngine.progression || { type: 'level', maxLevel: 20 },
                                                 creationFields: newEngine.creationFields || [],
