@@ -537,12 +537,79 @@ export default function AdminWorldsScreen() {
                                 {/* Stats Section */}
                                 <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Stats</Text>
                                 {newEngine.stats?.map((stat, index) => (
-                                    <View key={index} style={[styles.statRow, { backgroundColor: colors.background.primary }]}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.statName, { color: colors.text.primary }]}>{stat.abbreviation}: {stat.name}</Text>
-                                            <Text style={[styles.statDetails, { color: colors.text.muted }]}>
-                                                Range: {stat.min}-{stat.max}, Default: {stat.default}
-                                            </Text>
+                                    <View key={index} style={[styles.statEditRow, { backgroundColor: colors.background.primary, borderColor: colors.border.default }]}>
+                                        <View style={{ flex: 1, gap: spacing.xs }}>
+                                            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                                                <TextInput
+                                                    style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary, flex: 1 }]}
+                                                    placeholder="Name"
+                                                    placeholderTextColor={colors.text.muted}
+                                                    value={stat.name}
+                                                    onChangeText={(text) => {
+                                                        const newStats = [...(newEngine.stats || [])];
+                                                        newStats[index] = { ...newStats[index], name: text };
+                                                        setNewEngine(prev => ({ ...prev, stats: newStats }));
+                                                    }}
+                                                />
+                                                <TextInput
+                                                    style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary, width: 80 }]}
+                                                    placeholder="Abbr"
+                                                    placeholderTextColor={colors.text.muted}
+                                                    value={stat.abbreviation}
+                                                    onChangeText={(text) => {
+                                                        const newStats = [...(newEngine.stats || [])];
+                                                        newStats[index] = { ...newStats[index], abbreviation: text.toUpperCase() };
+                                                        setNewEngine(prev => ({ ...prev, stats: newStats }));
+                                                    }}
+                                                />
+                                            </View>
+                                            <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Min</Text>
+                                                    <TextInput
+                                                        style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary }]}
+                                                        placeholder="Min"
+                                                        placeholderTextColor={colors.text.muted}
+                                                        keyboardType="number-pad"
+                                                        value={stat.min.toString()}
+                                                        onChangeText={(text) => {
+                                                            const newStats = [...(newEngine.stats || [])];
+                                                            newStats[index] = { ...newStats[index], min: parseInt(text) || 0 };
+                                                            setNewEngine(prev => ({ ...prev, stats: newStats }));
+                                                        }}
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Max</Text>
+                                                    <TextInput
+                                                        style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary }]}
+                                                        placeholder="Max"
+                                                        placeholderTextColor={colors.text.muted}
+                                                        keyboardType="number-pad"
+                                                        value={stat.max.toString()}
+                                                        onChangeText={(text) => {
+                                                            const newStats = [...(newEngine.stats || [])];
+                                                            newStats[index] = { ...newStats[index], max: parseInt(text) || 30 };
+                                                            setNewEngine(prev => ({ ...prev, stats: newStats }));
+                                                        }}
+                                                    />
+                                                </View>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Default</Text>
+                                                    <TextInput
+                                                        style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary }]}
+                                                        placeholder="Default"
+                                                        placeholderTextColor={colors.text.muted}
+                                                        keyboardType="number-pad"
+                                                        value={stat.default.toString()}
+                                                        onChangeText={(text) => {
+                                                            const newStats = [...(newEngine.stats || [])];
+                                                            newStats[index] = { ...newStats[index], default: parseInt(text) || 10 };
+                                                            setNewEngine(prev => ({ ...prev, stats: newStats }));
+                                                        }}
+                                                    />
+                                                </View>
+                                            </View>
                                         </View>
                                         <TouchableOpacity
                                             onPress={() => {
@@ -550,8 +617,9 @@ export default function AdminWorldsScreen() {
                                                 newStats.splice(index, 1);
                                                 setNewEngine(prev => ({ ...prev, stats: newStats }));
                                             }}
+                                            style={{ paddingLeft: spacing.sm }}
                                         >
-                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                            <Ionicons name="trash-outline" size={20} color={colors.status.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -576,12 +644,52 @@ export default function AdminWorldsScreen() {
                                 {/* Resources Section */}
                                 <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Resources</Text>
                                 {newEngine.resources?.map((resource, index) => (
-                                    <View key={index} style={[styles.statRow, { backgroundColor: colors.background.primary }]}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.statName, { color: colors.text.primary }]}>{resource.name}</Text>
-                                            <Text style={[styles.statDetails, { color: colors.text.muted }]}>
-                                                Color: {resource.color} | HUD: {resource.showInHUD ? 'Yes' : 'No'}
-                                            </Text>
+                                    <View key={index} style={[styles.statEditRow, { backgroundColor: colors.background.primary, borderColor: colors.border.default }]}>
+                                        <View style={{ flex: 1, gap: spacing.xs }}>
+                                            <TextInput
+                                                style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary }]}
+                                                placeholder="Resource Name (e.g., Health, Mana)"
+                                                placeholderTextColor={colors.text.muted}
+                                                value={resource.name}
+                                                onChangeText={(text) => {
+                                                    const newResources = [...(newEngine.resources || [])];
+                                                    newResources[index] = { ...newResources[index], name: text };
+                                                    setNewEngine(prev => ({ ...prev, resources: newResources }));
+                                                }}
+                                            />
+                                            <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Color (hex)</Text>
+                                                    <TextInput
+                                                        style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary }]}
+                                                        placeholder="#10b981"
+                                                        placeholderTextColor={colors.text.muted}
+                                                        value={resource.color}
+                                                        onChangeText={(text) => {
+                                                            const newResources = [...(newEngine.resources || [])];
+                                                            newResources[index] = { ...newResources[index], color: text };
+                                                            setNewEngine(prev => ({ ...prev, resources: newResources }));
+                                                        }}
+                                                    />
+                                                </View>
+                                                <View style={{ alignItems: 'center' }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Show in HUD</Text>
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            const newResources = [...(newEngine.resources || [])];
+                                                            newResources[index] = { ...newResources[index], showInHUD: !newResources[index].showInHUD };
+                                                            setNewEngine(prev => ({ ...prev, resources: newResources }));
+                                                        }}
+                                                        style={[styles.toggleBtn, {
+                                                            backgroundColor: resource.showInHUD ? colors.primary[500] : colors.background.tertiary
+                                                        }]}
+                                                    >
+                                                        <Text style={{ color: resource.showInHUD ? '#fff' : colors.text.muted, fontSize: typography.fontSize.sm }}>
+                                                            {resource.showInHUD ? 'Yes' : 'No'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
                                         </View>
                                         <TouchableOpacity
                                             onPress={() => {
@@ -589,8 +697,9 @@ export default function AdminWorldsScreen() {
                                                 newResources.splice(index, 1);
                                                 setNewEngine(prev => ({ ...prev, resources: newResources }));
                                             }}
+                                            style={{ paddingLeft: spacing.sm }}
                                         >
-                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                            <Ionicons name="trash-outline" size={20} color={colors.status.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -670,12 +779,68 @@ export default function AdminWorldsScreen() {
                                 {/* Creation Fields Section */}
                                 <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Character Creation Fields</Text>
                                 {newEngine.creationFields?.map((field, index) => (
-                                    <View key={index} style={[styles.statRow, { backgroundColor: colors.background.primary }]}>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={[styles.statName, { color: colors.text.primary }]}>{field.label}</Text>
-                                            <Text style={[styles.statDetails, { color: colors.text.muted }]}>
-                                                Type: {field.type} | Required: {field.required ? 'Yes' : 'No'}
-                                            </Text>
+                                    <View key={index} style={[styles.statEditRow, { backgroundColor: colors.background.primary, borderColor: colors.border.default }]}>
+                                        <View style={{ flex: 1, gap: spacing.xs }}>
+                                            <TextInput
+                                                style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary }]}
+                                                placeholder="Field Label (e.g., Class, Race)"
+                                                placeholderTextColor={colors.text.muted}
+                                                value={field.label}
+                                                onChangeText={(text) => {
+                                                    const newFields = [...(newEngine.creationFields || [])];
+                                                    newFields[index] = { ...newFields[index], label: text };
+                                                    setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                                }}
+                                            />
+                                            <View style={{ flexDirection: 'row', gap: spacing.sm, alignItems: 'center' }}>
+                                                <View style={{ flex: 1 }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Field Type</Text>
+                                                    <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
+                                                        {['text', 'select', 'number', 'statPicker'].map((type) => (
+                                                            <TouchableOpacity
+                                                                key={type}
+                                                                onPress={() => {
+                                                                    const newFields = [...(newEngine.creationFields || [])];
+                                                                    newFields[index] = { ...newFields[index], type: type as any };
+                                                                    setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                                                }}
+                                                                style={[
+                                                                    styles.toggleBtn,
+                                                                    {
+                                                                        backgroundColor: field.type === type ? colors.primary[500] : colors.background.tertiary,
+                                                                        paddingHorizontal: spacing.sm,
+                                                                        paddingVertical: spacing.xs / 2,
+                                                                    }
+                                                                ]}
+                                                            >
+                                                                <Text style={{
+                                                                    color: field.type === type ? '#fff' : colors.text.muted,
+                                                                    fontSize: typography.fontSize.xs
+                                                                }}>
+                                                                    {type}
+                                                                </Text>
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                    </View>
+                                                </View>
+                                                <View style={{ alignItems: 'center' }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Required</Text>
+                                                    <TouchableOpacity
+                                                        onPress={() => {
+                                                            const newFields = [...(newEngine.creationFields || [])];
+                                                            newFields[index] = { ...newFields[index], required: !newFields[index].required };
+                                                            setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                                        }}
+                                                        style={[styles.toggleBtn, {
+                                                            backgroundColor: field.required ? colors.primary[500] : colors.background.tertiary
+                                                        }]}
+                                                    >
+                                                        <Text style={{ color: field.required ? '#fff' : colors.text.muted, fontSize: typography.fontSize.sm }}>
+                                                            {field.required ? 'Yes' : 'No'}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
                                         </View>
                                         <TouchableOpacity
                                             onPress={() => {
@@ -683,8 +848,9 @@ export default function AdminWorldsScreen() {
                                                 newFields.splice(index, 1);
                                                 setNewEngine(prev => ({ ...prev, creationFields: newFields }));
                                             }}
+                                            style={{ paddingLeft: spacing.sm }}
                                         >
-                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                            <Ionicons name="trash-outline" size={20} color={colors.status.error} />
                                         </TouchableOpacity>
                                     </View>
                                 ))}
@@ -1167,5 +1333,35 @@ const styles = StyleSheet.create({
     },
     addItemText: {
         fontWeight: '600' as const,
+    },
+    // Editable field styles
+    statEditRow: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'flex-start' as const,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.sm,
+        borderWidth: 1,
+    },
+    smallInput: {
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        fontSize: typography.fontSize.sm,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    miniLabel: {
+        fontSize: typography.fontSize.xs,
+        marginBottom: spacing.xs / 2,
+        fontWeight: '500' as const,
+    },
+    toggleBtn: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        borderRadius: borderRadius.sm,
+        minWidth: 50,
+        alignItems: 'center' as const,
+        marginTop: spacing.xs / 2,
     },
 });
