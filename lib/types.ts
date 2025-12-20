@@ -72,10 +72,72 @@ export interface WorldModule {
 }
 
 // Game Engine types (stored in Firestore, editable by admin)
+export interface StatDefinition {
+    id: string;          // e.g., "STR", "power"
+    name: string;        // Display name: "Strength", "Power"
+    abbreviation: string;
+    min: number;
+    max: number;
+    default: number;
+    description?: string;
+}
+
+export interface ResourceDefinition {
+    id: string;         // e.g., "hp", "mana", "spirit"
+    name: string;       // "Health", "Mana", "Spirit"
+    color: string;      // "#10b981"
+    icon?: string;      // Emoji or icon name
+    showInHUD: boolean;
+}
+
+export interface ProgressionConfig {
+    type: 'level' | 'rank';
+    // For level-based:
+    maxLevel?: number;
+    // For rank-based:
+    ranks?: { id: string; name: string; order: number }[];
+}
+
+export interface FormFieldDefinition {
+    id: string;
+    type: 'text' | 'select' | 'number' | 'statPicker';
+    label: string;
+    required: boolean;
+    options?: { value: string; label: string }[];  // For select
+    placeholder?: string;
+}
+
+export interface HUDConfig {
+    showStats: boolean;
+    showResources: boolean;
+    showAbilities: boolean;
+    showInventory: boolean;
+    layout: 'compact' | 'expanded';
+}
+
 export interface GameEngine {
     id: string;
     name: string;
     description: string;
+
+    // Character Stats Configuration
+    stats?: StatDefinition[];
+
+    // Resource Bars (HP, Mana, Spirit, etc.)
+    resources?: ResourceDefinition[];
+
+    // Progression System
+    progression?: ProgressionConfig;
+
+    // Character Creation Form Fields
+    creationFields?: FormFieldDefinition[];
+
+    // HUD Layout Configuration
+    hudLayout?: HUDConfig;
+
+    // AI Prompt Context (how to describe this system to AI)
+    aiContext?: string;
+
     order?: number;
 }
 

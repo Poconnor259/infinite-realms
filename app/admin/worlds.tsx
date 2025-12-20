@@ -16,7 +16,7 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 import { spacing, borderRadius, typography, shadows } from '../../lib/theme';
 import { AnimatedPressable } from '../../components/ui/Animated';
 import { getWorlds, saveWorld, deleteWorld, getGameEngines, saveGameEngine, deleteGameEngine } from '../../lib/firebase';
-import type { WorldModule, WorldModuleType, GameEngine } from '../../lib/types';
+import type { WorldModule, WorldModuleType, GameEngine, StatDefinition, ResourceDefinition, FormFieldDefinition } from '../../lib/types';
 
 export default function AdminWorldsScreen() {
     const { colors } = useThemeColors();
@@ -32,6 +32,18 @@ export default function AdminWorldsScreen() {
     const [newEngine, setNewEngine] = useState<Partial<GameEngine>>({
         name: '',
         description: '',
+        stats: [],
+        resources: [],
+        progression: { type: 'level', maxLevel: 20 },
+        creationFields: [],
+        hudLayout: {
+            showStats: true,
+            showResources: true,
+            showAbilities: true,
+            showInventory: false,
+            layout: 'expanded',
+        },
+        aiContext: '',
         order: 0,
     });
 
@@ -502,9 +514,11 @@ export default function AdminWorldsScreen() {
                             </View>
                         ))}
 
-                        {/* Add Engine Form */}
+                        {/* Add/Edit Engine Form */}
                         {isAddingEngine ? (
-                            <View style={styles.engineForm}>
+                            <ScrollView style={styles.engineForm}>
+                                {/* Basic Info */}
+                                <Text style={[styles.sectionSubtitle, { color: colors.text.primary }]}>Basic Information</Text>
                                 <TextInput
                                     style={[styles.input, { backgroundColor: colors.background.primary, color: colors.text.primary }]}
                                     placeholder="Engine name (e.g. classic)"
@@ -519,38 +533,266 @@ export default function AdminWorldsScreen() {
                                     value={newEngine.description}
                                     onChangeText={(text) => setNewEngine(prev => ({ ...prev, description: text }))}
                                 />
-                                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+
+                                {/* Stats Section */}
+                                <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Stats</Text>
+                                {newEngine.stats?.map((stat, index) => (
+                                    <View key={index} style={[styles.statRow, { backgroundColor: colors.background.primary }]}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.statName, { color: colors.text.primary }]}>{stat.abbreviation}: {stat.name}</Text>
+                                            <Text style={[styles.statDetails, { color: colors.text.muted }]}>
+                                                Range: {stat.min}-{stat.max}, Default: {stat.default}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                const newStats = [...(newEngine.stats || [])];
+                                                newStats.splice(index, 1);
+                                                setNewEngine(prev => ({ ...prev, stats: newStats }));
+                                            }}
+                                        >
+                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                                <TouchableOpacity
+                                    style={[styles.addItemBtn, { borderColor: colors.primary[500] }]}
+                                    onPress={() => {
+                                        const newStat: StatDefinition = {
+                                            id: `stat${(newEngine.stats?.length || 0) + 1}`,
+                                            name: 'New Stat',
+                                            abbreviation: 'NEW',
+                                            min: 1,
+                                            max: 30,
+                                            default: 10,
+                                        };
+                                        setNewEngine(prev => ({ ...prev, stats: [...(prev.stats || []), newStat] }));
+                                    }}
+                                >
+                                    <Ionicons name="add" size={16} color={colors.primary[500]} />
+                                    <Text style={[styles.addItemText, { color: colors.primary[500] }]}>Add Stat</Text>
+                                </TouchableOpacity>
+
+                                {/* Resources Section */}
+                                <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Resources</Text>
+                                {newEngine.resources?.map((resource, index) => (
+                                    <View key={index} style={[styles.statRow, { backgroundColor: colors.background.primary }]}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.statName, { color: colors.text.primary }]}>{resource.name}</Text>
+                                            <Text style={[styles.statDetails, { color: colors.text.muted }]}>
+                                                Color: {resource.color} | HUD: {resource.showInHUD ? 'Yes' : 'No'}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                const newResources = [...(newEngine.resources || [])];
+                                                newResources.splice(index, 1);
+                                                setNewEngine(prev => ({ ...prev, resources: newResources }));
+                                            }}
+                                        >
+                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                                <TouchableOpacity
+                                    style={[styles.addItemBtn, { borderColor: colors.primary[500] }]}
+                                    onPress={() => {
+                                        const newResource: ResourceDefinition = {
+                                            id: `resource${(newEngine.resources?.length || 0) + 1}`,
+                                            name: 'New Resource',
+                                            color: '#10b981',
+                                            showInHUD: true,
+                                        };
+                                        setNewEngine(prev => ({ ...prev, resources: [...(prev.resources || []), newResource] }));
+                                    }}
+                                >
+                                    <Ionicons name="add" size={16} color={colors.primary[500]} />
+                                    <Text style={[styles.addItemText, { color: colors.primary[500] }]}>Add Resource</Text>
+                                </TouchableOpacity>
+
+                                {/* Progression Section */}
+                                <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Progression</Text>
+                                <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
                                     <TouchableOpacity
-                                        style={[styles.saveBtn, { backgroundColor: colors.primary[500] }]}
+                                        style={[
+                                            styles.typeChip,
+                                            newEngine.progression?.type === 'level'
+                                                ? { backgroundColor: colors.primary[500] }
+                                                : { backgroundColor: colors.background.tertiary }
+                                        ]}
+                                        onPress={() => setNewEngine(prev => ({
+                                            ...prev,
+                                            progression: { type: 'level', maxLevel: 20 }
+                                        }))}
+                                    >
+                                        <Text style={[styles.typeText, {
+                                            color: newEngine.progression?.type === 'level' ? '#fff' : colors.text.secondary
+                                        }]}>Level-Based</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.typeChip,
+                                            newEngine.progression?.type === 'rank'
+                                                ? { backgroundColor: colors.primary[500] }
+                                                : { backgroundColor: colors.background.tertiary }
+                                        ]}
+                                        onPress={() => setNewEngine(prev => ({
+                                            ...prev,
+                                            progression: {
+                                                type: 'rank',
+                                                ranks: [
+                                                    { id: 'iron', name: 'Iron', order: 1 },
+                                                    { id: 'bronze', name: 'Bronze', order: 2 },
+                                                    { id: 'silver', name: 'Silver', order: 3 },
+                                                ]
+                                            }
+                                        }))}
+                                    >
+                                        <Text style={[styles.typeText, {
+                                            color: newEngine.progression?.type === 'rank' ? '#fff' : colors.text.secondary
+                                        }]}>Rank-Based</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                {newEngine.progression?.type === 'level' && (
+                                    <TextInput
+                                        style={[styles.input, { backgroundColor: colors.background.primary, color: colors.text.primary }]}
+                                        placeholder="Max Level"
+                                        placeholderTextColor={colors.text.muted}
+                                        keyboardType="number-pad"
+                                        value={newEngine.progression.maxLevel?.toString() || ''}
+                                        onChangeText={(text) => setNewEngine(prev => ({
+                                            ...prev,
+                                            progression: { ...prev.progression!, maxLevel: parseInt(text) || 20 }
+                                        }))}
+                                    />
+                                )}
+
+                                {/* Creation Fields Section */}
+                                <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Character Creation Fields</Text>
+                                {newEngine.creationFields?.map((field, index) => (
+                                    <View key={index} style={[styles.statRow, { backgroundColor: colors.background.primary }]}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.statName, { color: colors.text.primary }]}>{field.label}</Text>
+                                            <Text style={[styles.statDetails, { color: colors.text.muted }]}>
+                                                Type: {field.type} | Required: {field.required ? 'Yes' : 'No'}
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                const newFields = [...(newEngine.creationFields || [])];
+                                                newFields.splice(index, 1);
+                                                setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                            }}
+                                        >
+                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                                <TouchableOpacity
+                                    style={[styles.addItemBtn, { borderColor: colors.primary[500] }]}
+                                    onPress={() => {
+                                        const newField: FormFieldDefinition = {
+                                            id: `field${(newEngine.creationFields?.length || 0) + 1}`,
+                                            type: 'text',
+                                            label: 'New Field',
+                                            required: false,
+                                        };
+                                        setNewEngine(prev => ({ ...prev, creationFields: [...(prev.creationFields || []), newField] }));
+                                    }}
+                                >
+                                    <Ionicons name="add" size={16} color={colors.primary[500]} />
+                                    <Text style={[styles.addItemText, { color: colors.primary[500] }]}>Add Field</Text>
+                                </TouchableOpacity>
+
+                                {/* AI Context */}
+                                <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>AI Context</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea, { backgroundColor: colors.background.primary, color: colors.text.primary }]}
+                                    placeholder="Describe this game system to the AI (e.g., 'D&D 5e with six core stats...')"
+                                    placeholderTextColor={colors.text.muted}
+                                    multiline
+                                    numberOfLines={4}
+                                    value={newEngine.aiContext}
+                                    onChangeText={(text) => setNewEngine(prev => ({ ...prev, aiContext: text }))}
+                                />
+
+                                {/* Action Buttons */}
+                                <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.lg }}>
+                                    <TouchableOpacity
+                                        style={[styles.saveBtn, { backgroundColor: colors.primary[500], flex: 1 }]}
                                         onPress={async () => {
                                             if (!newEngine.name) return;
                                             const engineToSave: GameEngine = {
                                                 id: editingEngineId || newEngine.name.toLowerCase().replace(/\s+/g, '-'),
                                                 name: newEngine.name,
                                                 description: newEngine.description || '',
+                                                stats: newEngine.stats || [],
+                                                resources: newEngine.resources || [],
+                                                progression: newEngine.progression || { type: 'level', maxLevel: 20 },
+                                                creationFields: newEngine.creationFields || [],
+                                                hudLayout: newEngine.hudLayout || {
+                                                    showStats: true,
+                                                    showResources: true,
+                                                    showAbilities: true,
+                                                    showInventory: false,
+                                                    layout: 'expanded',
+                                                },
+                                                aiContext: newEngine.aiContext || '',
                                                 order: newEngine.order ?? gameEngines.length,
                                             };
                                             await saveGameEngine(engineToSave);
                                             setIsAddingEngine(false);
                                             setEditingEngineId(null);
-                                            setNewEngine({ name: '', description: '', order: 0 });
+                                            setNewEngine({
+                                                name: '',
+                                                description: '',
+                                                stats: [],
+                                                resources: [],
+                                                progression: { type: 'level', maxLevel: 20 },
+                                                creationFields: [],
+                                                hudLayout: {
+                                                    showStats: true,
+                                                    showResources: true,
+                                                    showAbilities: true,
+                                                    showInventory: false,
+                                                    layout: 'expanded',
+                                                },
+                                                aiContext: '',
+                                                order: 0,
+                                            });
                                             loadData();
                                         }}
                                     >
                                         <Text style={styles.saveBtnText}>{editingEngineId ? 'Update' : 'Add'}</Text>
                                     </TouchableOpacity>
                                     <TouchableOpacity
-                                        style={[styles.cancelBtn, { borderColor: colors.border.default }]}
+                                        style={[styles.cancelBtn, { borderColor: colors.border.default, flex: 1 }]}
                                         onPress={() => {
                                             setIsAddingEngine(false);
                                             setEditingEngineId(null);
-                                            setNewEngine({ name: '', description: '', order: 0 });
+                                            setNewEngine({
+                                                name: '',
+                                                description: '',
+                                                stats: [],
+                                                resources: [],
+                                                progression: { type: 'level', maxLevel: 20 },
+                                                creationFields: [],
+                                                hudLayout: {
+                                                    showStats: true,
+                                                    showResources: true,
+                                                    showAbilities: true,
+                                                    showInventory: false,
+                                                    layout: 'expanded',
+                                                },
+                                                aiContext: '',
+                                                order: 0,
+                                            });
                                         }}
                                     >
                                         <Text style={[styles.cancelBtnText, { color: colors.text.secondary }]}>Cancel</Text>
                                     </TouchableOpacity>
                                 </View>
-                            </View>
+                            </ScrollView>
                         ) : (
                             <TouchableOpacity
                                 style={[styles.addEngineBtn, { borderColor: colors.primary[500] }]}
@@ -606,9 +848,10 @@ export default function AdminWorldsScreen() {
                             </View>
                         </View>
                     ))
-                )}
-            </ScrollView>
-        </SafeAreaView>
+                )
+                }
+            </ScrollView >
+        </SafeAreaView >
     );
 }
 
@@ -887,6 +1130,42 @@ const styles = StyleSheet.create({
         marginTop: spacing.sm,
     },
     addEngineBtnText: {
+        fontWeight: '600' as const,
+    },
+    // Engine editor styles
+    sectionSubtitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600' as const,
+        marginBottom: spacing.sm,
+    },
+    statRow: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        marginBottom: spacing.xs,
+    },
+    statName: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600' as const,
+    },
+    statDetails: {
+        fontSize: typography.fontSize.sm,
+        marginTop: spacing.xs / 2,
+    },
+    addItemBtn: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: spacing.xs,
+        padding: spacing.sm,
+        borderWidth: 1,
+        borderStyle: 'dashed' as const,
+        borderRadius: borderRadius.sm,
+        justifyContent: 'center' as const,
+        marginTop: spacing.xs,
+    },
+    addItemText: {
         fontWeight: '600' as const,
     },
 });
