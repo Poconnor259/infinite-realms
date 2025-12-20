@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
@@ -19,6 +19,8 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
     // Initialize character data
     const [formData, setFormData] = useState<Record<string, any>>({});
     const [stats, setStats] = useState<Record<string, number>>({});
+    const [generatingField, setGeneratingField] = useState<string | null>(null);
+    const [isCreating, setIsCreating] = useState(false);
 
     // Initialize stats with default values
     useEffect(() => {
@@ -37,11 +39,43 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
 
         setStats(prev => {
             const newValue = (prev[statId] || stat.default) + delta;
+            const clampedValue = Math.max(stat.min, Math.min(stat.max, newValue));
+
+            // Check stat point budget if defined
+            if (engine.statPointBudget !== undefined) {
+                // Calculate points spent (difference from defaults)
+                const pointsSpent = Object.keys(prev).reduce((total, key) => {
+                    const s = engine.stats?.find(st => st.id === key);
+                    if (!s) return total;
+                    const spent = (key === statId ? clampedValue : prev[key]) - s.default;
+                    return total + Math.max(0, spent); // Only count points above default
+                }, 0);
+
+                // Don't allow change if it exceeds budget
+                if (pointsSpent > engine.statPointBudget) {
+                    return prev;
+                }
+            }
+
             return {
                 ...prev,
-                [statId]: Math.max(stat.min, Math.min(stat.max, newValue))
+                [statId]: clampedValue
             };
         });
+    };
+
+    // Calculate remaining stat points
+    const getRemainingPoints = () => {
+        if (engine.statPointBudget === undefined) return null;
+
+        const pointsSpent = Object.keys(stats).reduce((total, key) => {
+            const stat = engine.stats?.find(s => s.id === key);
+            if (!stat) return total;
+            const spent = stats[key] - stat.default;
+            return total + Math.max(0, spent);
+        }, 0);
+
+        return engine.statPointBudget - pointsSpent;
     };
 
     const handleCreate = () => {
@@ -83,6 +117,54 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
         });
 
         onComplete(character);
+    }
+
+    // AI Generation for text fields
+    const handleAIGenerate = async (fieldId: string, fieldLabel: string) => {
+        const prompt = formData[fieldId] || '';
+
+        setGeneratingField(fieldId);
+        try {
+            // Import auth to get token
+            const { auth } = await import('../../lib/firebase');
+            const user = auth.currentUser;
+            if (!user) {
+                console.error('No user logged in');
+                return;
+            }
+
+            const token = await user.getIdToken();
+            const aiPrompt = `Generate a ${fieldLabel.toLowerCase()} for a character named ${characterName} in a ${engine.name} game. ${prompt ? `User guidance: ${prompt}` : ''}. Respond with ONLY the generated text, no extra commentary. Keep it to 2-3 sentences.`;
+
+            const response = await fetch('https://us-central1-infinite-realms-5dcba.cloudfunctions.net/processGameAction', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    data: {
+                        campaignId: 'temp-generation',
+                        userInput: aiPrompt,
+                        worldModule: engine.id || 'classic',
+                        currentState: { character: { name: characterName } },
+                        chatHistory: [],
+                        userTier: 'free'
+                    }
+                })
+            });
+
+            const data = await response.json();
+            if (data.result?.newMessage?.content) {
+                setFormData(prev => ({ ...prev, [fieldId]: data.result.newMessage.content }));
+            } else {
+                console.error('AI generation failed:', data);
+            }
+        } catch (error) {
+            console.error('AI generation error:', error);
+        } finally {
+            setGeneratingField(null);
+        }
     };
 
     return (
@@ -112,18 +194,49 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                                     {field.label}{field.required && ' *'}
                                 </Text>
                                 {field.type === 'text' || field.type === 'number' ? (
-                                    <TextInput
-                                        style={[styles.input, {
-                                            backgroundColor: colors.background.secondary,
-                                            color: colors.text.primary,
-                                            borderColor: colors.border.default
-                                        }]}
-                                        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}`}
-                                        placeholderTextColor={colors.text.muted}
-                                        value={formData[field.id] || ''}
-                                        onChangeText={(text) => setFormData(prev => ({ ...prev, [field.id]: text }))}
-                                        keyboardType={field.type === 'number' ? 'number-pad' : 'default'}
-                                    />
+                                    <View>
+                                        <TextInput
+                                            style={[styles.input, {
+                                                backgroundColor: colors.background.secondary,
+                                                color: colors.text.primary,
+                                                borderColor: colors.border.default
+                                            }]}
+                                            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+                                            placeholderTextColor={colors.text.muted}
+                                            value={formData[field.id] || ''}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, [field.id]: text }))}
+                                            keyboardType={field.type === 'number' ? 'number-pad' : 'default'}
+                                            multiline={field.type === 'text'}
+                                            numberOfLines={field.type === 'text' ? 3 : 1}
+                                        />
+                                        {field.type === 'text' && (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.aiButton,
+                                                    {
+                                                        backgroundColor: colors.primary[500],
+                                                        opacity: generatingField === field.id ? 0.7 : 1
+                                                    }
+                                                ]}
+                                                onPress={() => handleAIGenerate(field.id, field.label)}
+                                                disabled={generatingField === field.id}
+                                            >
+                                                {generatingField === field.id ? (
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                ) : (
+                                                    <Ionicons name="sparkles" size={16} color="#fff" />
+                                                )}
+                                                <Text style={styles.aiButtonText}>
+                                                    {generatingField === field.id ? 'Generating...' : 'Generate with AI'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+                                        {field.type === 'text' && (
+                                            <Text style={{ color: colors.text.muted, fontSize: typography.fontSize.xs, marginTop: spacing.xs }}>
+                                                💡 Tip: Add details in the box above to guide the AI (e.g., "noble background" or "grew up in the mountains")
+                                            </Text>
+                                        )}
+                                    </View>
                                 ) : field.type === 'select' && field.options ? (
                                     <View style={styles.optionsContainer}>
                                         {field.options.map((option) => (
@@ -158,7 +271,16 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                 {/* Stats Section */}
                 {engine.stats && engine.stats.length > 0 && (
                     <View style={styles.section}>
-                        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Attributes</Text>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Attributes</Text>
+                            {engine.statPointBudget !== undefined && (
+                                <View style={{ backgroundColor: colors.background.tertiary, paddingHorizontal: spacing.md, paddingVertical: spacing.xs, borderRadius: borderRadius.md }}>
+                                    <Text style={{ color: colors.text.primary, fontSize: typography.fontSize.sm, fontWeight: '600' }}>
+                                        Points: {getRemainingPoints()} / {engine.statPointBudget}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
                         {engine.stats.map((stat) => (
                             <View key={stat.id} style={[styles.statRow, { borderColor: colors.border.default }]}>
                                 <View style={styles.statInfo}>
@@ -196,14 +318,28 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                     <AnimatedPressable
                         style={[styles.button, styles.backBtn, { borderColor: colors.border.default }]}
                         onPress={onBack}
+                        disabled={isCreating}
                     >
                         <Text style={[styles.buttonText, { color: colors.text.secondary }]}>Back</Text>
                     </AnimatedPressable>
                     <AnimatedPressable
-                        style={[styles.button, styles.confirmBtn, { backgroundColor: colors.primary[500] }]}
-                        onPress={handleCreate}
+                        style={[
+                            styles.button,
+                            styles.confirmBtn,
+                            { backgroundColor: colors.primary[500] },
+                            isCreating && { opacity: 0.6 }
+                        ]}
+                        onPress={() => {
+                            setIsCreating(true);
+                            handleCreate();
+                        }}
+                        disabled={isCreating}
                     >
-                        <Text style={[styles.buttonText, { color: '#fff' }]}>Confirm</Text>
+                        {isCreating ? (
+                            <ActivityIndicator color="#fff" size="small" />
+                        ) : (
+                            <Text style={[styles.buttonText, { color: '#fff' }]}>Confirm</Text>
+                        )}
                     </AnimatedPressable>
                 </View>
             </ScrollView>
@@ -324,6 +460,21 @@ const styles = StyleSheet.create({
     confirmBtn: {},
     buttonText: {
         fontSize: typography.fontSize.md,
+        fontWeight: '600',
+    },
+    aiButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: borderRadius.md,
+        marginTop: spacing.sm,
+    },
+    aiButtonText: {
+        color: '#fff',
+        fontSize: typography.fontSize.sm,
         fontWeight: '600',
     },
 });

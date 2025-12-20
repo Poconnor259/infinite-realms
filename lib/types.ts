@@ -123,6 +123,9 @@ export interface GameEngine {
     // Character Stats Configuration
     stats?: StatDefinition[];
 
+    // Stat Point Budget for Character Creation
+    statPointBudget?: number;  // Total points players can spend above defaults
+
     // Resource Bars (HP, Mana, Spirit, etc.)
     resources?: ResourceDefinition[];
 

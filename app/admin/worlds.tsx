@@ -689,6 +689,25 @@ export default function AdminWorldsScreen() {
 
                                 {/* Stats Section */}
                                 <Text style={[styles.sectionSubtitle, { color: colors.text.primary, marginTop: spacing.lg }]}>Stats</Text>
+
+                                {/* Stat Point Budget */}
+                                <View style={{ marginBottom: spacing.md }}>
+                                    <Text style={[styles.miniLabel, { color: colors.text.muted, marginBottom: spacing.xs }]}>Stat Point Budget (optional)</Text>
+                                    <TextInput
+                                        style={[styles.smallInput, { backgroundColor: colors.background.primary, color: colors.text.primary }]}
+                                        placeholder="Total points for character creation (e.g., 27)"
+                                        placeholderTextColor={colors.text.muted}
+                                        keyboardType="number-pad"
+                                        value={newEngine.statPointBudget?.toString() || ''}
+                                        onChangeText={(text) => {
+                                            const value = text ? parseInt(text) : undefined;
+                                            setNewEngine(prev => ({ ...prev, statPointBudget: value }));
+                                        }}
+                                    />
+                                    <Text style={{ color: colors.text.muted, fontSize: typography.fontSize.xs, marginTop: spacing.xs }}>
+                                        Leave empty for unlimited points. Players can only spend this many points above the default values.
+                                    </Text>
+                                </View>
                                 {newEngine.stats?.map((stat, index) => (
                                     <View key={index} style={[styles.statEditRow, { backgroundColor: colors.background.primary, borderColor: colors.border.default }]}>
                                         <View style={{ flex: 1, gap: spacing.xs }}>
@@ -994,6 +1013,57 @@ export default function AdminWorldsScreen() {
                                                     </TouchableOpacity>
                                                 </View>
                                             </View>
+
+                                            {/* Options Editor for Select Fields */}
+                                            {field.type === 'select' && (
+                                                <View style={{ marginTop: spacing.sm }}>
+                                                    <Text style={[styles.miniLabel, { color: colors.text.muted, marginBottom: spacing.xs }]}>Dropdown Options</Text>
+                                                    {field.options?.map((option, optIndex) => (
+                                                        <View key={optIndex} style={{ flexDirection: 'row', gap: spacing.xs, marginBottom: spacing.xs, alignItems: 'center' }}>
+                                                            <TextInput
+                                                                style={[styles.smallInput, { backgroundColor: colors.background.secondary, color: colors.text.primary, flex: 1 }]}
+                                                                placeholder="Option name (e.g., Fighter)"
+                                                                placeholderTextColor={colors.text.muted}
+                                                                value={option.label}
+                                                                onChangeText={(text) => {
+                                                                    const newFields = [...(newEngine.creationFields || [])];
+                                                                    const newOptions = [...(newFields[index].options || [])];
+                                                                    // Auto-generate value from label
+                                                                    const value = text.toLowerCase().replace(/\s+/g, '-');
+                                                                    newOptions[optIndex] = { value, label: text };
+                                                                    newFields[index] = { ...newFields[index], options: newOptions };
+                                                                    setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                                                }}
+                                                            />
+                                                            <TouchableOpacity
+                                                                onPress={() => {
+                                                                    const newFields = [...(newEngine.creationFields || [])];
+                                                                    const newOptions = [...(newFields[index].options || [])];
+                                                                    newOptions.splice(optIndex, 1);
+                                                                    newFields[index] = { ...newFields[index], options: newOptions };
+                                                                    setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                                                }}
+                                                                style={{ padding: spacing.xs }}
+                                                            >
+                                                                <Ionicons name="close-circle" size={20} color={colors.status.error} />
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    ))}
+                                                    <TouchableOpacity
+                                                        style={[styles.addItemBtn, { borderColor: colors.primary[400], marginTop: spacing.xs }]}
+                                                        onPress={() => {
+                                                            const newFields = [...(newEngine.creationFields || [])];
+                                                            const newOptions = [...(newFields[index].options || [])];
+                                                            newOptions.push({ value: '', label: '' });
+                                                            newFields[index] = { ...newFields[index], options: newOptions };
+                                                            setNewEngine(prev => ({ ...prev, creationFields: newFields }));
+                                                        }}
+                                                    >
+                                                        <Ionicons name="add" size={14} color={colors.primary[400]} />
+                                                        <Text style={[styles.addItemText, { color: colors.primary[400], fontSize: typography.fontSize.xs }]}>Add Option</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                         <TouchableOpacity
                                             onPress={() => {

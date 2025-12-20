@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../../lib/theme';
 import { signInWithEmail, signInAnonymouslyIfNeeded, resetPassword, signInWithGoogle } from '../../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
+import { Logo } from '../../components/ui/Logo';
 
 export default function SignInScreen() {
     const router = useRouter();
@@ -89,7 +90,7 @@ export default function SignInScreen() {
                 >
                     {/* Header */}
                     <FadeInView style={styles.header} delay={0}>
-                        <Text style={styles.logo}>⚔️</Text>
+                        <Logo size={64} />
                         <Text style={styles.title}>Infinite Realms</Text>
                         <Text style={styles.subtitle}>Sign in to continue your adventure</Text>
                     </FadeInView>
