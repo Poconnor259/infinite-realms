@@ -42,5 +42,11 @@ service cloud.firestore {
       allow read: if true;
       allow write: if false;
     }
+    
+    // Game engines (public read, admin write)
+    match /gameEngines/{engineId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

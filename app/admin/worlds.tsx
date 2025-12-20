@@ -266,6 +266,129 @@ export default function AdminWorldsScreen() {
         }
     };
 
+    const seedDefaultEngines = async () => {
+        const defaultEngines: GameEngine[] = [
+            {
+                id: 'classic',
+                name: 'Classic D&D',
+                description: 'D&D 5e style gameplay with six core attributes',
+                order: 1,
+                stats: [
+                    { id: 'strength', name: 'Strength', abbreviation: 'STR', min: 1, max: 20, default: 10 },
+                    { id: 'dexterity', name: 'Dexterity', abbreviation: 'DEX', min: 1, max: 20, default: 10 },
+                    { id: 'constitution', name: 'Constitution', abbreviation: 'CON', min: 1, max: 20, default: 10 },
+                    { id: 'intelligence', name: 'Intelligence', abbreviation: 'INT', min: 1, max: 20, default: 10 },
+                    { id: 'wisdom', name: 'Wisdom', abbreviation: 'WIS', min: 1, max: 20, default: 10 },
+                    { id: 'charisma', name: 'Charisma', abbreviation: 'CHA', min: 1, max: 20, default: 10 },
+                ],
+                resources: [
+                    { id: 'hp', name: 'Health', color: '#10b981', showInHUD: true },
+                ],
+                progression: { type: 'level', maxLevel: 20 },
+                creationFields: [
+                    {
+                        id: 'class', type: 'select', label: 'Class', required: true, options: [
+                            { value: 'fighter', label: 'Fighter' },
+                            { value: 'wizard', label: 'Wizard' },
+                            { value: 'rogue', label: 'Rogue' },
+                            { value: 'cleric', label: 'Cleric' },
+                        ]
+                    },
+                    {
+                        id: 'race', type: 'select', label: 'Race', required: true, options: [
+                            { value: 'human', label: 'Human' },
+                            { value: 'elf', label: 'Elf' },
+                            { value: 'dwarf', label: 'Dwarf' },
+                            { value: 'halfling', label: 'Halfling' },
+                        ]
+                    },
+                    { id: 'background', type: 'text', label: 'Background', required: false },
+                ],
+                aiContext: 'D&D 5e fantasy RPG. Characters have six core attributes (STR, DEX, CON, INT, WIS, CHA) ranging from 1-20. Use d20 rolls for ability checks, adding relevant attribute modifiers. Combat uses turn-based initiative.',
+            },
+            {
+                id: 'outworlder',
+                name: 'Outworlder',
+                description: 'HWFWM Essence System with rank-based progression',
+                order: 2,
+                stats: [
+                    { id: 'power', name: 'Power', abbreviation: 'PWR', min: 1, max: 100, default: 10 },
+                    { id: 'speed', name: 'Speed', abbreviation: 'SPD', min: 1, max: 100, default: 10 },
+                    { id: 'spirit', name: 'Spirit', abbreviation: 'SPI', min: 1, max: 100, default: 10 },
+                    { id: 'recovery', name: 'Recovery', abbreviation: 'REC', min: 1, max: 100, default: 10 },
+                ],
+                resources: [
+                    { id: 'hp', name: 'Health', color: '#10b981', showInHUD: true },
+                    { id: 'mana', name: 'Mana', color: '#3b82f6', showInHUD: true },
+                    { id: 'stamina', name: 'Stamina', color: '#f59e0b', showInHUD: true },
+                ],
+                progression: {
+                    type: 'rank',
+                    ranks: [
+                        { id: 'iron', name: 'Iron', order: 1 },
+                        { id: 'bronze', name: 'Bronze', order: 2 },
+                        { id: 'silver', name: 'Silver', order: 3 },
+                        { id: 'gold', name: 'Gold', order: 4 },
+                        { id: 'diamond', name: 'Diamond', order: 5 },
+                    ]
+                },
+                creationFields: [
+                    { id: 'essence1', type: 'text', label: 'First Essence', required: true },
+                    { id: 'essence2', type: 'text', label: 'Second Essence', required: false },
+                    { id: 'essence3', type: 'text', label: 'Third Essence', required: false },
+                    { id: 'background', type: 'text', label: 'Origin Story', required: false },
+                ],
+                aiContext: 'HWFWM-style essence magic system. Characters progress through ranks (Iron → Bronze → Silver → Gold → Diamond). Powers come from absorbed essences. Stats are Power, Speed, Spirit, and Recovery (1-100 scale). Combat emphasizes essence ability combinations.',
+            },
+            {
+                id: 'tactical',
+                name: 'Praxis',
+                description: 'Elite tactical operations system with mission-based progression',
+                order: 3,
+                stats: [
+                    { id: 'strength', name: 'Strength', abbreviation: 'STR', min: 1, max: 999, default: 10 },
+                    { id: 'agility', name: 'Agility', abbreviation: 'AGI', min: 1, max: 999, default: 10 },
+                    { id: 'vitality', name: 'Vitality', abbreviation: 'VIT', min: 1, max: 999, default: 10 },
+                    { id: 'intelligence', name: 'Intelligence', abbreviation: 'INT', min: 1, max: 999, default: 10 },
+                    { id: 'sense', name: 'Sense', abbreviation: 'SEN', min: 1, max: 999, default: 10 },
+                ],
+                resources: [
+                    { id: 'hp', name: 'Health', color: '#ef4444', showInHUD: true },
+                    { id: 'mp', name: 'Mana', color: '#3b82f6', showInHUD: true },
+                ],
+                progression: { type: 'level', maxLevel: 100 },
+                creationFields: [
+                    {
+                        id: 'class', type: 'select', label: 'Operative Class', required: true, options: [
+                            { value: 'fighter', label: 'Fighter' },
+                            { value: 'mage', label: 'Mage' },
+                            { value: 'assassin', label: 'Assassin' },
+                            { value: 'tank', label: 'Tank' },
+                            { value: 'healer', label: 'Healer' },
+                        ]
+                    },
+                    { id: 'title', type: 'text', label: 'Operative Title', required: false },
+                ],
+                aiContext: 'PRAXIS tactical operations system. Operatives have game-like stats (STR, AGI, VIT, INT, SEN) that can reach 999. Level-based progression up to level 100. Combat is tactical with skills, missions, and supernatural threat encounters. Stats grow significantly with each level.',
+            },
+        ];
+
+        setIsSaving(true);
+        try {
+            for (const engine of defaultEngines) {
+                await saveGameEngine(engine);
+            }
+            Alert.alert('Success', 'Default game engines seeded successfully');
+            loadData();
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to seed default engines');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+
     const addFeature = () => {
         if (!newFeature.trim()) return;
         setNewWorld(prev => ({
@@ -503,6 +626,17 @@ export default function AdminWorldsScreen() {
 
                 {showEngineSection && (
                     <View style={[styles.engineSection, { backgroundColor: colors.background.tertiary }]}>
+                        {/* Seed Button */}
+                        {!gameEngines.length && !isLoading && (
+                            <TouchableOpacity
+                                style={[styles.seedButton, { backgroundColor: colors.background.secondary, marginBottom: spacing.md }]}
+                                onPress={seedDefaultEngines}
+                            >
+                                <Ionicons name="download-outline" size={20} color={colors.primary[500]} />
+                                <Text style={[styles.seedText, { color: colors.primary[500] }]}>Seed Default Engines</Text>
+                            </TouchableOpacity>
+                        )}
+
                         {/* Engine List */}
                         {gameEngines.map(engine => (
                             <View key={engine.id} style={[styles.engineRow, { borderBottomColor: colors.border.default }]}>
@@ -514,7 +648,7 @@ export default function AdminWorldsScreen() {
                                     <TouchableOpacity
                                         onPress={() => {
                                             setEditingEngineId(engine.id);
-                                            setNewEngine({ name: engine.name, description: engine.description, order: engine.order });
+                                            setNewEngine(engine);  // Load complete engine data
                                             setIsAddingEngine(true);
                                         }}
                                     >

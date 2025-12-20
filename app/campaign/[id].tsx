@@ -240,7 +240,6 @@ export default function CampaignScreen() {
                 const classicState = moduleState as ClassicModuleState;
                 return (
                     <View style={styles.moduleHud}>
-                        <StatRow stats={classicState.character.stats} />
                         <View style={styles.hudRow}>
                             <View style={styles.hudStat}>
                                 <Text style={styles.hudLabel}>AC</Text>

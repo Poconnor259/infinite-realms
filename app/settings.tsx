@@ -187,7 +187,7 @@ export default function SettingsScreen() {
                                     sublabel={user?.email || 'Signed In'}
                                     icon="person-outline"
                                     iconColor={colors.primary[400]}
-                                    onPress={() => { }}
+                                    onPress={() => router.push('/account')}
                                 />
                                 <Row
                                     label="Sign Out"
