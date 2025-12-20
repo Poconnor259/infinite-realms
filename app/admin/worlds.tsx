@@ -32,10 +32,29 @@ export default function AdminWorldsScreen() {
     const [newEngine, setNewEngine] = useState<Partial<GameEngine>>({
         name: '',
         description: '',
-        stats: [],
-        resources: [],
+        stats: [
+            { id: 'strength', name: 'Strength', abbreviation: 'STR', min: 1, max: 20, default: 10 },
+            { id: 'dexterity', name: 'Dexterity', abbreviation: 'DEX', min: 1, max: 20, default: 10 },
+            { id: 'constitution', name: 'Constitution', abbreviation: 'CON', min: 1, max: 20, default: 10 },
+            { id: 'intelligence', name: 'Intelligence', abbreviation: 'INT', min: 1, max: 20, default: 10 },
+            { id: 'wisdom', name: 'Wisdom', abbreviation: 'WIS', min: 1, max: 20, default: 10 },
+            { id: 'charisma', name: 'Charisma', abbreviation: 'CHA', min: 1, max: 20, default: 10 },
+        ],
+        resources: [
+            { id: 'hp', name: 'Health', color: '#10b981', showInHUD: true },
+            { id: 'mana', name: 'Mana', color: '#3b82f6', showInHUD: true },
+        ],
         progression: { type: 'level', maxLevel: 20 },
-        creationFields: [],
+        creationFields: [
+            {
+                id: 'class', type: 'select', label: 'Class', required: true, options: [
+                    { value: 'fighter', label: 'Fighter' },
+                    { value: 'wizard', label: 'Wizard' },
+                    { value: 'rogue', label: 'Rogue' },
+                ]
+            },
+            { id: 'background', type: 'text', label: 'Background', required: false },
+        ],
         hudLayout: {
             showStats: true,
             showResources: true,
@@ -43,7 +62,7 @@ export default function AdminWorldsScreen() {
             showInventory: false,
             layout: 'expanded',
         },
-        aiContext: '',
+        aiContext: 'A fantasy RPG system with six core attributes. Characters progress through levels, gaining power and abilities.',
         order: 0,
     });
 
