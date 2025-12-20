@@ -17,11 +17,12 @@ import { spacing, borderRadius, typography, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useGameStore, useUserStore } from '../../lib/store';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
-import { createCampaign, signInAnonymouslyIfNeeded, getWorlds } from '../../lib/firebase';
+import { createCampaign, signInAnonymouslyIfNeeded, getWorlds, getGameEngines } from '../../lib/firebase';
 import { ClassicCharacterCreation } from '../../components/character/ClassicCharacterCreation';
 import { OutworlderCharacterCreation } from '../../components/character/OutworlderCharacterCreation';
 import { TacticalCharacterCreation } from '../../components/character/TacticalCharacterCreation';
-import type { WorldModule, WorldModuleType, ModuleCharacter } from '../../lib/types';
+import { DynamicCharacterCreation } from '../../components/character/DynamicCharacterCreation';
+import type { WorldModule, WorldModuleType, ModuleCharacter, GameEngine } from '../../lib/types';
 
 // Helper to get default character creation component
 const CharacterCreationMap: Record<string, any> = {
@@ -39,6 +40,7 @@ export default function CreateCampaignScreen() {
     const worldId = params.world;
 
     const [world, setWorld] = useState<WorldModule | null>(null);
+    const [gameEngine, setGameEngine] = useState<GameEngine | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const { setCurrentCampaign, setMessages } = useGameStore();
 
@@ -52,16 +54,24 @@ export default function CreateCampaignScreen() {
             if (!worldId) return;
             try {
                 const worlds = await getWorlds();
-                const found = worlds.find(w => w.id === worldId);
-                if (found) {
-                    setWorld(found);
+                const selectedWorld = worlds.find(w => w.id === worldId);
+                if (selectedWorld) {
+                    setWorld(selectedWorld);
+
+                    // Fetch game engine configuration
+                    const engines = await getGameEngines();
+                    const engine = engines.find(e => e.id === selectedWorld.type);
+                    if (engine) {
+                        setGameEngine(engine);
+                    }
                 } else {
                     Alert.alert('Error', 'World not found');
                     router.back();
                 }
             } catch (error) {
-                console.error(error);
-                Alert.alert('Error', 'Failed to load world settings');
+                console.error('Failed to load world:', error);
+                Alert.alert('Error', 'Failed to load world');
+                router.back();
             } finally {
                 setIsLoading(false);
             }
@@ -146,6 +156,17 @@ export default function CreateCampaignScreen() {
 
     // Render character creation step based on world module
     if (step === 'character' && world) {
+        // Use dynamic component if engine configuration exists
+        if (gameEngine) {
+            return <DynamicCharacterCreation
+                characterName={characterName}
+                engine={gameEngine}
+                onComplete={handleCharacterComplete}
+                onBack={() => setStep('name')}
+            />;
+        }
+
+        // Fallback to legacy hardcoded components
         const CharacterComp = CharacterCreationMap[world.type] || ClassicCharacterCreation;
         return <CharacterComp
             characterName={characterName}
