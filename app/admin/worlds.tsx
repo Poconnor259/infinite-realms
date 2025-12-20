@@ -15,16 +15,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { spacing, borderRadius, typography, shadows } from '../../lib/theme';
 import { AnimatedPressable } from '../../components/ui/Animated';
-import { getWorlds, saveWorld, deleteWorld } from '../../lib/firebase';
-import type { WorldModule, WorldModuleType } from '../../lib/types';
-
-const MODULE_TYPES: WorldModuleType[] = ['classic', 'outworlder', 'tactical'];
+import { getWorlds, saveWorld, deleteWorld, getGameEngines, saveGameEngine, deleteGameEngine } from '../../lib/firebase';
+import type { WorldModule, WorldModuleType, GameEngine } from '../../lib/types';
 
 export default function AdminWorldsScreen() {
     const { colors } = useThemeColors();
     const [worlds, setWorlds] = useState<WorldModule[]>([]);
+    const [gameEngines, setGameEngines] = useState<GameEngine[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+
+    // Game engine section
+    const [showEngineSection, setShowEngineSection] = useState(false);
+    const [isAddingEngine, setIsAddingEngine] = useState(false);
+    const [editingEngineId, setEditingEngineId] = useState<string | null>(null);
+    const [newEngine, setNewEngine] = useState<Partial<GameEngine>>({
+        name: '',
+        description: '',
+        order: 0,
+    });
 
     // Form state
     const [isAdding, setIsAdding] = useState(false);
@@ -45,8 +54,26 @@ export default function AdminWorldsScreen() {
     const [newFeature, setNewFeature] = useState('');
 
     useEffect(() => {
-        loadWorlds();
+        loadData();
     }, []);
+
+    const loadData = async () => {
+        setIsLoading(true);
+        try {
+            const [worldsData, enginesData] = await Promise.all([
+                getWorlds(),
+                getGameEngines(),
+            ]);
+            setWorlds(worldsData);
+            setGameEngines(enginesData);
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to load data');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
 
     const loadWorlds = async () => {
         setIsLoading(true);
@@ -273,17 +300,17 @@ export default function AdminWorldsScreen() {
 
             <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Game Engine / Type *</Text>
             <View style={styles.typeSelector}>
-                {MODULE_TYPES.map(type => (
+                {gameEngines.map(engine => (
                     <TouchableOpacity
-                        key={type}
+                        key={engine.id}
                         style={[
                             styles.typeChip,
-                            newWorld.type === type ? { backgroundColor: colors.primary[500] } : { backgroundColor: colors.background.tertiary }
+                            newWorld.type === engine.name ? { backgroundColor: colors.primary[500] } : { backgroundColor: colors.background.tertiary }
                         ]}
-                        onPress={() => setNewWorld(prev => ({ ...prev, type }))}
+                        onPress={() => setNewWorld(prev => ({ ...prev, type: engine.name as WorldModuleType }))}
                     >
-                        <Text style={[styles.typeText, { color: newWorld.type === type ? '#fff' : colors.text.secondary }]}>
-                            {type}
+                        <Text style={[styles.typeText, { color: newWorld.type === engine.name ? '#fff' : colors.text.secondary }]}>
+                            {engine.name}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -430,6 +457,112 @@ export default function AdminWorldsScreen() {
 
             <ScrollView contentContainerStyle={styles.content}>
                 {isAdding && renderForm()}
+
+                {/* Game Engines Section */}
+                <TouchableOpacity
+                    style={[styles.sectionHeader, { backgroundColor: colors.background.secondary }]}
+                    onPress={() => setShowEngineSection(!showEngineSection)}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                        <Ionicons name="cog-outline" size={20} color={colors.primary[500]} />
+                        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Game Engines ({gameEngines.length})</Text>
+                    </View>
+                    <Ionicons name={showEngineSection ? 'chevron-up' : 'chevron-down'} size={20} color={colors.text.muted} />
+                </TouchableOpacity>
+
+                {showEngineSection && (
+                    <View style={[styles.engineSection, { backgroundColor: colors.background.tertiary }]}>
+                        {/* Engine List */}
+                        {gameEngines.map(engine => (
+                            <View key={engine.id} style={[styles.engineRow, { borderBottomColor: colors.border.default }]}>
+                                <View>
+                                    <Text style={[styles.engineName, { color: colors.text.primary }]}>{engine.name}</Text>
+                                    <Text style={[styles.engineDesc, { color: colors.text.muted }]}>{engine.description}</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            setEditingEngineId(engine.id);
+                                            setNewEngine({ name: engine.name, description: engine.description, order: engine.order });
+                                            setIsAddingEngine(true);
+                                        }}
+                                    >
+                                        <Ionicons name="pencil-outline" size={18} color={colors.primary[500]} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={async () => {
+                                            if (Platform.OS === 'web' && !window.confirm(`Delete engine "${engine.name}"?`)) return;
+                                            await deleteGameEngine(engine.id);
+                                            loadData();
+                                        }}
+                                    >
+                                        <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ))}
+
+                        {/* Add Engine Form */}
+                        {isAddingEngine ? (
+                            <View style={styles.engineForm}>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: colors.background.primary, color: colors.text.primary }]}
+                                    placeholder="Engine name (e.g. classic)"
+                                    placeholderTextColor={colors.text.muted}
+                                    value={newEngine.name}
+                                    onChangeText={(text) => setNewEngine(prev => ({ ...prev, name: text }))}
+                                />
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: colors.background.primary, color: colors.text.primary }]}
+                                    placeholder="Description"
+                                    placeholderTextColor={colors.text.muted}
+                                    value={newEngine.description}
+                                    onChangeText={(text) => setNewEngine(prev => ({ ...prev, description: text }))}
+                                />
+                                <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+                                    <TouchableOpacity
+                                        style={[styles.saveBtn, { backgroundColor: colors.primary[500] }]}
+                                        onPress={async () => {
+                                            if (!newEngine.name) return;
+                                            const engineToSave: GameEngine = {
+                                                id: editingEngineId || newEngine.name.toLowerCase().replace(/\s+/g, '-'),
+                                                name: newEngine.name,
+                                                description: newEngine.description || '',
+                                                order: newEngine.order ?? gameEngines.length,
+                                            };
+                                            await saveGameEngine(engineToSave);
+                                            setIsAddingEngine(false);
+                                            setEditingEngineId(null);
+                                            setNewEngine({ name: '', description: '', order: 0 });
+                                            loadData();
+                                        }}
+                                    >
+                                        <Text style={styles.saveBtnText}>{editingEngineId ? 'Update' : 'Add'}</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.cancelBtn, { borderColor: colors.border.default }]}
+                                        onPress={() => {
+                                            setIsAddingEngine(false);
+                                            setEditingEngineId(null);
+                                            setNewEngine({ name: '', description: '', order: 0 });
+                                        }}
+                                    >
+                                        <Text style={[styles.cancelBtnText, { color: colors.text.secondary }]}>Cancel</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        ) : (
+                            <TouchableOpacity
+                                style={[styles.addEngineBtn, { borderColor: colors.primary[500] }]}
+                                onPress={() => setIsAddingEngine(true)}
+                            >
+                                <Ionicons name="add" size={18} color={colors.primary[500]} />
+                                <Text style={[styles.addEngineBtnText, { color: colors.primary[500] }]}>Add Game Engine</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+
 
                 {isLoading ? (
                     <ActivityIndicator size="large" color={colors.primary[500]} style={{ marginTop: spacing.xxl }} />
@@ -687,5 +820,73 @@ const styles = StyleSheet.create({
     saveButtonText: {
         color: '#fff',
         fontWeight: 'bold',
+    },
+    // Game Engine styles
+    sectionHeader: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.sm,
+    },
+    sectionTitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600' as const,
+    },
+    engineSection: {
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.lg,
+    },
+    engineRow: {
+        flexDirection: 'row' as const,
+        justifyContent: 'space-between' as const,
+        alignItems: 'center' as const,
+        paddingVertical: spacing.sm,
+        borderBottomWidth: 1,
+    },
+    engineName: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600' as const,
+    },
+    engineDesc: {
+        fontSize: typography.fontSize.sm,
+    },
+    engineForm: {
+        gap: spacing.sm,
+        marginTop: spacing.md,
+    },
+    saveBtn: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.sm,
+    },
+    saveBtnText: {
+        color: '#fff',
+        fontWeight: '600' as const,
+    },
+    cancelBtn: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+    },
+    cancelBtnText: {
+        fontWeight: '600' as const,
+    },
+    addEngineBtn: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: spacing.xs,
+        padding: spacing.sm,
+        borderWidth: 1,
+        borderStyle: 'dashed' as const,
+        borderRadius: borderRadius.sm,
+        justifyContent: 'center' as const,
+        marginTop: spacing.sm,
+    },
+    addEngineBtnText: {
+        fontWeight: '600' as const,
     },
 });

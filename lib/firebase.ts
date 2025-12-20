@@ -15,7 +15,7 @@ import {
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
-import type { WorldModule } from './types';
+import type { WorldModule, GameEngine } from './types';
 import {
     getFirestore,
     collection,
@@ -452,5 +452,41 @@ export async function saveWorld(world: WorldModule): Promise<void> {
 
 export async function deleteWorld(worldId: string): Promise<void> {
     const ref = doc(db, 'worlds', worldId);
+    await deleteDoc(ref);
+}
+
+// ==================== GAME ENGINE HELPERS ====================
+
+export const gameEnginesRef = collection(db, 'gameEngines');
+
+export async function getGameEngines(): Promise<GameEngine[]> {
+    try {
+        const q = query(gameEnginesRef, orderBy('order', 'asc'));
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+        } as GameEngine));
+    } catch (error) {
+        console.error('Error fetching game engines:', error);
+        // Return default engines if none exist
+        return [
+            { id: 'classic', name: 'classic', description: 'D&D 5e style gameplay', order: 1 },
+            { id: 'outworlder', name: 'outworlder', description: 'HWFWM Essence System', order: 2 },
+            { id: 'tactical', name: 'tactical', description: 'Solo Leveling style', order: 3 },
+        ];
+    }
+}
+
+export async function saveGameEngine(engine: GameEngine): Promise<void> {
+    const ref = doc(db, 'gameEngines', engine.id);
+    await setDoc(ref, {
+        ...engine,
+        updatedAt: serverTimestamp(),
+    }, { merge: true });
+}
+
+export async function deleteGameEngine(engineId: string): Promise<void> {
+    const ref = doc(db, 'gameEngines', engineId);
     await deleteDoc(ref);
 }

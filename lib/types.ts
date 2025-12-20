@@ -71,6 +71,14 @@ export interface WorldModule {
     order?: number;
 }
 
+// Game Engine types (stored in Firestore, editable by admin)
+export interface GameEngine {
+    id: string;
+    name: string;
+    description: string;
+    order?: number;
+}
+
 // ==================== D&D 5E (CLASSIC) ====================
 
 export interface ClassicCharacter extends Character {
