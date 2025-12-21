@@ -393,20 +393,116 @@ export interface TopUpPackage {
     displayPrice: string;
 }
 
-export const SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
+export const DEFAULT_SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
     scout: 15,
     hero: 300,
     legend: Infinity, // BYOK = unlimited
 };
 
-export const SUBSCRIPTION_PRICING: Record<SubscriptionTier, { price: number; displayPrice: string }> = {
+export const DEFAULT_SUBSCRIPTION_PRICING: Record<SubscriptionTier, { price: number; displayPrice: string }> = {
     scout: { price: 0, displayPrice: 'Free' },
     hero: { price: 999, displayPrice: '$9.99/month' },
     legend: { price: 4999, displayPrice: '$49.99 one-time' },
 };
 
-export const TOP_UP_PACKAGES: TopUpPackage[] = [
+export const DEFAULT_TOP_UP_PACKAGES: TopUpPackage[] = [
     { id: 'topup_150', turns: 150, price: 500, displayPrice: '$5' },
     { id: 'topup_300', turns: 300, price: 1000, displayPrice: '$10' },
 ];
+
+export interface ModelDefinition {
+    id: string;
+    name: string;
+    provider: 'openai' | 'anthropic' | 'google';
+    defaultPricing?: {
+        prompt: number; // Cost per 1M tokens
+        completion: number;
+    };
+}
+
+export const AVAILABLE_MODELS: ModelDefinition[] = [
+    // OpenAI Models
+    {
+        id: 'gpt-4o',
+        name: 'GPT-4o',
+        provider: 'openai',
+        defaultPricing: { prompt: 2.50, completion: 10.00 }
+    },
+    {
+        id: 'gpt-4o-mini',
+        name: 'GPT-4o Mini',
+        provider: 'openai',
+        defaultPricing: { prompt: 0.15, completion: 0.60 }
+    },
+    {
+        id: 'o1-preview',
+        name: 'o1 Preview',
+        provider: 'openai',
+        defaultPricing: { prompt: 15.00, completion: 60.00 }
+    },
+    {
+        id: 'o1-mini',
+        name: 'o1 Mini',
+        provider: 'openai',
+        defaultPricing: { prompt: 3.00, completion: 12.00 }
+    },
+
+    // Anthropic Models
+    {
+        id: 'claude-3-5-sonnet-20241022',
+        name: 'Claude 3.5 Sonnet (New)',
+        provider: 'anthropic',
+        defaultPricing: { prompt: 3.00, completion: 15.00 }
+    },
+    {
+        id: 'claude-3-5-haiku-20241022',
+        name: 'Claude 3.5 Haiku',
+        provider: 'anthropic',
+        defaultPricing: { prompt: 1.00, completion: 5.00 } // Approx
+    },
+    {
+        id: 'claude-3-opus-20240229',
+        name: 'Claude 3 Opus',
+        provider: 'anthropic',
+        defaultPricing: { prompt: 15.00, completion: 75.00 }
+    },
+
+    // Google Gemini Models
+    {
+        id: 'gemini-2.0-flash-exp',
+        name: 'Gemini 2.0 Flash (Exp)',
+        provider: 'google',
+        defaultPricing: { prompt: 0.00, completion: 0.00 } // Free during preview often
+    },
+    {
+        id: 'gemini-1.5-pro-002',
+        name: 'Gemini 1.5 Pro (002)',
+        provider: 'google',
+        defaultPricing: { prompt: 1.25, completion: 5.00 } // Lowered recently?
+    },
+    {
+        id: 'gemini-1.5-flash-002',
+        name: 'Gemini 1.5 Flash (002)',
+        provider: 'google',
+        defaultPricing: { prompt: 0.075, completion: 0.30 }
+    },
+    {
+        id: 'gemini-1.5-flash-8b',
+        name: 'Gemini 1.5 Flash-8B',
+        provider: 'google',
+        defaultPricing: { prompt: 0.0375, completion: 0.15 }
+    }
+];
+
+export interface GlobalConfig {
+    subscriptionLimits: Record<SubscriptionTier, number>;
+    subscriptionPricing: Record<SubscriptionTier, { price: number; displayPrice: string }>;
+    topUpPackages: TopUpPackage[];
+    worldModules: Record<string, { enabled: boolean }>; // Keyed by module ID
+    systemSettings: {
+        maintenanceMode: boolean;
+        newRegistrationsOpen: boolean;
+        debugLogging: boolean;
+    };
+}
 

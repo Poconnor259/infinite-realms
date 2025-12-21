@@ -15,7 +15,7 @@ import {
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
-import type { WorldModule, GameEngine } from './types';
+import type { WorldModule, GameEngine, GlobalConfig } from './types';
 import {
     getFirestore,
     collection,
@@ -314,6 +314,11 @@ export const generateText = httpsCallable<
 >(functions, 'generateText');
 
 // Model pricing management
+export const getAvailableModels = httpsCallable<
+    void,
+    { success: boolean; models: any[] }
+>(functions, 'getAvailableModels');
+
 export const refreshModelPricing = httpsCallable<
     void,
     { success: boolean; pricing: { gpt4oMini: { prompt: number; completion: number }; claude: { prompt: number; completion: number } } }
@@ -329,10 +334,40 @@ export const getModelPricing = httpsCallable<
     { gpt4oMini: { prompt: number; completion: number }; claude: { prompt: number; completion: number } }
 >(functions, 'getModelPricing');
 
+export const getGlobalConfig = httpsCallable<void, GlobalConfig>(
+    functions,
+    'getGlobalConfig'
+);
+
+export const updateGlobalConfig = httpsCallable<Partial<GlobalConfig>, { success: boolean }>(
+    functions,
+    'updateGlobalConfig'
+);
+
 export const deleteCampaignFn = httpsCallable<{ campaignId: string }, { success: boolean }>(
     functions,
     'deleteCampaign'
 );
+
+// API Key Management
+export type ApiProvider = 'openai' | 'anthropic' | 'google';
+
+export interface ApiKeyStatus {
+    openai: { set: boolean; hint: string };
+    anthropic: { set: boolean; hint: string };
+    google: { set: boolean; hint: string };
+}
+
+export const getApiKeyStatus = httpsCallable<void, ApiKeyStatus>(
+    functions,
+    'getApiKeyStatus'
+);
+
+export const updateApiKey = httpsCallable<{ provider: ApiProvider; key: string }, { success: boolean }>(
+    functions,
+    'updateApiKey'
+);
+
 
 // ==================== FIRESTORE HELPERS ====================
 

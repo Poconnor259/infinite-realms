@@ -11,7 +11,7 @@ import type {
     OutworlderModuleState,
     TacticalModuleState,
 } from './types';
-import { SUBSCRIPTION_LIMITS } from './types';
+import { DEFAULT_SUBSCRIPTION_LIMITS } from './types';
 import { loadCampaign as fetchCampaign, processGameAction } from './firebase';
 
 // Simple localStorage-based storage (works on web and React Native with polyfill)
@@ -500,7 +500,9 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
 
         getLimit: () => {
             const { tier } = get();
-            return SUBSCRIPTION_LIMITS[tier];
+            // If config is loaded, use it; otherwise fallback to defaults
+            // For now, we only have defaults available here synchronously
+            return DEFAULT_SUBSCRIPTION_LIMITS[tier] || 15;
         },
 
         getRemaining: () => {

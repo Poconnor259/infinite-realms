@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
 
 // ==================== TYPES ====================
@@ -10,6 +11,8 @@ interface BrainInput {
     currentState: Record<string, unknown>;
     chatHistory: Array<{ role: string; content: string }>;
     apiKey: string;
+    provider: 'openai' | 'anthropic' | 'google';
+    model: string;
     knowledgeDocuments?: string[]; // Reference documents for context
     customRules?: string; // Optional custom rules for the AI logic
 }
@@ -103,7 +106,7 @@ const BrainResponseSchema = z.object({
 // ==================== MAIN BRAIN FUNCTION ====================
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
-    const { userInput, worldModule, currentState, chatHistory, apiKey, knowledgeDocuments, customRules } = input;
+    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules } = input;
 
     try {
         // Build knowledge base section if documents exist
@@ -146,20 +149,112 @@ ${JSON.stringify(currentState, null, 2)}
 
 Respond with JSON only. No markdown, no explanation.`;
 
-        // Detect Provider
-        const isAnthropic = apiKey.startsWith('sk-ant');
         let content: string | null = null;
         let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
 
-        console.log(`[Brain] Using provider: ${isAnthropic ? 'Anthropic' : 'OpenAI'} (Key length: ${apiKey.length})`);
+        console.log(`[Brain] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length})`);
 
-        if (isAnthropic) {
+        const outputSchema = {
+            description: "Game logic engine output",
+            type: SchemaType.OBJECT,
+            properties: {
+                stateUpdates: {
+                    type: SchemaType.OBJECT,
+                    description: "Updated fields in the game state (only what changed)",
+                    nullable: true,
+                },
+                narrativeCues: {
+                    type: SchemaType.ARRAY,
+                    description: "List of narrative cues for the storyteller",
+                    items: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            type: {
+                                type: SchemaType.STRING,
+                                enum: ['action', 'dialogue', 'description', 'combat', 'discovery']
+                            },
+                            content: { type: SchemaType.STRING },
+                            emotion: {
+                                type: SchemaType.STRING,
+                                enum: ['neutral', 'tense', 'triumphant', 'mysterious', 'danger'],
+                                nullable: true
+                            }
+                        },
+                        required: ['type', 'content']
+                    }
+                },
+                diceRolls: {
+                    type: SchemaType.ARRAY,
+                    description: "Dice rolls performed",
+                    items: {
+                        type: SchemaType.OBJECT,
+                        properties: {
+                            type: { type: SchemaType.STRING },
+                            result: { type: SchemaType.NUMBER },
+                            modifier: { type: SchemaType.NUMBER, nullable: true },
+                            total: { type: SchemaType.NUMBER },
+                            purpose: { type: SchemaType.STRING, nullable: true }
+                        },
+                        required: ['type', 'result', 'total']
+                    }
+                },
+                systemMessages: {
+                    type: SchemaType.ARRAY,
+                    description: "System messages for the player",
+                    items: { type: SchemaType.STRING }
+                },
+                narrativeCue: { type: SchemaType.STRING, description: "Fallback narrative summary", nullable: true }
+            },
+            required: ['stateUpdates', 'narrativeCues', 'diceRolls', 'systemMessages']
+        };
+
+        if (provider === 'google') {
+            // ==================== GOOGLE GEMINI ====================
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const geminiModel = genAI.getGenerativeModel({
+                model: model,
+                systemInstruction: systemPrompt,
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: outputSchema as any, // Cast to any to avoid strict SchemaType mismatch
+                },
+            });
+
+            // Convert history to Gemini format
+            const history = chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }],
+            }));
+
+            // Construct the final user prompt
+            const userPrompt = `PLAYER ACTION: ${userInput}
+            
+            Process this action according to the game mechanics instructions.
+            Refer to the CURRENT GAME STATE provided in the system instruction.`;
+
+            // Start chat matching history
+            const chat = geminiModel.startChat({
+                history: history,
+            });
+
+            const result = await chat.sendMessage(userPrompt);
+            const response = result.response;
+            content = response.text();
+
+            usage = {
+                promptTokens: response.usageMetadata?.promptTokenCount || 0,
+                completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+                totalTokens: response.usageMetadata?.totalTokenCount || 0,
+            };
+
+        } else if (provider === 'anthropic') {
+            // ==================== ANTHROPIC CLAUDE ====================
             const anthropic = new Anthropic({ apiKey });
 
             const response = await anthropic.messages.create({
-                model: 'claude-sonnet-4-20250514',
+                model: model, // e.g. claude-3-5-sonnet-20240620
                 max_tokens: 3000,
-                temperature: 0.7,
+                temperature: 0.5,
                 system: systemPrompt,
                 messages: [
                     ...chatHistory.map(msg => ({
@@ -194,8 +289,9 @@ Respond with JSON only. No markdown, no explanation.`;
                 completionTokens: response.usage.output_tokens,
                 totalTokens: response.usage.input_tokens + response.usage.output_tokens
             };
+
         } else {
-            // Default to OpenAI
+            // ==================== OPENAI GPT ====================
             const openai = new OpenAI({ apiKey });
 
             const messages: OpenAI.ChatCompletionMessageParam[] = [
@@ -215,20 +311,13 @@ Respond with JSON only. No markdown, no explanation.`;
     
     Process this action according to the game rules. Calculate any required dice rolls, update the game state, and provide narrative cues for the storyteller.
     
-    Respond with JSON matching this structure:
-    {
-      "stateUpdates": { /* only changed fields */ },
-      "narrativeCues": [{ "type": "...", "content": "...", "emotion": "..." }],
-      "diceRolls": [{ "type": "d20", "result": N, "modifier": M, "total": T, "purpose": "..." }],
-      "systemMessages": ["..."],
-      "narrativeCue": "Brief narrative if Claude is unavailable"
-    }`,
+    Respond with VALID JSON matching the required schema.`,
             });
 
             const response = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: model, // e.g. gpt-4o-mini
                 messages,
-                temperature: 0.7,
+                temperature: 0.5,
                 max_tokens: 2000,
                 response_format: { type: 'json_object' },
             });
@@ -248,7 +337,7 @@ Respond with JSON only. No markdown, no explanation.`;
             };
         }
 
-        // Extract JSON from markdown code blocks if present
+        // Extract JSON from markdown code blocks if present (for non-JSON mode models)
         let jsonText = content.trim();
         const codeBlockMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
         if (codeBlockMatch) {
@@ -273,6 +362,7 @@ Respond with JSON only. No markdown, no explanation.`;
 
         if (!validated.success) {
             console.error('Brain response validation failed:', validated.error);
+            // Attempt partial recovery
             return {
                 success: true,
                 data: {

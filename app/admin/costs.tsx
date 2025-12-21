@@ -6,9 +6,10 @@ import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getAdminData, getModelPricing, refreshModelPricing, updateModelPricing } from '../../lib/firebase';
-import { User, ModelTokenUsage } from '../../lib/types';
+import { getAdminData, getModelPricing, refreshModelPricing, updateModelPricing, getAvailableModels, db } from '../../lib/firebase';
+import { User, ModelTokenUsage, AVAILABLE_MODELS, ModelDefinition } from '../../lib/types';
 import { useSettingsStore } from '../../lib/store';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function AdminCostsScreen() {
     const router = useRouter();
@@ -19,18 +20,27 @@ export default function AdminCostsScreen() {
     const styles = useMemo(() => createStyles(colors), [colors]);
 
     // Model Pricing (fetched from Firestore)
-    const [modelPricing, setModelPricing] = useState({
-        gpt4oMini: { prompt: 0.15, completion: 0.60 },
-        claude: { prompt: 3.00, completion: 15.00 },
+    const [modelPricing, setModelPricing] = useState<Record<string, { prompt: number, completion: number }>>({});
+
+    // Dynamic Model List
+    const [availableModels, setAvailableModels] = useState<ModelDefinition[]>(AVAILABLE_MODELS);
+
+    // AI Settings (to know what is active)
+    const [aiSettings, setAiSettings] = useState({
+        brainModel: 'gpt-4o-mini',
+        voiceModel: 'claude-3-5-sonnet',
     });
 
     // Pricing edit state
-    const [pricing, setPricing] = useState({
-        gpt4oMini: { prompt: 0.15, completion: 0.60 },
-        claude: { prompt: 3.00, completion: 15.00 },
-    });
+    const [selectedModelId, setSelectedModelId] = useState<string>(AVAILABLE_MODELS[0].id);
+    const [editingPricing, setEditingPricing] = useState({ prompt: '0', completion: '0' });
+
     const [refreshing, setRefreshing] = useState(false);
     const [saving, setSaving] = useState(false);
+    const [refreshingModels, setRefreshingModels] = useState(false); // For model list refresh
+
+    const [modelDropdownOpen, setModelDropdownOpen] = useState(false);
+
 
     // Calculator States
     const [firebaseCostPerUser, setFirebaseCostPerUser] = useState('0.005'); // Est daily cost per active user
@@ -39,25 +49,48 @@ export default function AdminCostsScreen() {
     const handleRefreshPricing = async () => {
         setRefreshing(true);
         try {
+            // 1. Refresh Model List
+            const modelsResult = await getAvailableModels();
+            if (modelsResult.data?.models) {
+                setAvailableModels(modelsResult.data.models);
+            }
+
+            // 2. Refresh Pricing
             const result = await refreshModelPricing();
             if (result.data && result.data.pricing) {
-                setPricing(result.data.pricing);
                 setModelPricing(result.data.pricing);
-                Alert.alert('Success', 'Pricing refreshed from latest values');
+                Alert.alert('Success', 'Pricing & Models refreshed');
             }
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'Failed to refresh pricing');
+            Alert.alert('Error', 'Failed to refresh data');
         } finally {
             setRefreshing(false);
         }
     };
 
+    // Update editing inputs when selection changes or pricing loads
+    useEffect(() => {
+        const price = modelPricing[selectedModelId] || availableModels.find(m => m.id === selectedModelId)?.defaultPricing || { prompt: 0, completion: 0 };
+        setEditingPricing({
+            prompt: price.prompt.toString(),
+            completion: price.completion.toString()
+        });
+    }, [selectedModelId, modelPricing, availableModels]);
+
     const handleSavePricing = async () => {
         setSaving(true);
         try {
-            await updateModelPricing(pricing);
-            setModelPricing(pricing);
+            const updatedPricing = {
+                ...modelPricing,
+                [selectedModelId]: {
+                    prompt: parseFloat(editingPricing.prompt) || 0,
+                    completion: parseFloat(editingPricing.completion) || 0
+                }
+            };
+
+            await updateModelPricing(updatedPricing);
+            setModelPricing(updatedPricing);
             Alert.alert('Success', 'Pricing saved successfully');
         } catch (error) {
             console.error(error);
@@ -84,6 +117,17 @@ export default function AdminCostsScreen() {
             if (pricing.data) {
                 setModelPricing(pricing.data);
             }
+
+            // Load AI Settings
+            try {
+                const docRef = doc(db, 'config', 'aiSettings');
+                const snap = await getDoc(docRef);
+                if (snap.exists()) {
+                    setAiSettings(snap.data() as any);
+                }
+            } catch (e) {
+                console.error('Failed to load AI settings', e);
+            }
         } catch (error) {
             console.error(error);
             Alert.alert('Error', 'Failed to load usage data');
@@ -92,41 +136,61 @@ export default function AdminCostsScreen() {
         }
     };
 
-    // Aggregate per-model tokens across all users
+    // Aggregate tokens dynamically
     const aggregateModelTokens = () => {
-        const gpt4oMini: ModelTokenUsage = { prompt: 0, completion: 0, total: 0 };
-        const claude: ModelTokenUsage = { prompt: 0, completion: 0, total: 0 };
+        const tokens: Record<string, ModelTokenUsage> = {};
+
+        // Initialize for known models
+        availableModels.forEach(m => {
+            tokens[m.id] = { prompt: 0, completion: 0, total: 0 };
+        });
 
         users.forEach(user => {
-            if (user.tokens?.gpt4oMini) {
-                gpt4oMini.prompt += user.tokens.gpt4oMini.prompt || 0;
-                gpt4oMini.completion += user.tokens.gpt4oMini.completion || 0;
-                gpt4oMini.total += user.tokens.gpt4oMini.total || 0;
-            }
-            if (user.tokens?.claude) {
-                claude.prompt += user.tokens.claude.prompt || 0;
-                claude.completion += user.tokens.claude.completion || 0;
-                claude.total += user.tokens.claude.total || 0;
+            if (user.tokens) {
+                Object.entries(user.tokens).forEach(([key, usage]) => {
+                    // Map legacy keys if needed, or assume key matches model ID (normalized)
+                    // In index.ts we map: google -> gemini, anthropic -> claude, etc. 
+                    // We need to match these to our AVAILABLE_MODELS ids.
+                    // 'gpt4oMini' -> 'gpt-4o-mini'
+                    // 'claude' -> 'claude-3-5-sonnet' (approx)
+                    // 'gemini' -> 'gemini-1.5-flash' (approx)
+                    // ideally backend should store precise IDs, but for now we map:
+                    let modelId = key;
+                    if (key === 'gpt4oMini') modelId = 'gpt-4o-mini';
+                    if (key === 'gpt4o') modelId = 'gpt-4o';
+                    if (key === 'claude') modelId = 'claude-3-5-sonnet';
+                    if (key === 'gemini') modelId = 'gemini-1.5-flash';
+
+                    // Match sanitized keys (e.g. 'gemini-1_5-flash' -> 'gemini-1.5-flash')
+                    // Iterate available models to see if key matches ID with dot replacement
+                    if (!tokens[modelId]) {
+                        const foundModel = availableModels.find(m => m.id.replace(/\./g, '_') === key);
+                        if (foundModel) modelId = foundModel.id;
+                    }
+
+                    if (!tokens[modelId]) tokens[modelId] = { prompt: 0, completion: 0, total: 0 };
+
+                    tokens[modelId].prompt += usage.prompt || 0;
+                    tokens[modelId].completion += usage.completion || 0;
+                    tokens[modelId].total += usage.total || 0;
+                });
             }
         });
 
-        return { gpt4oMini, claude };
+        return tokens;
     };
 
     const modelTokens = aggregateModelTokens();
 
-    // Calculate costs per model
-    const gpt4oMiniCost = (
-        (modelTokens.gpt4oMini.prompt / 1_000_000) * modelPricing.gpt4oMini.prompt +
-        (modelTokens.gpt4oMini.completion / 1_000_000) * modelPricing.gpt4oMini.completion
-    );
+    const calculateCost = (modelId: string, usage: ModelTokenUsage) => {
+        const price = modelPricing[modelId] || availableModels.find(m => m.id === modelId)?.defaultPricing || { prompt: 0, completion: 0 };
+        return (
+            (usage.prompt / 1_000_000) * price.prompt +
+            (usage.completion / 1_000_000) * price.completion
+        );
+    };
 
-    const claudeCost = (
-        (modelTokens.claude.prompt / 1_000_000) * modelPricing.claude.prompt +
-        (modelTokens.claude.completion / 1_000_000) * modelPricing.claude.completion
-    );
-
-    const totalAiCost = gpt4oMiniCost + claudeCost;
+    const totalAiCost = Object.entries(modelTokens).reduce((sum, [id, usage]) => sum + calculateCost(id, usage), 0);
 
     // Legacy calculations for backward compatibility
     const totalTurns = users.reduce((sum, u) => sum + (u.turnsUsed || 0), 0);
@@ -153,6 +217,56 @@ export default function AdminCostsScreen() {
 
     const estimatedDbCost = totalUsers * parseFloat(firebaseCostPerUser || '0') * 30; // Monthly
     const totalEstimatedCost = totalAiCost + estimatedDbCost;
+
+    // Identify models
+    const activeBrain = availableModels.find(m => m.id === aiSettings.brainModel) || {
+        id: aiSettings.brainModel,
+        name: aiSettings.brainModel,
+        provider: 'openai',
+        defaultPricing: { prompt: 0, completion: 0 }
+    };
+    const activeVoice = availableModels.find(m => m.id === aiSettings.voiceModel) || {
+        id: aiSettings.voiceModel,
+        name: aiSettings.voiceModel,
+        provider: 'anthropic',
+        defaultPricing: { prompt: 0, completion: 0 }
+    };
+
+    // Filter others (exclude active ones, show only if usage > 0)
+    const otherModels = availableModels.filter(m =>
+        m.id !== activeBrain.id &&
+        m.id !== activeVoice.id &&
+        (modelTokens[m.id]?.total || 0) > 0
+    );
+
+    const renderModelRow = (model: any) => {
+        const usage = modelTokens[model.id] || { prompt: 0, completion: 0, total: 0 };
+        const cost = calculateCost(model.id, usage);
+        // Ensure name exists
+        const name = model.name || model.id;
+
+        return (
+            <View key={model.id} style={styles.modelSection}>
+                <View style={styles.modelHeader}>
+                    <Ionicons name="hardware-chip" size={18} color={colors.primary[400]} />
+                    <Text style={styles.modelName}>{name}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Prompt</Text>
+                    <Text style={styles.breakdownValue}>{usage.prompt.toLocaleString()}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>Completion</Text>
+                    <Text style={styles.breakdownValue}>{usage.completion.toLocaleString()}</Text>
+                </View>
+                <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabelBold}>Cost</Text>
+                    <Text style={styles.breakdownValueBold}>${cost.toFixed(4)}</Text>
+                </View>
+                <View style={styles.divider} />
+            </View>
+        );
+    };
 
     if (loading) {
         return (
@@ -231,47 +345,22 @@ export default function AdminCostsScreen() {
             <FadeInView style={styles.breakdownCard}>
                 <Text style={styles.breakdownTitle}>Token Usage by Model</Text>
 
-                {/* GPT-4o-mini */}
-                <View style={styles.modelSection}>
-                    <View style={styles.modelHeader}>
-                        <Ionicons name="flash" size={18} color={colors.status.success} />
-                        <Text style={styles.modelName}>GPT-4o-mini (Brain + Text Gen)</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Prompt</Text>
-                        <Text style={styles.breakdownValue}>{modelTokens.gpt4oMini.prompt.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Completion</Text>
-                        <Text style={styles.breakdownValue}>{modelTokens.gpt4oMini.completion.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabelBold}>Cost</Text>
-                        <Text style={styles.breakdownValueBold}>${gpt4oMiniCost.toFixed(4)}</Text>
-                    </View>
+                <View style={{ marginBottom: spacing.lg }}>
+                    <Text style={[styles.sectionTitle, { fontSize: typography.fontSize.sm, color: colors.status.success }]}>ACTIVE BRAIN MODEL</Text>
+                    {renderModelRow(activeBrain)}
                 </View>
 
-                <View style={styles.divider} />
-
-                {/* Claude */}
-                <View style={styles.modelSection}>
-                    <View style={styles.modelHeader}>
-                        <Ionicons name="sparkles" size={18} color={colors.primary[400]} />
-                        <Text style={styles.modelName}>Claude Sonnet 3.5 (Voice)</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Prompt</Text>
-                        <Text style={styles.breakdownValue}>{modelTokens.claude.prompt.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Completion</Text>
-                        <Text style={styles.breakdownValue}>{modelTokens.claude.completion.toLocaleString()}</Text>
-                    </View>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabelBold}>Cost</Text>
-                        <Text style={styles.breakdownValueBold}>${claudeCost.toFixed(4)}</Text>
-                    </View>
+                <View style={{ marginBottom: spacing.lg }}>
+                    <Text style={[styles.sectionTitle, { fontSize: typography.fontSize.sm, color: colors.gold.main }]}>ACTIVE VOICE MODEL</Text>
+                    {renderModelRow(activeVoice)}
                 </View>
+
+                {otherModels.length > 0 && (
+                    <View>
+                        <Text style={[styles.sectionTitle, { fontSize: typography.fontSize.sm }]}>OTHER MODELS</Text>
+                        {otherModels.map(m => renderModelRow(m))}
+                    </View>
+                )}
 
                 <View style={styles.divider} />
 
@@ -307,89 +396,79 @@ export default function AdminCostsScreen() {
                         Configure pricing per 1M tokens (used for cost calculations)
                     </Text>
 
-                    {/* GPT-4o-mini */}
-                    <View style={styles.pricingModelSection}>
-                        <View style={styles.pricingModelHeader}>
-                            <Ionicons name="flash" size={20} color={colors.status.success} />
-                            <Text style={styles.pricingModelName}>GPT-4o-mini</Text>
-                            <Text style={styles.pricingModelSubtext}>(Brain + Text Generation)</Text>
-                        </View>
-                        <View style={styles.pricingInputRow}>
-                            <View style={styles.pricingInputGroup}>
-                                <Text style={styles.pricingInputLabel}>Prompt</Text>
-                                <View style={styles.pricingInputWrapper}>
-                                    <Text style={styles.pricingInputPrefix}>$</Text>
-                                    <TextInput
-                                        style={[styles.pricingInput, { color: colors.text.primary }]}
-                                        value={pricing.gpt4oMini.prompt.toString()}
-                                        onChangeText={(v) => setPricing({
-                                            ...pricing,
-                                            gpt4oMini: { ...pricing.gpt4oMini, prompt: parseFloat(v) || 0 }
-                                        })}
-                                        keyboardType="decimal-pad"
-                                        placeholder="0.15"
-                                        placeholderTextColor={colors.text.muted}
-                                    />
-                                </View>
+                    {/* Model Selector */}
+                    <View style={{ zIndex: 50, marginBottom: spacing.lg }}>
+                        <Text style={styles.pricingInputLabel}>Select Model to Edit</Text>
+                        <TouchableOpacity
+                            style={styles.dropdownButton}
+                            onPress={() => setModelDropdownOpen(!modelDropdownOpen)}
+                        >
+                            <Text style={styles.dropdownButtonText}>
+                                {availableModels.find(m => m.id === selectedModelId)?.name || selectedModelId}
+                            </Text>
+                            <Ionicons name={modelDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={colors.text.muted} />
+                        </TouchableOpacity>
+
+                        {modelDropdownOpen && (
+                            <View style={styles.dropdownList}>
+                                {availableModels.map(model => (
+                                    <TouchableOpacity
+                                        key={model.id}
+                                        style={[
+                                            styles.dropdownItem,
+                                            selectedModelId === model.id && styles.dropdownItemSelected
+                                        ]}
+                                        onPress={() => {
+                                            setSelectedModelId(model.id);
+                                            setModelDropdownOpen(false);
+                                        }}
+                                    >
+                                        <Text style={[
+                                            styles.dropdownItemText,
+                                            selectedModelId === model.id && { color: colors.primary[400], fontWeight: 'bold' }
+                                        ]}>{model.name}</Text>
+                                        {selectedModelId === model.id && (
+                                            <Ionicons name="checkmark" size={16} color={colors.primary[400]} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
                             </View>
-                            <View style={styles.pricingInputGroup}>
-                                <Text style={styles.pricingInputLabel}>Completion</Text>
-                                <View style={styles.pricingInputWrapper}>
-                                    <Text style={styles.pricingInputPrefix}>$</Text>
-                                    <TextInput
-                                        style={[styles.pricingInput, { color: colors.text.primary }]}
-                                        value={pricing.gpt4oMini.completion.toString()}
-                                        onChangeText={(v) => setPricing({
-                                            ...pricing,
-                                            gpt4oMini: { ...pricing.gpt4oMini, completion: parseFloat(v) || 0 }
-                                        })}
-                                        keyboardType="decimal-pad"
-                                        placeholder="0.60"
-                                        placeholderTextColor={colors.text.muted}
-                                    />
-                                </View>
-                            </View>
-                        </View>
+                        )}
                     </View>
 
-                    {/* Claude */}
-                    <View style={[styles.pricingModelSection, { borderBottomWidth: 0 }]}>
+                    {/* Pricing Inputs for Selected Model */}
+                    <View style={styles.pricingModelSection}>
                         <View style={styles.pricingModelHeader}>
-                            <Ionicons name="sparkles" size={20} color={colors.primary[400]} />
-                            <Text style={styles.pricingModelName}>Claude Sonnet 3.5</Text>
-                            <Text style={styles.pricingModelSubtext}>(Voice/Narrator)</Text>
+                            <Ionicons name="pricetag" size={20} color={colors.primary[400]} />
+                            <Text style={styles.pricingModelName}>
+                                {availableModels.find(m => m.id === selectedModelId)?.name}
+                            </Text>
                         </View>
                         <View style={styles.pricingInputRow}>
                             <View style={styles.pricingInputGroup}>
-                                <Text style={styles.pricingInputLabel}>Prompt</Text>
+                                <Text style={styles.pricingInputLabel}>Prompt Cost / 1M</Text>
                                 <View style={styles.pricingInputWrapper}>
                                     <Text style={styles.pricingInputPrefix}>$</Text>
                                     <TextInput
                                         style={[styles.pricingInput, { color: colors.text.primary }]}
-                                        value={pricing.claude.prompt.toString()}
-                                        onChangeText={(v) => setPricing({
-                                            ...pricing,
-                                            claude: { ...pricing.claude, prompt: parseFloat(v) || 0 }
-                                        })}
+                                        value={editingPricing.prompt}
+                                        onChangeText={(v) => setEditingPricing(p => ({ ...p, prompt: v }))}
                                         keyboardType="decimal-pad"
-                                        placeholder="3.00"
+                                        placeholder="0.00"
                                         placeholderTextColor={colors.text.muted}
                                     />
                                 </View>
                             </View>
                             <View style={styles.pricingInputGroup}>
-                                <Text style={styles.pricingInputLabel}>Completion</Text>
+                                <Text style={styles.pricingInputLabel}>Completion Cost / 1M</Text>
                                 <View style={styles.pricingInputWrapper}>
                                     <Text style={styles.pricingInputPrefix}>$</Text>
                                     <TextInput
                                         style={[styles.pricingInput, { color: colors.text.primary }]}
-                                        value={pricing.claude.completion.toString()}
-                                        onChangeText={(v) => setPricing({
-                                            ...pricing,
-                                            claude: { ...pricing.claude, completion: parseFloat(v) || 0 }
-                                        })}
+                                        value={editingPricing.completion}
+                                        onChangeText={(v) => setEditingPricing(p => ({ ...p, completion: v }))}
                                         keyboardType="decimal-pad"
-                                        placeholder="15.00"
+                                        placeholder="0.00"
                                         placeholderTextColor={colors.text.muted}
                                     />
                                 </View>
@@ -434,8 +513,8 @@ export default function AdminCostsScreen() {
             <View style={styles.infoBox}>
                 <Ionicons name="information-circle" size={20} color={colors.status.info} />
                 <Text style={styles.infoText}>
-                    Using GPT-4o-mini (Brain) + Claude Sonnet 4 (Voice). Cost per turn: ~$0.0215.
-                    {'\n'}Scout (15 turns): ~$0.32 | Hero (300 turns): ~$6.45
+                    Costs are estimates based on configured pricing per 1M tokens.
+                    Actual provider billing may vary slightly.
                 </Text>
             </View>
         </ScrollView>
@@ -720,26 +799,64 @@ const createStyles = (colors: any) => StyleSheet.create({
     pricingActions: {
         flexDirection: 'row',
         gap: spacing.sm,
+        justifyContent: 'flex-end',
         marginTop: spacing.md,
     },
     pricingButton: {
-        flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center',
-        gap: spacing.xs,
-        paddingVertical: spacing.md,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
         borderRadius: borderRadius.md,
-    },
-    pricingButtonSecondary: {
-        backgroundColor: 'transparent',
+        gap: spacing.xs,
         borderWidth: 1,
     },
     pricingButtonPrimary: {
-        // backgroundColor set inline
+        borderColor: 'transparent',
+    },
+    pricingButtonSecondary: {
+        backgroundColor: 'transparent',
     },
     pricingButtonText: {
-        fontSize: typography.fontSize.md,
-        fontWeight: '600',
+        fontSize: typography.fontSize.sm,
+        fontWeight: 'bold',
     },
+    dropdownButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: colors.background.tertiary,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    dropdownButtonText: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.primary,
+    },
+    dropdownList: {
+        marginTop: spacing.sm,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+    },
+    dropdownItemSelected: {
+        backgroundColor: colors.primary[900] + '20',
+    },
+    dropdownItemText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+    },
+
 });

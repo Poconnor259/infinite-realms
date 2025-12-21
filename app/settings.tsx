@@ -329,123 +329,135 @@ export default function SettingsScreen() {
 
                         {showByokSection && (
                             <View style={styles.byokContent}>
-                                {/* OpenAI Key */}
-                                <View style={styles.keyRow}>
-                                    <View style={styles.keyInfo}>
-                                        <Text style={styles.keyLabel}>OpenAI</Text>
-                                        <Text style={styles.keyStatus}>
-                                            {getKeyStatus(openaiKey) || 'Not configured'}
-                                        </Text>
-                                    </View>
-                                    {openaiKey ? (
-                                        <TouchableOpacity
-                                            style={styles.keyButton}
-                                            onPress={() => handleRemoveKey('openai')}
-                                        >
-                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <TouchableOpacity
-                                            style={styles.keyButton}
-                                            onPress={() => {
-                                                setEditingKey('openai');
-                                                setKeyInput('');
-                                            }}
-                                        >
-                                            <Ionicons name="add" size={18} color={colors.primary[400]} />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {/* Anthropic Key */}
-                                <View style={styles.keyRow}>
-                                    <View style={styles.keyInfo}>
-                                        <Text style={styles.keyLabel}>Anthropic (Claude)</Text>
-                                        <Text style={styles.keyStatus}>
-                                            {getKeyStatus(anthropicKey) || 'Not configured'}
-                                        </Text>
-                                    </View>
-                                    {anthropicKey ? (
-                                        <TouchableOpacity
-                                            style={styles.keyButton}
-                                            onPress={() => handleRemoveKey('anthropic')}
-                                        >
-                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <TouchableOpacity
-                                            style={styles.keyButton}
-                                            onPress={() => {
-                                                setEditingKey('anthropic');
-                                                setKeyInput('');
-                                            }}
-                                        >
-                                            <Ionicons name="add" size={18} color={colors.primary[400]} />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {/* Google Key */}
-                                <View style={styles.keyRow}>
-                                    <View style={styles.keyInfo}>
-                                        <Text style={styles.keyLabel}>Google (Gemini)</Text>
-                                        <Text style={styles.keyStatus}>
-                                            {getKeyStatus(googleKey) || 'Not configured'}
-                                        </Text>
-                                    </View>
-                                    {googleKey ? (
-                                        <TouchableOpacity
-                                            style={styles.keyButton}
-                                            onPress={() => handleRemoveKey('google')}
-                                        >
-                                            <Ionicons name="trash-outline" size={18} color={colors.status.error} />
-                                        </TouchableOpacity>
-                                    ) : (
-                                        <TouchableOpacity
-                                            style={styles.keyButton}
-                                            onPress={() => {
-                                                setEditingKey('google');
-                                                setKeyInput('');
-                                            }}
-                                        >
-                                            <Ionicons name="add" size={18} color={colors.primary[400]} />
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-
-                                {/* Key input modal */}
-                                {editingKey && (
-                                    <View style={styles.keyInputContainer}>
-                                        <Text style={styles.keyInputLabel}>
-                                            Enter your {editingKey.toUpperCase()} API Key:
-                                        </Text>
-                                        <TextInput
-                                            style={styles.keyInput}
-                                            value={keyInput}
-                                            onChangeText={setKeyInput}
-                                            placeholder="sk-..."
-                                            placeholderTextColor={colors.text.muted}
-                                            secureTextEntry
-                                            autoCapitalize="none"
-                                            autoCorrect={false}
-                                        />
-                                        <View style={styles.keyInputActions}>
-                                            <TouchableOpacity
-                                                style={styles.keyInputCancel}
-                                                onPress={() => {
-                                                    setEditingKey(null);
-                                                    setKeyInput('');
-                                                }}
-                                            >
-                                                <Text style={styles.keyInputCancelText}>Cancel</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity
-                                                style={styles.keyInputSave}
-                                                onPress={() => handleSaveKey(editingKey as any)}
-                                            >
-                                                <Text style={styles.keyInputSaveText}>Save</Text>
-                                            </TouchableOpacity>
+                                {user?.tier === 'legend' ? (
+                                    <>
+                                        {/* OpenAI Key */}
+                                        <View style={styles.keyRow}>
+                                            <View style={styles.keyInfo}>
+                                                <Text style={styles.keyLabel}>OpenAI</Text>
+                                                <Text style={styles.keyStatus}>
+                                                    {getKeyStatus(openaiKey) || 'Not configured'}
+                                                </Text>
+                                            </View>
+                                            {openaiKey ? (
+                                                <TouchableOpacity
+                                                    style={styles.keyButton}
+                                                    onPress={() => handleRemoveKey('openai')}
+                                                >
+                                                    <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={styles.keyButton}
+                                                    onPress={() => {
+                                                        setEditingKey('openai');
+                                                        setKeyInput('');
+                                                    }}
+                                                >
+                                                    <Ionicons name="add" size={18} color={colors.primary[400]} />
+                                                </TouchableOpacity>
+                                            )}
                                         </View>
+
+                                        {/* Anthropic Key */}
+                                        <View style={styles.keyRow}>
+                                            <View style={styles.keyInfo}>
+                                                <Text style={styles.keyLabel}>Anthropic (Claude)</Text>
+                                                <Text style={styles.keyStatus}>
+                                                    {getKeyStatus(anthropicKey) || 'Not configured'}
+                                                </Text>
+                                            </View>
+                                            {anthropicKey ? (
+                                                <TouchableOpacity
+                                                    style={styles.keyButton}
+                                                    onPress={() => handleRemoveKey('anthropic')}
+                                                >
+                                                    <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={styles.keyButton}
+                                                    onPress={() => {
+                                                        setEditingKey('anthropic');
+                                                        setKeyInput('');
+                                                    }}
+                                                >
+                                                    <Ionicons name="add" size={18} color={colors.primary[400]} />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+
+                                        {/* Google Key */}
+                                        <View style={styles.keyRow}>
+                                            <View style={styles.keyInfo}>
+                                                <Text style={styles.keyLabel}>Google (Gemini)</Text>
+                                                <Text style={styles.keyStatus}>
+                                                    {getKeyStatus(googleKey) || 'Not configured'}
+                                                </Text>
+                                            </View>
+                                            {googleKey ? (
+                                                <TouchableOpacity
+                                                    style={styles.keyButton}
+                                                    onPress={() => handleRemoveKey('google')}
+                                                >
+                                                    <Ionicons name="trash-outline" size={18} color={colors.status.error} />
+                                                </TouchableOpacity>
+                                            ) : (
+                                                <TouchableOpacity
+                                                    style={styles.keyButton}
+                                                    onPress={() => {
+                                                        setEditingKey('google');
+                                                        setKeyInput('');
+                                                    }}
+                                                >
+                                                    <Ionicons name="add" size={18} color={colors.primary[400]} />
+                                                </TouchableOpacity>
+                                            )}
+                                        </View>
+
+                                        {/* Key input modal */}
+                                        {editingKey && (
+                                            <View style={styles.keyInputContainer}>
+                                                <Text style={styles.keyInputLabel}>
+                                                    Enter your {editingKey.toUpperCase()} API Key:
+                                                </Text>
+                                                <TextInput
+                                                    style={styles.keyInput}
+                                                    value={keyInput}
+                                                    onChangeText={setKeyInput}
+                                                    placeholder="sk-..."
+                                                    placeholderTextColor={colors.text.muted}
+                                                    secureTextEntry
+                                                    autoCapitalize="none"
+                                                    autoCorrect={false}
+                                                />
+                                                <View style={styles.keyInputActions}>
+                                                    <TouchableOpacity
+                                                        style={styles.keyInputCancel}
+                                                        onPress={() => {
+                                                            setEditingKey(null);
+                                                            setKeyInput('');
+                                                        }}
+                                                    >
+                                                        <Text style={styles.keyInputCancelText}>Cancel</Text>
+                                                    </TouchableOpacity>
+                                                    <TouchableOpacity
+                                                        style={styles.keyInputSave}
+                                                        onPress={() => handleSaveKey(editingKey as any)}
+                                                    >
+                                                        <Text style={styles.keyInputSaveText}>Save</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            </View>
+                                        )}
+                                    </>
+                                ) : (
+                                    <View style={styles.lockedContainer}>
+                                        <Ionicons name="lock-closed" size={32} color={colors.text.muted} />
+                                        <Text style={styles.lockedTitle}>Legend Tier Only</Text>
+                                        <Text style={styles.lockedText}>
+                                            Upgrade to Legend to use your own API keys and unlock unlimited turns.
+                                        </Text>
                                     </View>
                                 )}
                             </View>
@@ -678,5 +690,22 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.text.primary,
         fontSize: typography.fontSize.md,
         fontWeight: '600',
+    },
+    lockedContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.xl,
+        gap: spacing.md,
+    },
+    lockedTitle: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: 'bold',
+        color: colors.gold.main,
+        textAlign: 'center',
+    },
+    lockedText: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.muted,
+        textAlign: 'center',
     },
 });

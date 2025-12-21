@@ -1,4 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // ==================== TYPES ====================
 
@@ -9,6 +11,8 @@ interface VoiceInput {
     stateChanges: Record<string, unknown>;
     diceRolls: DiceRoll[];
     apiKey: string;
+    provider: 'openai' | 'anthropic' | 'google';
+    model: string;
     knowledgeDocuments?: string[]; // Reference documents for context
     customRules?: string; // Optional custom rules for the narration style
 }
@@ -85,11 +89,9 @@ TONE: Tactical, tense, high-stakes, professional, occasionally mysterious.`,
 // ==================== MAIN VOICE FUNCTION ====================
 
 export async function generateNarrative(input: VoiceInput): Promise<VoiceOutput> {
-    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, knowledgeDocuments, customRules } = input;
+    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, provider, model, knowledgeDocuments, customRules } = input;
 
     try {
-        const anthropic = new Anthropic({ apiKey });
-
         // Build knowledge base section if documents exist
         let knowledgeSection = '';
         if (knowledgeDocuments && knowledgeDocuments.length > 0) {
@@ -164,49 +166,125 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
 
         cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.';
 
-        // Build messages
-        const messages: Anthropic.MessageParam[] = [];
+        let narrative: string | null = null;
+        let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
 
-        // Add recent chat history
-        for (const msg of chatHistory) {
-            messages.push({
-                role: msg.role === 'user' ? 'user' : 'assistant',
-                content: msg.content,
+        console.log(`[Voice] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length})`);
+
+        if (provider === 'google') {
+            // ==================== GOOGLE GEMINI ====================
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const geminiModel = genAI.getGenerativeModel({
+                model: model,
+                systemInstruction: systemPrompt,
             });
+
+            // Convert history to Gemini format
+            const history = chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }],
+            }));
+
+            // Start chat matching history
+            const chat = geminiModel.startChat({
+                history: history,
+            });
+
+            const result = await chat.sendMessage(cueText);
+            const response = result.response;
+            narrative = response.text();
+
+            usage = {
+                promptTokens: response.usageMetadata?.promptTokenCount || 0,
+                completionTokens: response.usageMetadata?.candidatesTokenCount || 0,
+                totalTokens: response.usageMetadata?.totalTokenCount || 0,
+            };
+
+        } else if (provider === 'anthropic') {
+            // ==================== ANTHROPIC CLAUDE ====================
+            const anthropic = new Anthropic({ apiKey });
+
+            // Build messages for Anthropic
+            const messages: Anthropic.MessageParam[] = [];
+
+            // Add recent chat history
+            for (const msg of chatHistory) {
+                messages.push({
+                    role: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content,
+                });
+            }
+
+            // Add current request
+            messages.push({
+                role: 'user',
+                content: cueText,
+            });
+
+            const response = await anthropic.messages.create({
+                model: model,
+                max_tokens: 1024,
+                system: systemPrompt,
+                messages,
+            });
+
+            // Extract text from response
+            const textContent = response.content.find(block => block.type === 'text');
+            if (textContent && textContent.type === 'text') {
+                narrative = textContent.text;
+            }
+
+            usage = {
+                promptTokens: response.usage.input_tokens,
+                completionTokens: response.usage.output_tokens,
+                totalTokens: response.usage.input_tokens + response.usage.output_tokens
+            };
+
+        } else {
+            // ==================== OPENAI GPT ====================
+            const openai = new OpenAI({ apiKey });
+
+            const messages: OpenAI.ChatCompletionMessageParam[] = [
+                { role: 'system', content: systemPrompt },
+            ];
+
+            for (const msg of chatHistory) {
+                messages.push({
+                    role: msg.role === 'user' ? 'user' : 'assistant',
+                    content: msg.content,
+                });
+            }
+
+            messages.push({
+                role: 'user',
+                content: cueText,
+            });
+
+            const response = await openai.chat.completions.create({
+                model: model,
+                messages,
+                temperature: 0.7,
+                max_tokens: 1024,
+            });
+
+            narrative = response.choices[0]?.message?.content || null;
+            usage = {
+                promptTokens: response.usage?.prompt_tokens || 0,
+                completionTokens: response.usage?.completion_tokens || 0,
+                totalTokens: response.usage?.total_tokens || 0
+            };
         }
 
-        // Add current request
-        messages.push({
-            role: 'user',
-            content: cueText,
-        });
-
-        const response = await anthropic.messages.create({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 1024,
-            system: systemPrompt,
-            messages,
-        });
-
-        // Extract text from response
-        const textContent = response.content.find(block => block.type === 'text');
-
-        if (!textContent || textContent.type !== 'text') {
+        if (!narrative) {
             return {
                 success: false,
                 error: 'No text content in Voice response',
             };
         }
 
-        const usage = {
-            promptTokens: response.usage.input_tokens,
-            completionTokens: response.usage.output_tokens,
-            totalTokens: response.usage.input_tokens + response.usage.output_tokens
-        };
-
         return {
             success: true,
-            narrative: textContent.text,
+            narrative,
             usage
         };
 
@@ -229,6 +307,8 @@ export async function summarizeChatHistory(
     apiKey: string
 ): Promise<string> {
     try {
+        // Summary function currently defaults to Anthropic for quality, but should be updated later
+        // For now, keeping it simple as it's not the primary focus of this update
         const anthropic = new Anthropic({ apiKey });
 
         const messagesText = messages
@@ -236,7 +316,7 @@ export async function summarizeChatHistory(
             .join('\n\n');
 
         const response = await anthropic.messages.create({
-            model: 'claude-opus-4-5-20250514',
+            model: 'claude-3-opus-20240229', // Updated to valid model name
             max_tokens: 500,
             system: 'You are a story summarizer. Condense the following RPG session into a brief but complete summary that preserves all important plot points, character actions, and discoveries. Focus on what matters for continuing the story.',
             messages: [

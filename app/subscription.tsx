@@ -11,7 +11,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
 import { useTurnsStore } from '../lib/store';
-import { TOP_UP_PACKAGES, type SubscriptionTier, SUBSCRIPTION_PRICING } from '../lib/types';
+import { DEFAULT_TOP_UP_PACKAGES, type SubscriptionTier, DEFAULT_SUBSCRIPTION_PRICING } from '../lib/types';
 
 interface TierCardProps {
     tier: SubscriptionTier;
@@ -140,7 +140,7 @@ export default function SubscriptionScreen() {
                     tier="scout"
                     name="Scout"
                     icon="🔭"
-                    price={SUBSCRIPTION_PRICING.scout.displayPrice}
+                    price={DEFAULT_SUBSCRIPTION_PRICING.scout.displayPrice}
                     turns="15 turns/month"
                     features={[
                         'Access all 3 world modules',
@@ -155,7 +155,7 @@ export default function SubscriptionScreen() {
                     tier="hero"
                     name="Hero"
                     icon="⚔️"
-                    price={SUBSCRIPTION_PRICING.hero.displayPrice}
+                    price={DEFAULT_SUBSCRIPTION_PRICING.hero.displayPrice}
                     turns="300 turns/month"
                     features={[
                         'Everything in Scout',
@@ -172,7 +172,7 @@ export default function SubscriptionScreen() {
                     tier="legend"
                     name="Legend"
                     icon="👑"
-                    price={SUBSCRIPTION_PRICING.legend.displayPrice}
+                    price={DEFAULT_SUBSCRIPTION_PRICING.legend.displayPrice}
                     turns="Unlimited turns"
                     features={[
                         'Bring your own API keys',
@@ -191,7 +191,7 @@ export default function SubscriptionScreen() {
                             Need More Turns Now?
                         </Text>
                         <View style={styles.topUpContainer}>
-                            {TOP_UP_PACKAGES.map(pkg => (
+                            {DEFAULT_TOP_UP_PACKAGES.map(pkg => (
                                 <TouchableOpacity
                                     key={pkg.id}
                                     style={styles.topUpCard}

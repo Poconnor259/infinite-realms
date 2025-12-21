@@ -1,199 +1,583 @@
-
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator, Switch, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
-import { useMemo } from 'react';
-import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { SUBSCRIPTION_LIMITS, TOP_UP_PACKAGES, SUBSCRIPTION_PRICING } from '../../lib/types';
+// REMOVED ANIMATIONS: import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
+import { AVAILABLE_MODELS, ModelDefinition, GlobalConfig, SubscriptionTier } from '../../lib/types';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { db, getAvailableModels, getGlobalConfig, updateGlobalConfig, getApiKeyStatus, updateApiKey, ApiKeyStatus, ApiProvider } from '../../lib/firebase';
+
+// Static metadata for modules (display info only)
+const MODULE_METADATA = [
+    {
+        id: 'classic',
+        name: 'Classic D&D',
+        description: 'Standard 5th Edition rules with traditional fantasy setting',
+        icon: 'book',
+        color: '#10b981', // success
+    },
+    {
+        id: 'outworlder',
+        name: 'Outworlder (HWFWM)',
+        description: 'He Who Fights With Monsters style essence-based system',
+        icon: 'sparkles',
+        color: '#3b82f6', // info
+    },
+    {
+        id: 'tactical', // was shadowMonarch
+        name: 'PRAXIS: Operation Dark Tide',
+        description: 'Solo Leveling inspired system with shadow army mechanics',
+        icon: 'skull',
+        color: '#f59e0b', // gold
+    },
+];
 
 export default function AdminConfigScreen() {
     const router = useRouter();
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
-    const WORLD_MODULES = useMemo(() => [
-        {
-            id: 'classic',
-            name: 'Classic D&D',
-            description: 'Standard 5th Edition rules with traditional fantasy setting',
-            icon: 'book' as const,
-            color: colors.status.success,
-            enabled: true,
-        },
-        {
-            id: 'outworlder',
-            name: 'Outworlder (HWFWM)',
-            description: 'He Who Fights With Monsters style essence-based system',
-            icon: 'sparkles' as const,
-            color: colors.status.info,
-            enabled: true,
-        },
-        {
-            id: 'shadowMonarch',
-            name: 'PRAXIS: Operation Dark Tide',
-            description: 'Solo Leveling inspired system with shadow army mechanics',
-            icon: 'skull' as const,
-            color: colors.gold.main,
-            enabled: true,
-        },
-    ], [colors]);
+    // Global Config State
+    const [config, setConfig] = useState<GlobalConfig | null>(null);
+    const [loadingConfig, setLoadingConfig] = useState(true);
+    const [savingConfig, setSavingConfig] = useState(false);
+
+    // AI Settings State
+    const [aiSettings, setAiSettings] = useState({
+        brainModel: 'gpt-4o-mini',
+        voiceModel: 'claude-3-5-sonnet',
+    });
+    const [loadingAi, setLoadingAi] = useState(true);
+    const [savingAi, setSavingAi] = useState(false);
+
+    const [availableModels, setAvailableModels] = useState<ModelDefinition[]>(AVAILABLE_MODELS);
+    const [refreshingModels, setRefreshingModels] = useState(false);
+    const [brainDropdownOpen, setBrainDropdownOpen] = useState(false);
+    const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
+
+    // API Keys State
+    const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
+    const [loadingApiKeys, setLoadingApiKeys] = useState(true);
+    const [editingProvider, setEditingProvider] = useState<ApiProvider | null>(null);
+    const [newKeyValue, setNewKeyValue] = useState('');
+    const [savingKey, setSavingKey] = useState(false);
+
+    useEffect(() => {
+        loadData();
+    }, []);
+
+    const loadData = async () => {
+        setLoadingConfig(true);
+        setLoadingAi(true);
+        try {
+            console.log('[Config] Loading global config...');
+            const configResult = await getGlobalConfig();
+            console.log('[Config] Result:', configResult.data);
+            setConfig(configResult.data);
+
+            const aiDoc = await getDoc(doc(db, 'config', 'aiSettings'));
+            if (aiDoc.exists()) {
+                setAiSettings(aiDoc.data() as any);
+            }
+        } catch (error) {
+            console.error('[Config] Failed to load:', error);
+            Alert.alert('Error', 'Failed to load configuration');
+        } finally {
+            setLoadingConfig(false);
+            setLoadingAi(false);
+        }
+
+        // Load API key status separately (doesn't block main load)
+        try {
+            const keyResult = await getApiKeyStatus();
+            setApiKeyStatus(keyResult.data);
+        } catch (error) {
+            console.error('[Config] Failed to load API key status:', error);
+        } finally {
+            setLoadingApiKeys(false);
+        }
+    };
+
+    const refreshModels = async () => {
+        setRefreshingModels(true);
+        try {
+            const result = await getAvailableModels();
+            const data = result.data as any;
+            if (data.models) {
+                setAvailableModels(data.models);
+            }
+            Alert.alert('Success', 'Model list updated from server');
+        } catch (error) {
+            console.error('Failed to refresh models:', error);
+            Alert.alert('Error', 'Failed to refresh model list');
+        } finally {
+            setRefreshingModels(false);
+        }
+    };
+
+    const saveAiSettings = async () => {
+        setSavingAi(true);
+        try {
+            const docRef = doc(db, 'config', 'aiSettings');
+            await setDoc(docRef, aiSettings, { merge: true });
+            Alert.alert('Success', 'AI Model settings updated');
+        } catch (error) {
+            console.error('Failed to save AI settings:', error);
+            Alert.alert('Error', 'Failed to save settings');
+        } finally {
+            setSavingAi(false);
+        }
+    };
+
+    const saveGlobalConfig = async () => {
+        if (!config) return;
+        setSavingConfig(true);
+        try {
+            console.log('[Config] Saving...', config);
+            const result = await updateGlobalConfig(config);
+            console.log('[Config] Save result:', result.data);
+            if (result.data.success) {
+                Alert.alert('Success', 'Global configuration saved');
+            } else {
+                Alert.alert('Error', 'Save returned success=false');
+            }
+        } catch (error: any) {
+            console.error('[Config] Failed to save:', error);
+            Alert.alert('Error', `Failed to save configuration: ${error.message}`);
+        } finally {
+            setSavingConfig(false);
+        }
+    };
+
+    const updateSubscription = (tier: SubscriptionTier, field: 'limit' | 'price', value: string) => {
+        if (!config) return;
+
+        // Allow empty string for clearing input, otherwise parse
+        const numValue = value === '' ? 0 : parseInt(value);
+        if (isNaN(numValue)) return; // prevent NaN
+
+        console.log(`[Config] Update Subscription ${tier} ${field}: ${value}`);
+
+        setConfig(prev => {
+            if (!prev) return null;
+            if (field === 'limit') {
+                return {
+                    ...prev,
+                    subscriptionLimits: { ...prev.subscriptionLimits, [tier]: numValue }
+                };
+            } else {
+                return {
+                    ...prev,
+                    subscriptionPricing: {
+                        ...prev.subscriptionPricing,
+                        [tier]: {
+                            ...prev.subscriptionPricing[tier],
+                            // price stored in cents, input is dollars? assuming raw numbers for now to match old code
+                            // Wait, existing code said price * 100. Let's keep that logic but verify input.
+                            price: numValue * 100,
+                            displayPrice: `$${numValue}${tier === 'hero' ? '/mo' : ''}`
+                        }
+                    }
+                };
+            }
+        });
+    };
+
+    const updateDisplayPrice = (tier: SubscriptionTier, text: string) => {
+        if (!config) return;
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                subscriptionPricing: {
+                    ...prev.subscriptionPricing,
+                    [tier]: { ...prev.subscriptionPricing[tier], displayPrice: text }
+                }
+            };
+        });
+    };
+
+    const toggleModule = (moduleId: string) => {
+        if (!config) return;
+
+        // Safely access current state. If undefined, default to true (enabled by default) or false?
+        // In types.ts, worldModules is a Record. If missing, it's effectively disabled or enabled depending on logic.
+        // Let's assume missing = enabled for now to show the switch as ON if we don't have override.
+        // Wait, if backend returns defaults, it should comprise all known modules.
+        const current = config.worldModules?.[moduleId]?.enabled ?? true;
+        console.log(`[Config] Toggle Module ${moduleId}: ${current} -> ${!current}`);
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                worldModules: {
+                    ...prev.worldModules,
+                    [moduleId]: {
+                        ...(prev.worldModules?.[moduleId] || {}),
+                        enabled: !current
+                    }
+                }
+            };
+        });
+    };
+
+    const toggleSystemSetting = (key: keyof GlobalConfig['systemSettings']) => {
+        if (!config) return;
+        console.log(`[Config] Toggle System ${key}`);
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                systemSettings: {
+                    ...prev.systemSettings,
+                    [key]: !prev.systemSettings[key]
+                }
+            };
+        });
+    };
+
+    const brainModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
+    const voiceModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
+
+    const API_PROVIDERS: { id: ApiProvider; name: string; icon: string; color: string }[] = [
+        { id: 'openai', name: 'OpenAI', icon: 'hardware-chip', color: '#10a37f' },
+        { id: 'anthropic', name: 'Anthropic', icon: 'sparkles', color: '#d97757' },
+        { id: 'google', name: 'Google (Gemini)', icon: 'logo-google', color: '#4285f4' },
+    ];
+
+    const handleSaveApiKey = async (provider: ApiProvider) => {
+        if (!newKeyValue.trim()) {
+            Alert.alert('Error', 'Please enter an API key');
+            return;
+        }
+
+        setSavingKey(true);
+        try {
+            await updateApiKey({ provider, key: newKeyValue.trim() });
+            Alert.alert('Success', `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key updated. Note: Functions may need to be redeployed to use the new key.`);
+
+            // Refresh status
+            const keyResult = await getApiKeyStatus();
+            setApiKeyStatus(keyResult.data);
+
+            setEditingProvider(null);
+            setNewKeyValue('');
+        } catch (error: any) {
+            console.error('[Config] Failed to update API key:', error);
+            Alert.alert('Error', `Failed to update API key: ${error.message}`);
+        } finally {
+            setSavingKey(false);
+        }
+    };
+
+    if (loadingConfig || loadingAi) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center' }]}>
+                <ActivityIndicator size="large" color={colors.primary[400]} />
+            </View>
+        );
+    }
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <View style={styles.header}>
-                <AnimatedPressable onPress={() => router.back()} style={styles.backButton}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                     <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-                </AnimatedPressable>
+                </TouchableOpacity>
                 <Text style={styles.title}>Global Config</Text>
             </View>
 
-            {/* Subscription Tiers */}
-            <FadeInView>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Subscription Tiers</Text>
-                    <View style={styles.card}>
-                        <View style={styles.tierRow}>
-                            <View style={styles.tierInfo}>
-                                <Ionicons name="shield-outline" size={20} color={colors.text.muted} />
-                                <View>
-                                    <Text style={styles.tierName}>Scout</Text>
-                                    <Text style={styles.tierPrice}>{SUBSCRIPTION_PRICING.scout.displayPrice}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.tierLimit}>
-                                <Text style={styles.tierLimitValue}>{SUBSCRIPTION_LIMITS.scout}</Text>
-                                <Text style={styles.tierLimitLabel}>turns/mo</Text>
-                            </View>
-                        </View>
+            {/* AI Settings Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>AI Model Defaults</Text>
+                <View style={styles.card}>
 
-                        <View style={styles.tierRow}>
-                            <View style={styles.tierInfo}>
-                                <Ionicons name="star" size={20} color={colors.status.warning} />
-                                <View>
-                                    <Text style={styles.tierName}>Hero</Text>
-                                    <Text style={styles.tierPrice}>{SUBSCRIPTION_PRICING.hero.displayPrice}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.tierLimit}>
-                                <Text style={styles.tierLimitValue}>{SUBSCRIPTION_LIMITS.hero}</Text>
-                                <Text style={styles.tierLimitLabel}>turns/mo</Text>
-                            </View>
-                        </View>
-
-                        <View style={[styles.tierRow, { borderBottomWidth: 0 }]}>
-                            <View style={styles.tierInfo}>
-                                <Ionicons name="diamond" size={20} color={colors.primary[400]} />
-                                <View>
-                                    <Text style={styles.tierName}>Legend</Text>
-                                    <Text style={styles.tierPrice}>{SUBSCRIPTION_PRICING.legend.displayPrice}</Text>
-                                </View>
-                            </View>
-                            <View style={styles.tierLimit}>
-                                <Text style={styles.tierLimitValue}>∞</Text>
-                                <Text style={styles.tierLimitLabel}>unlimited</Text>
-                            </View>
-                        </View>
+                    {/* Refresh Button */}
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
+                        <TouchableOpacity
+                            onPress={refreshModels}
+                            disabled={refreshingModels}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                        >
+                            <Ionicons name="refresh" size={16} color={colors.primary[400]} />
+                            <Text style={{ color: colors.primary[400], fontSize: 12 }}>
+                                {refreshingModels ? 'Refreshing...' : 'Refresh Models'}
+                            </Text>
+                        </TouchableOpacity>
                     </View>
-                </View>
-            </FadeInView>
 
-            {/* Top-Up Packages */}
-            <FadeInView>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Top-Up Packages</Text>
-                    <View style={styles.card}>
-                        {TOP_UP_PACKAGES.map((pkg, index) => (
-                            <View
-                                key={pkg.id}
-                                style={[
-                                    styles.packageRow,
-                                    index === TOP_UP_PACKAGES.length - 1 && { borderBottomWidth: 0 }
-                                ]}
-                            >
-                                <View style={styles.packageInfo}>
-                                    <Ionicons name="flash" size={20} color={colors.gold.main} />
-                                    <Text style={styles.packageName}>{pkg.turns} Turns</Text>
-                                </View>
-                                <Text style={styles.packagePrice}>{pkg.displayPrice}</Text>
-                            </View>
-                        ))}
+                    {/* Brain Model */}
+                    <View style={styles.settingHeader}>
+                        <Ionicons name="hardware-chip" size={24} color={colors.primary[400]} />
+                        <Text style={styles.settingTitle}>Brain Model</Text>
                     </View>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => { setBrainDropdownOpen(!brainDropdownOpen); setVoiceDropdownOpen(false); }}
+                    >
+                        <Text style={styles.dropdownButtonText}>
+                            {availableModels.find(m => m.id === aiSettings.brainModel)?.name || aiSettings.brainModel}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color={colors.text.muted} />
+                    </TouchableOpacity>
+                    {brainDropdownOpen && (
+                        <View style={styles.dropdownList}>
+                            {brainModels.map(model => (
+                                <TouchableOpacity
+                                    key={model.id}
+                                    style={[styles.dropdownItem, aiSettings.brainModel === model.id && styles.dropdownItemSelected]}
+                                    onPress={() => {
+                                        setAiSettings(prev => ({ ...prev, brainModel: model.id }));
+                                        setBrainDropdownOpen(false);
+                                    }}
+                                >
+                                    <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+
+
+                    {/* Voice Model */}
+                    <View style={[styles.settingHeader, { marginTop: spacing.lg }]}>
+                        <Ionicons name="chatbubbles" size={24} color={colors.gold.main} />
+                        <Text style={styles.settingTitle}>Voice Model</Text>
+                    </View>
+                    <TouchableOpacity
+                        style={styles.dropdownButton}
+                        onPress={() => { setVoiceDropdownOpen(!voiceDropdownOpen); setBrainDropdownOpen(false); }}
+                    >
+                        <Text style={styles.dropdownButtonText}>
+                            {availableModels.find(m => m.id === aiSettings.voiceModel)?.name || aiSettings.voiceModel}
+                        </Text>
+                        <Ionicons name="chevron-down" size={20} color={colors.text.muted} />
+                    </TouchableOpacity>
+                    {voiceDropdownOpen && (
+                        <View style={styles.dropdownList}>
+                            {voiceModels.map(model => (
+                                <TouchableOpacity
+                                    key={model.id}
+                                    style={[styles.dropdownItem, aiSettings.voiceModel === model.id && styles.dropdownItemSelected]}
+                                    onPress={() => {
+                                        setAiSettings(prev => ({ ...prev, voiceModel: model.id }));
+                                        setVoiceDropdownOpen(false);
+                                    }}
+                                >
+                                    <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
+                    )}
+
+                    <TouchableOpacity
+                        style={[styles.saveButton, { marginTop: spacing.md }]}
+                        onPress={saveAiSettings}
+                        disabled={savingAi}
+                    >
+                        {savingAi ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save AI Defaults</Text>}
+                    </TouchableOpacity>
                 </View>
-            </FadeInView>
+            </View>
+
+            {/* API Keys Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>API Keys</Text>
+                <View style={styles.card}>
+                    {loadingApiKeys ? (
+                        <ActivityIndicator size="small" color={colors.primary[400]} />
+                    ) : (
+                        API_PROVIDERS.map((provider) => {
+                            const status = apiKeyStatus?.[provider.id];
+                            const isEditing = editingProvider === provider.id;
+
+                            return (
+                                <View key={provider.id} style={styles.apiKeyRow}>
+                                    <View style={styles.apiKeyHeader}>
+                                        <View style={[styles.apiKeyIcon, { backgroundColor: provider.color + '20' }]}>
+                                            <Ionicons name={provider.icon as any} size={20} color={provider.color} />
+                                        </View>
+                                        <View style={styles.apiKeyInfo}>
+                                            <Text style={styles.apiKeyName}>{provider.name}</Text>
+                                            {status?.set ? (
+                                                <Text style={styles.apiKeyHint}>{status.hint}</Text>
+                                            ) : (
+                                                <Text style={[styles.apiKeyHint, { color: colors.status.warning }]}>Not configured</Text>
+                                            )}
+                                        </View>
+                                        {!isEditing && (
+                                            <TouchableOpacity
+                                                style={styles.apiKeyEditButton}
+                                                onPress={() => {
+                                                    setEditingProvider(provider.id);
+                                                    setNewKeyValue('');
+                                                }}
+                                            >
+                                                <Text style={styles.apiKeyEditButtonText}>
+                                                    {status?.set ? 'Update' : 'Add'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+
+                                    {isEditing && (
+                                        <View style={styles.apiKeyEditForm}>
+                                            <TextInput
+                                                style={styles.apiKeyInput}
+                                                value={newKeyValue}
+                                                onChangeText={setNewKeyValue}
+                                                placeholder={`Enter ${provider.name} API key`}
+                                                placeholderTextColor={colors.text.muted}
+                                                secureTextEntry
+                                                autoCapitalize="none"
+                                                autoCorrect={false}
+                                            />
+                                            <View style={styles.apiKeyButtonRow}>
+                                                <TouchableOpacity
+                                                    style={[styles.apiKeyButton, styles.apiKeyCancelButton]}
+                                                    onPress={() => {
+                                                        setEditingProvider(null);
+                                                        setNewKeyValue('');
+                                                    }}
+                                                >
+                                                    <Text style={styles.apiKeyCancelButtonText}>Cancel</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity
+                                                    style={[styles.apiKeyButton, styles.apiKeySaveButton]}
+                                                    onPress={() => handleSaveApiKey(provider.id)}
+                                                    disabled={savingKey}
+                                                >
+                                                    {savingKey ? (
+                                                        <ActivityIndicator size="small" color="#000" />
+                                                    ) : (
+                                                        <Text style={styles.apiKeySaveButtonText}>Save</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    )}
+                                </View>
+                            );
+                        })
+                    )}
+                </View>
+            </View>
+
+            {/* Subscriptions */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Subscriptions & Limits</Text>
+                <View style={styles.card}>
+                    {(['scout', 'hero', 'legend'] as SubscriptionTier[]).map(tier => (
+                        <View key={tier} style={styles.configItem}>
+                            <Text style={styles.configLabelCapital}>{tier}</Text>
+                            <View style={styles.inputRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.inputLabel}>Turns</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={String(config?.subscriptionLimits?.[tier] ?? '')}
+                                        keyboardType="numeric"
+                                        onChangeText={(v) => updateSubscription(tier, 'limit', v)}
+                                        placeholder="0"
+                                        placeholderTextColor={colors.text.muted}
+                                    />
+                                </View>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.inputLabel}>Display Price</Text>
+                                    <TextInput
+                                        style={styles.input}
+                                        value={config?.subscriptionPricing?.[tier]?.displayPrice ?? ''}
+                                        onChangeText={(v) => updateDisplayPrice(tier, v)}
+                                        placeholder="Free"
+                                        placeholderTextColor={colors.text.muted}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    ))}
+                </View>
+            </View>
 
             {/* World Modules */}
-            <FadeInView>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>World Modules</Text>
-                    <StaggeredList style={{ gap: spacing.sm }}>
-                        {WORLD_MODULES.map((module) => (
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>World Modules</Text>
+                <View style={{ gap: spacing.sm }}>
+                    {MODULE_METADATA.map((module) => {
+                        const isEnabled = config?.worldModules?.[module.id]?.enabled ?? true;
+                        return (
                             <View key={module.id} style={styles.moduleCard}>
                                 <View style={[styles.moduleIcon, { backgroundColor: module.color + '20' }]}>
-                                    <Ionicons name={module.icon} size={24} color={module.color} />
+                                    <Ionicons name={module.icon as any} size={24} color={module.color} />
                                 </View>
                                 <View style={styles.moduleInfo}>
-                                    <View style={styles.moduleHeader}>
-                                        <Text style={styles.moduleName}>{module.name}</Text>
-                                        <View style={[
-                                            styles.statusBadge,
-                                            { backgroundColor: module.enabled ? colors.status.success + '20' : colors.status.error + '20' }
-                                        ]}>
-                                            <Text style={[
-                                                styles.statusBadgeText,
-                                                { color: module.enabled ? colors.status.success : colors.status.error }
-                                            ]}>
-                                                {module.enabled ? 'ENABLED' : 'DISABLED'}
-                                            </Text>
-                                        </View>
-                                    </View>
+                                    <Text style={styles.moduleName}>{module.name}</Text>
                                     <Text style={styles.moduleDescription}>{module.description}</Text>
                                 </View>
+                                <Switch
+                                    value={isEnabled}
+                                    onValueChange={() => toggleModule(module.id)}
+                                    trackColor={{ false: colors.background.tertiary, true: colors.status.success + '50' }}
+                                    thumbColor={isEnabled ? colors.status.success : colors.text.muted}
+                                    // Web compatible styles
+                                    style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                                />
                             </View>
-                        ))}
-                    </StaggeredList>
+                        );
+                    })}
                 </View>
-            </FadeInView>
+            </View>
 
-            {/* System Config */}
-            <FadeInView>
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>System Settings</Text>
-                    <View style={styles.card}>
-                        <View style={styles.configRow}>
-                            <Text style={styles.configLabel}>Maintenance Mode</Text>
-                            <View style={[styles.statusBadge, { backgroundColor: colors.status.success + '20' }]}>
-                                <Text style={[styles.statusBadgeText, { color: colors.status.success }]}>OFF</Text>
-                            </View>
-                        </View>
-                        <View style={styles.configRow}>
-                            <Text style={styles.configLabel}>New Registrations</Text>
-                            <View style={[styles.statusBadge, { backgroundColor: colors.status.success + '20' }]}>
-                                <Text style={[styles.statusBadgeText, { color: colors.status.success }]}>OPEN</Text>
-                            </View>
-                        </View>
-                        <View style={[styles.configRow, { borderBottomWidth: 0 }]}>
-                            <Text style={styles.configLabel}>Debug Logging</Text>
-                            <View style={[styles.statusBadge, { backgroundColor: colors.status.warning + '20' }]}>
-                                <Text style={[styles.statusBadgeText, { color: colors.status.warning }]}>DEV ONLY</Text>
-                            </View>
-                        </View>
+            {/* System Settings */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>System Settings</Text>
+                <View style={styles.card}>
+                    <View style={styles.switchRow}>
+                        <Text style={styles.configLabel}>Maintenance Mode</Text>
+                        <Switch
+                            value={config?.systemSettings?.maintenanceMode ?? false}
+                            onValueChange={() => toggleSystemSetting('maintenanceMode')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                    <View style={styles.switchRow}>
+                        <Text style={styles.configLabel}>New Registrations</Text>
+                        <Switch
+                            value={config?.systemSettings?.newRegistrationsOpen ?? true}
+                            onValueChange={() => toggleSystemSetting('newRegistrationsOpen')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <Text style={styles.configLabel}>Debug Logging</Text>
+                        <Switch
+                            value={config?.systemSettings?.debugLogging ?? false}
+                            onValueChange={() => toggleSystemSetting('debugLogging')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
                     </View>
                 </View>
-            </FadeInView>
-
-            {/* Info Box */}
-            <View style={styles.infoBox}>
-                <Ionicons name="code-slash" size={20} color={colors.status.info} />
-                <Text style={styles.infoText}>
-                    To modify tier limits, pricing, or enable/disable modules, update the configuration in:
-                    {'\n'}• <Text style={styles.codePath}>lib/types.ts</Text> (limits & packages)
-                    {'\n'}• <Text style={styles.codePath}>functions/src/index.ts</Text> (backend logic)
-                    {'\n'}• <Text style={styles.codePath}>app/admin/costs.tsx</Text> (AI model pricing)
-                </Text>
             </View>
+
+            {/* SAVE ALL BUTTON */}
+            <View style={{ marginBottom: spacing.xxl }}>
+                <TouchableOpacity
+                    style={[styles.saveButton, { backgroundColor: colors.status.success }]}
+                    onPress={saveGlobalConfig}
+                    disabled={savingConfig}
+                >
+                    {savingConfig ? (
+                        <ActivityIndicator color="#000" />
+                    ) : (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Ionicons name="save" size={20} color="#000" />
+                            <Text style={styles.saveButtonText}>Save Global Config</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+            </View>
+
         </ScrollView>
     );
 }
@@ -236,64 +620,100 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.border.default,
     },
-    tierRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.default,
-    },
-    tierInfo: {
+    settingHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: spacing.md,
-    },
-    tierName: {
-        fontSize: typography.fontSize.md,
-        fontWeight: '600',
-        color: colors.text.primary,
-    },
-    tierPrice: {
-        fontSize: typography.fontSize.sm,
-        color: colors.text.muted,
-    },
-    tierLimit: {
-        alignItems: 'flex-end',
-    },
-    tierLimitValue: {
-        fontSize: typography.fontSize.lg,
-        fontWeight: 'bold',
-        color: colors.primary[400],
-    },
-    tierLimitLabel: {
-        fontSize: typography.fontSize.xs,
-        color: colors.text.muted,
-    },
-    packageRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: spacing.md,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border.default,
-    },
-    packageInfo: {
-        flexDirection: 'row',
-        alignItems: 'center',
+        marginBottom: spacing.xs,
         gap: spacing.sm,
     },
-    packageName: {
+    settingTitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    dropdownButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: colors.background.tertiary,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    dropdownButtonText: {
         fontSize: typography.fontSize.md,
         color: colors.text.primary,
     },
-    packagePrice: {
+    dropdownList: {
+        marginTop: spacing.sm,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        overflow: 'hidden',
+    },
+    dropdownItem: {
+        padding: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+    },
+    dropdownItemSelected: {
+        backgroundColor: colors.primary[900] + '20',
+    },
+    dropdownItemText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+    },
+    saveButton: {
+        backgroundColor: colors.primary[400], // Default blue
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    saveButtonText: {
+        color: '#000',
+        fontWeight: 'bold',
         fontSize: typography.fontSize.md,
-        fontWeight: '600',
-        color: colors.gold.main,
+    },
+    configItem: {
+        marginBottom: spacing.lg,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+        paddingBottom: spacing.md,
+    },
+    configLabelCapital: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        textTransform: 'capitalize',
+        marginBottom: spacing.sm,
+    },
+    configLabel: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.primary,
+    },
+    inputRow: {
+        flexDirection: 'row',
+        gap: spacing.md,
+    },
+    inputLabel: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        marginBottom: 4,
+    },
+    input: {
+        backgroundColor: colors.background.tertiary,
+        color: colors.text.primary,
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
     },
     moduleCard: {
         flexDirection: 'row',
+        alignItems: 'center',
         backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.md,
         padding: spacing.md,
@@ -302,20 +722,14 @@ const createStyles = (colors: any) => StyleSheet.create({
         gap: spacing.md,
     },
     moduleIcon: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         alignItems: 'center',
+        justifyContent: 'center',
     },
     moduleInfo: {
         flex: 1,
-    },
-    moduleHeader: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-        marginBottom: 4,
     },
     moduleName: {
         fontSize: typography.fontSize.md,
@@ -325,18 +739,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     moduleDescription: {
         fontSize: typography.fontSize.sm,
         color: colors.text.muted,
-        lineHeight: 18,
     },
-    statusBadge: {
-        paddingHorizontal: spacing.xs,
-        paddingVertical: 2,
-        borderRadius: borderRadius.sm,
-    },
-    statusBadgeText: {
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    configRow: {
+    switchRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -344,26 +748,88 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: colors.border.default,
     },
-    configLabel: {
-        fontSize: typography.fontSize.md,
-        color: colors.text.secondary,
+    // API Key Styles
+    apiKeyRow: {
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
     },
-    infoBox: {
+    apiKeyHeader: {
         flexDirection: 'row',
-        backgroundColor: colors.primary[900] + '20',
-        padding: spacing.md,
-        borderRadius: borderRadius.md,
+        alignItems: 'center',
         gap: spacing.md,
-        alignItems: 'flex-start',
     },
-    infoText: {
+    apiKeyIcon: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    apiKeyInfo: {
         flex: 1,
-        fontSize: typography.fontSize.sm,
-        color: colors.text.secondary,
-        lineHeight: 20,
     },
-    codePath: {
-        fontFamily: 'monospace',
+    apiKeyName: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    apiKeyHint: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    apiKeyEditButton: {
+        backgroundColor: colors.primary[400] + '30',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.sm,
+    },
+    apiKeyEditButtonText: {
         color: colors.primary[400],
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    apiKeyEditForm: {
+        marginTop: spacing.md,
+        gap: spacing.sm,
+    },
+    apiKeyInput: {
+        backgroundColor: colors.background.tertiary,
+        color: colors.text.primary,
+        padding: spacing.md,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        fontSize: typography.fontSize.md,
+    },
+    apiKeyButtonRow: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: spacing.sm,
+    },
+    apiKeyButton: {
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.sm,
+        minWidth: 80,
+        alignItems: 'center',
+    },
+    apiKeyCancelButton: {
+        backgroundColor: colors.background.tertiary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    apiKeyCancelButtonText: {
+        color: colors.text.secondary,
+        fontSize: typography.fontSize.sm,
+    },
+    apiKeySaveButton: {
+        backgroundColor: colors.status.success,
+    },
+    apiKeySaveButtonText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: typography.fontSize.sm,
     },
 });

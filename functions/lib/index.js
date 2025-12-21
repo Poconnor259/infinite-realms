@@ -33,10 +33,11 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.generateText = exports.processGameAction = void 0;
+exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
+const secret_manager_1 = require("@google-cloud/secret-manager");
 const brain_1 = require("./brain");
 const voice_1 = require("./voice");
 // Initialize Firebase Admin
@@ -46,8 +47,179 @@ const db = admin.firestore();
 // Define secrets
 const openaiApiKey = (0, params_1.defineSecret)('OPENAI_API_KEY');
 const anthropicApiKey = (0, params_1.defineSecret)('ANTHROPIC_API_KEY');
+const googleApiKey = (0, params_1.defineSecret)('GOOGLE_API_KEY');
+// ==================== HELPER ====================
+function getProviderFromModel(model) {
+    if (model.startsWith('claude'))
+        return 'anthropic';
+    if (model.startsWith('gemini'))
+        return 'google';
+    return 'openai';
+}
+function resolveModelConfig(selectedModel, byokKeys, secrets) {
+    const provider = getProviderFromModel(selectedModel);
+    let key;
+    // 1. Try BYOK
+    if (byokKeys && byokKeys[provider]) {
+        key = byokKeys[provider];
+    }
+    // 2. Try Secret
+    if (!key) {
+        key = secrets[provider];
+    }
+    // 3. Fallback if no key for selected provider
+    if (!key) {
+        console.warn(`[Config] No key found for selected provider ${provider}. Falling back to OpenAI.`);
+        // Fallback to OpenAI (assuming we always have a system key for it)
+        return {
+            provider: 'openai',
+            model: 'gpt-4o-mini',
+            key: secrets.openai || ''
+        };
+    }
+    return { provider, model: selectedModel, key };
+}
+// ==================== CONFIG ENDPOINTS ====================
+// ==================== DYNAMIC MODEL FETCHING ====================
+async function fetchOpenAIModels(apiKey) {
+    if (!apiKey)
+        return [];
+    try {
+        const response = await fetch('https://api.openai.com/v1/models', {
+            headers: { 'Authorization': `Bearer ${apiKey}` }
+        });
+        if (!response.ok)
+            return [];
+        const data = await response.json();
+        return data.data || [];
+    }
+    catch (e) {
+        console.error('Failed to fetch OpenAI models', e);
+        return [];
+    }
+}
+async function fetchAnthropicModels(apiKey) {
+    if (!apiKey)
+        return [];
+    try {
+        const response = await fetch('https://api.anthropic.com/v1/models', {
+            headers: {
+                'x-api-key': apiKey,
+                'anthropic-version': '2023-06-01'
+            }
+        });
+        if (!response.ok)
+            return [];
+        const data = await response.json();
+        return data.data || [];
+    }
+    catch (e) {
+        console.error('Failed to fetch Anthropic models', e);
+        return [];
+    }
+}
+async function fetchGoogleModels(apiKey) {
+    if (!apiKey)
+        return [];
+    try {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        if (!response.ok)
+            return [];
+        const data = await response.json();
+        return data.models || [];
+    }
+    catch (e) {
+        console.error('Failed to fetch Google models', e);
+        return [];
+    }
+}
+function resolvePricing(modelId) {
+    // Default/Fallback
+    let pricing = { prompt: 0, completion: 0 };
+    // OpenAI
+    if (modelId.includes('gpt-4o'))
+        pricing = { prompt: 2.50, completion: 10.00 };
+    if (modelId.includes('gpt-4o-mini'))
+        pricing = { prompt: 0.15, completion: 0.60 };
+    if (modelId.includes('o1-preview'))
+        pricing = { prompt: 15.00, completion: 60.00 };
+    if (modelId.includes('o1-mini'))
+        pricing = { prompt: 3.00, completion: 12.00 };
+    // Anthropic
+    if (modelId.includes('claude-3-5-sonnet'))
+        pricing = { prompt: 3.00, completion: 15.00 };
+    if (modelId.includes('claude-3-5-haiku'))
+        pricing = { prompt: 1.00, completion: 5.00 };
+    if (modelId.includes('claude-3-opus'))
+        pricing = { prompt: 15.00, completion: 75.00 };
+    // Google
+    if (modelId.includes('gemini-1.5-pro'))
+        pricing = { prompt: 1.25, completion: 5.00 };
+    if (modelId.includes('gemini-1.5-flash'))
+        pricing = { prompt: 0.075, completion: 0.30 };
+    if (modelId.includes('gemini-1.5-flash-8b'))
+        pricing = { prompt: 0.0375, completion: 0.15 };
+    if (modelId.includes('gemini-2.0'))
+        pricing = { prompt: 0.00, completion: 0.00 }; // Free during experimental
+    return pricing;
+}
+exports.getAvailableModels = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' }, async (request) => {
+    const secrets = {
+        openai: openaiApiKey.value(),
+        anthropic: anthropicApiKey.value(),
+        google: googleApiKey.value(),
+    };
+    const [openaiModels, anthropicModels, googleModels] = await Promise.all([
+        fetchOpenAIModels(secrets.openai),
+        fetchAnthropicModels(secrets.anthropic),
+        fetchGoogleModels(secrets.google)
+    ]);
+    const models = [];
+    // Process OpenAI
+    openaiModels.forEach((m) => {
+        if (m.id.includes('gpt') || m.id.includes('o1')) {
+            // Filter out audio, tts, dall-e, etc by checking for 'gpt' or 'o1' at minimum
+            // This is a loose filter; we might want to skip 'gpt-3.5-turbo' if deprecating, but let's keep it broad.
+            // Exclude 'realtime', 'audio' explicitly if needed.
+            if (!m.id.includes('realtime') && !m.id.includes('audio')) {
+                models.push({
+                    id: m.id,
+                    name: m.id, // OpenAI names are IDs
+                    provider: 'openai',
+                    defaultPricing: resolvePricing(m.id)
+                });
+            }
+        }
+    });
+    // Process Anthropic
+    anthropicModels.forEach((m) => {
+        models.push({
+            id: m.id,
+            name: m.display_name || m.id,
+            provider: 'anthropic',
+            defaultPricing: resolvePricing(m.id)
+        });
+    });
+    // Process Google
+    googleModels.forEach((m) => {
+        // Google IDs look like "models/gemini-1.5-flash"
+        const id = m.name.replace('models/', '');
+        if (id.includes('gemini')) {
+            models.push({
+                id: id,
+                name: m.displayName || id,
+                provider: 'google',
+                defaultPricing: resolvePricing(id)
+            });
+        }
+    });
+    return {
+        success: true,
+        models
+    };
+});
 // ==================== MAIN GAME ENDPOINT ====================
-exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey], cors: true, invoker: 'public' }, async (request) => {
+exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' }, async (request) => {
     const data = request.data;
     const auth = request.auth;
     const { campaignId, userInput, worldModule, currentState, chatHistory, byokKeys, } = data;
@@ -59,7 +231,7 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         };
     }
     try {
-        // Resolve world configuration from Firestore
+        // 1. Resolve world configuration
         let worldData = null;
         try {
             const worldDoc = await db.collection('worlds').doc(worldModule).get();
@@ -70,167 +242,190 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         catch (error) {
             console.error('[ProcessGameAction] Failed to fetch world:', error);
         }
-        let engineType = worldData?.type || worldModule; // Fallback to worldModule for legacy
+        let engineType = worldData?.type || worldModule;
+        // Map legacy types if needed
         if (engineType === 'shadowMonarch')
             engineType = 'tactical';
-        // Determine which API keys to use
-        const openaiKey = byokKeys?.openai || openaiApiKey.value();
-        const anthropicKey = byokKeys?.anthropic || anthropicApiKey.value();
-        // DEBUG LOGGING
-        console.log(`[Auth Debug] hasByok: ${!!byokKeys?.openai}, hasSecret: ${!!openaiApiKey.value()}`);
-        if (openaiKey) {
-            console.log(`[Auth Debug] Key used starts with: ${openaiKey.substring(0, 8)}... ends with: ...${openaiKey.slice(-4)} (Length: ${openaiKey.length})`);
+        // 2. Resolve AI Settings
+        let aiSettings = { brainModel: 'gpt-4o-mini', voiceModel: 'claude-3-5-sonnet' };
+        try {
+            const settingsDoc = await db.collection('config').doc('aiSettings').get();
+            if (settingsDoc.exists) {
+                aiSettings = settingsDoc.data();
+            }
+        }
+        catch (error) {
+            console.error('[ProcessGameAction] Failed to fetch AI settings:', error);
+        }
+        // 2.5 Verify User Tier & BYOK Access
+        // Security: Fetch actual user tier from Firestore, don't trust client
+        let effectiveByokKeys = undefined;
+        let userTier = 'scout';
+        if (auth?.uid) {
+            const userDoc = await db.collection('users').doc(auth.uid).get();
+            if (userDoc.exists) {
+                userTier = userDoc.data()?.tier || 'scout';
+            }
+        }
+        if (userTier === 'legend') {
+            // Legend users MUST use BYOK. 
+            // We pass the keys provided by client. If they are missing/invalid, resolveModelConfig will fail if we enforce it there,
+            // or we enforce it here:
+            effectiveByokKeys = byokKeys;
         }
         else {
-            console.log('[Auth Debug] No OpenAI key found');
+            // Scout/Hero users CANNOT use BYOK.
+            // We explicitly ignore any keys sent by the client.
+            effectiveByokKeys = undefined;
         }
-        if (!openaiKey) {
-            return {
-                success: false,
-                error: 'OpenAI API key not configured. Please set up BYOK or contact support.',
-            };
+        // 3. Resolve Keys and Models
+        const secrets = {
+            openai: openaiApiKey.value(),
+            anthropic: anthropicApiKey.value(),
+            google: googleApiKey.value(),
+        };
+        // If Legend, we must NOT use system secrets as fallback?
+        // User requested: "when they upgrade to legend they lost access to the global API keys"
+        let effectiveSecrets = secrets;
+        if (userTier === 'legend') {
+            effectiveSecrets = { openai: '', anthropic: '', google: '' };
         }
-        // Fetch knowledge base documents for Voice only (Brain just needs game rules)
-        // This optimization saves ~3-5k tokens per turn
-        console.log(`[Knowledge] Fetching documents for ${engineType} (Voice only)...`);
-        const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(engineType, 'voice');
-        console.log(`[Knowledge] Found ${voiceKnowledgeDocs.length} voice docs`);
-        // Step 1: Process with Brain (Logic Engine)
-        console.log(`[Brain] Processing action for campaign ${campaignId}: "${userInput}"`);
-        // Brain only needs last 3 messages for context (saves ~2k tokens)
+        const brainConfig = resolveModelConfig(aiSettings.brainModel, effectiveByokKeys, effectiveSecrets);
+        const voiceConfig = resolveModelConfig(aiSettings.voiceModel, effectiveByokKeys, effectiveSecrets);
+        if (!brainConfig.key) {
+            return { success: false, error: 'Configuration Error: No valid API key available for Brain.' };
+        }
+        if (!voiceConfig.key) {
+            return { success: false, error: 'Configuration Error: No valid API key available for Voice.' };
+        }
+        console.log(`[Process] Brain: ${brainConfig.provider}/${brainConfig.model}, Voice: ${voiceConfig.provider}/${voiceConfig.model}`);
+        // Fetch knowledge base (Voice only optimization still applies?)
+        // If Brain now supports custom rules, we pass them.
+        // KnowledgeBase documents are generally for Voice (Lore) but Brain might need mechanics?
+        // Existing code said "Voice only" for docs. I'll stick to that or pass only relevant ones.
+        // But brain.ts DOES handle knowledgeDocuments. I'll pass appropriately.
+        console.log(`[Knowledge] Fetching documents for ${engineType}...`);
+        let knowledgeDocs = [];
+        try {
+            // Check if imported function works
+            knowledgeDocs = await (0, exports.getKnowledgeForModule)(engineType, 'voice');
+        }
+        catch (kError) {
+            console.warn('Failed to fetch knowledge docs:', kError);
+        }
+        // 4. Run Brain (Logic)
         const brainResult = await (0, brain_1.processWithBrain)({
             userInput,
             worldModule: engineType,
             currentState,
-            chatHistory: chatHistory.slice(-3),
-            apiKey: openaiKey,
-            customRules: worldData?.customRules, // Pass custom rules directly
-            // No knowledge docs for Brain - it just needs game rules which are in the system prompt
+            chatHistory,
+            apiKey: brainConfig.key,
+            provider: brainConfig.provider,
+            model: brainConfig.model,
+            knowledgeDocuments: [], // Converting optimization: Brain doesn't get heavy lore docs
+            customRules: worldData?.customRules,
         });
-        if (!brainResult.success) {
+        if (!brainResult.success || !brainResult.data) {
             return {
                 success: false,
                 error: brainResult.error || 'Brain processing failed',
             };
         }
-        console.log('[Brain] Result:', JSON.stringify(brainResult.data));
-        // Step 2: Generate narrative with Voice (Narrator)
-        let narrativeText;
-        let voiceResult = null; // Declare outside conditional for token tracking
-        let totalPromptTokens = brainResult.usage?.promptTokens || 0;
-        let totalCompletionTokens = brainResult.usage?.completionTokens || 0;
-        if (!anthropicKey) {
-            // Fallback if no Anthropic key available
-            narrativeText = brainResult.data?.narrativeCue ||
-                `*${userInput}*\n\nThe action has been processed.`;
-        }
-        else {
-            console.log('[Voice] Generating narrative with Claude');
-            // Voice gets knowledge docs for lore, but only last 4 messages for narrative flow
-            voiceResult = await (0, voice_1.generateNarrative)({
-                narrativeCues: brainResult.data?.narrativeCues || [],
-                worldModule: engineType,
-                chatHistory: chatHistory.slice(-4),
-                stateChanges: brainResult.data?.stateUpdates || {},
-                diceRolls: brainResult.data?.diceRolls || [],
-                apiKey: anthropicKey,
-                knowledgeDocuments: voiceKnowledgeDocs,
-                customRules: worldData?.customRules, // Pass custom rules directly
-            });
+        // 5. Run Voice (Narrative)
+        const voiceResult = await (0, voice_1.generateNarrative)({
+            narrativeCues: brainResult.data.narrativeCues,
+            worldModule: engineType,
+            chatHistory,
+            stateChanges: brainResult.data.stateUpdates,
+            diceRolls: brainResult.data.diceRolls,
+            apiKey: voiceConfig.key,
+            provider: voiceConfig.provider,
+            model: voiceConfig.model,
+            knowledgeDocuments: knowledgeDocs,
+            customRules: worldData?.customRules,
+        });
+        // 6. Record Token Usage
+        if (auth?.uid) {
+            const updates = {};
+            // Helper to map provider/model to stats key
+            // Use actual model ID but sanitize dots for Firestore FieldPaths
+            const getTokenStatsKey = (provider, model) => {
+                return model.replace(/\./g, '_');
+            };
+            const brainStatsKey = getTokenStatsKey(brainConfig.provider, brainConfig.model);
+            const voiceStatsKey = getTokenStatsKey(voiceConfig.provider, voiceConfig.model);
+            if (brainResult.usage) {
+                updates[`tokens.${brainStatsKey}.prompt`] = admin.firestore.FieldValue.increment(brainResult.usage.promptTokens);
+                updates[`tokens.${brainStatsKey}.completion`] = admin.firestore.FieldValue.increment(brainResult.usage.completionTokens);
+                updates[`tokens.${brainStatsKey}.total`] = admin.firestore.FieldValue.increment(brainResult.usage.totalTokens);
+            }
             if (voiceResult.usage) {
-                totalPromptTokens += voiceResult.usage.promptTokens;
-                totalCompletionTokens += voiceResult.usage.completionTokens;
+                updates[`tokens.${voiceStatsKey}.prompt`] = admin.firestore.FieldValue.increment(voiceResult.usage.promptTokens);
+                updates[`tokens.${voiceStatsKey}.completion`] = admin.firestore.FieldValue.increment(voiceResult.usage.completionTokens);
+                updates[`tokens.${voiceStatsKey}.total`] = admin.firestore.FieldValue.increment(voiceResult.usage.totalTokens);
             }
-            if (!voiceResult.success) {
-                narrativeText = brainResult.data?.narrativeCue ||
-                    'The narrator seems momentarily distracted...';
-            }
-            else {
-                narrativeText = voiceResult.narrative || '';
-            }
+            // Track total turns & legacy totals
+            const totalPrompt = (brainResult.usage?.promptTokens || 0) + (voiceResult.usage?.promptTokens || 0);
+            const totalCompletion = (brainResult.usage?.completionTokens || 0) + (voiceResult.usage?.completionTokens || 0);
+            const totalTokens = totalPrompt + totalCompletion;
+            updates['turnsUsed'] = admin.firestore.FieldValue.increment(1);
+            updates['tokensPrompt'] = admin.firestore.FieldValue.increment(totalPrompt);
+            updates['tokensCompletion'] = admin.firestore.FieldValue.increment(totalCompletion);
+            updates['tokensTotal'] = admin.firestore.FieldValue.increment(totalTokens);
+            updates['lastActive'] = admin.firestore.FieldValue.serverTimestamp();
+            await db.collection('users').doc(auth.uid).update(updates).catch(e => console.error('Failed to update stats:', e));
+            // Global Stats
+            const today = new Date().toISOString().split('T')[0];
+            await db.collection('systemStats').doc('tokens').collection('daily').doc(today).set({
+                date: today,
+                tokensPrompt: admin.firestore.FieldValue.increment(totalPrompt),
+                tokensCompletion: admin.firestore.FieldValue.increment(totalCompletion),
+                tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
+                turns: admin.firestore.FieldValue.increment(1),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            }, { merge: true });
         }
-        const totalTokens = totalPromptTokens + totalCompletionTokens;
-        // Step 3: Save messages to Firestore
-        if (auth) {
+        // Save session data (Messages & State)
+        if (auth?.uid) {
             const messagesRef = db.collection('users')
                 .doc(auth.uid)
                 .collection('campaigns')
                 .doc(campaignId)
                 .collection('messages');
-            // Save user message
             await messagesRef.add({
                 role: 'user',
                 content: userInput,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
             });
-            // Save narrator response
             await messagesRef.add({
                 role: 'narrator',
-                content: narrativeText,
+                content: voiceResult.narrative || brainResult.data.narrativeCue,
                 timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                tokenUsage: { prompt: totalPromptTokens, completion: totalCompletionTokens, total: totalTokens },
+                // Simplified usage tracking on message for now
             });
-        }
-        // Step 4: Save state to Firestore (if authenticated)
-        if (auth) {
-            try {
-                await db.collection('users')
-                    .doc(auth.uid)
-                    .collection('campaigns')
-                    .doc(campaignId)
-                    .update({
-                    moduleState: brainResult.data?.stateUpdates || currentState,
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
-                // Separate token counts by model
-                const brainPromptTokens = brainResult.usage?.promptTokens || 0;
-                const brainCompletionTokens = brainResult.usage?.completionTokens || 0;
-                const voicePromptTokens = voiceResult?.usage?.promptTokens || 0;
-                const voiceCompletionTokens = voiceResult?.usage?.completionTokens || 0;
-                // Increment user's turn/token usage with per-model tracking
-                await db.collection('users').doc(auth.uid).update({
-                    turnsUsed: admin.firestore.FieldValue.increment(1),
-                    // Per-model tracking (new)
-                    'tokens.gpt4oMini.prompt': admin.firestore.FieldValue.increment(brainPromptTokens),
-                    'tokens.gpt4oMini.completion': admin.firestore.FieldValue.increment(brainCompletionTokens),
-                    'tokens.gpt4oMini.total': admin.firestore.FieldValue.increment(brainPromptTokens + brainCompletionTokens),
-                    'tokens.claude.prompt': admin.firestore.FieldValue.increment(voicePromptTokens),
-                    'tokens.claude.completion': admin.firestore.FieldValue.increment(voiceCompletionTokens),
-                    'tokens.claude.total': admin.firestore.FieldValue.increment(voicePromptTokens + voiceCompletionTokens),
-                    // Legacy fields (kept for backward compatibility)
-                    tokensPrompt: admin.firestore.FieldValue.increment(totalPromptTokens),
-                    tokensCompletion: admin.firestore.FieldValue.increment(totalCompletionTokens),
-                    tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
-                    lastActive: admin.firestore.FieldValue.serverTimestamp(),
-                });
-                // Track global daily usage
-                const today = new Date().toISOString().split('T')[0];
-                await db.collection('systemStats').doc('tokens').collection('daily').doc(today).set({
-                    date: today,
-                    tokensPrompt: admin.firestore.FieldValue.increment(totalPromptTokens),
-                    tokensCompletion: admin.firestore.FieldValue.increment(totalCompletionTokens),
-                    tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
-                    turns: admin.firestore.FieldValue.increment(1),
-                    updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                }, { merge: true });
-            }
-            catch (dbError) {
-                console.error('Failed to save state to Firestore:', dbError);
-            }
+            await db.collection('users')
+                .doc(auth.uid)
+                .collection('campaigns')
+                .doc(campaignId)
+                .update({
+                moduleState: brainResult.data?.stateUpdates || currentState,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            });
         }
         return {
             success: true,
-            narrativeText,
-            stateUpdates: brainResult.data?.stateUpdates,
-            diceRolls: brainResult.data?.diceRolls,
-            systemMessages: brainResult.data?.systemMessages,
+            narrativeText: voiceResult.narrative || brainResult.data.narrativeCue,
+            stateUpdates: brainResult.data.stateUpdates,
+            diceRolls: brainResult.data.diceRolls,
+            systemMessages: brainResult.data.systemMessages,
         };
     }
     catch (error) {
         console.error('Game processing error:', error);
+        // Don't expose internal errors to client
         return {
             success: false,
-            error: error instanceof Error ? error.message : 'An unexpected error occurred',
+            error: 'An internal error occurred',
         };
     }
 });
@@ -421,8 +616,66 @@ exports.getModelPricing = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError('internal', 'Failed to get pricing');
     }
 });
+// ==================== GLOBAL APP CONFIG ====================
+exports.getGlobalConfig = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
+    try {
+        const doc = await db.collection('config').doc('global').get();
+        // Default config matching existing constants
+        const defaultConfig = {
+            subscriptionLimits: { scout: 15, hero: 300, legend: 999999 },
+            subscriptionPricing: {
+                scout: { price: 0, displayPrice: 'Free' },
+                hero: { price: 999, displayPrice: '$9.99/month' },
+                legend: { price: 4999, displayPrice: '$49.99 one-time' }
+            },
+            topUpPackages: [
+                { id: 'topup_150', turns: 150, price: 500, displayPrice: '$5' },
+                { id: 'topup_300', turns: 300, price: 1000, displayPrice: '$10' }
+            ],
+            worldModules: {
+                classic: { enabled: true },
+                outworlder: { enabled: true },
+                tactical: { enabled: true }
+            },
+            systemSettings: {
+                maintenanceMode: false,
+                newRegistrationsOpen: true,
+                debugLogging: false
+            }
+        };
+        if (!doc.exists) {
+            return defaultConfig;
+        }
+        // Merge with defaults to ensure all fields exist
+        return { ...defaultConfig, ...doc.data() };
+    }
+    catch (error) {
+        console.error('[GetGlobalConfig] Error:', error);
+        throw new https_1.HttpsError('internal', 'Failed to get global config');
+    }
+});
+exports.updateGlobalConfig = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
+    try {
+        // Admin check
+        const auth = request.auth;
+        if (!auth)
+            throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+        const userDoc = await db.collection('users').doc(auth.uid).get();
+        const isAdmin = userDoc.data()?.role === 'admin';
+        if (!isAdmin)
+            throw new https_1.HttpsError('permission-denied', 'Admin access required');
+        const updates = request.data;
+        await db.collection('config').doc('global').set(updates, { merge: true });
+        console.log(`[UpdateGlobalConfig] Config updated by ${auth.uid}`);
+        return { success: true };
+    }
+    catch (error) {
+        console.error('[UpdateGlobalConfig] Error:', error);
+        throw error instanceof https_1.HttpsError ? error : new https_1.HttpsError('internal', 'Failed to update global config');
+    }
+});
 // ==================== CAMPAIGN MANAGEMENT ====================
-exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey], cors: true, invoker: 'public' }, async (request) => {
+exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError('unauthenticated', 'User must be signed in');
     }
@@ -446,14 +699,30 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
         .collection('campaigns')
         .doc();
     const now = admin.firestore.FieldValue.serverTimestamp();
-    // Get API keys
-    const anthropicKey = anthropicApiKey.value();
+    // Resolve keys
+    const secrets = {
+        openai: openaiApiKey.value(),
+        anthropic: anthropicApiKey.value(),
+        google: googleApiKey.value(),
+    };
+    // Fetch AI Settings to know which model to use for Voice
+    let aiSettings = { brainModel: 'gpt-4o-mini', voiceModel: 'claude-3-5-sonnet' };
+    try {
+        const settingsDoc = await db.collection('config').doc('aiSettings').get();
+        if (settingsDoc.exists) {
+            aiSettings = settingsDoc.data();
+        }
+    }
+    catch (error) {
+        console.error('[CreateCampaign] Failed to fetch AI settings:', error);
+    }
+    const voiceConfig = resolveModelConfig(aiSettings.voiceModel, undefined, secrets); // No BYOK for intro yet
     // Get knowledge for generating intro (limit to 2 most relevant docs to save tokens)
     const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(engineType, 'voice', 2);
-    // Generate initial narrative with Claude
+    // Generate initial narrative
     let initialNarrative = worldData?.initialNarrative || '';
-    // Only use AI generation if explicitly enabled for this world
-    if (anthropicKey && worldData?.generateIntro) {
+    // Only use AI generation if explicitly enabled for this world and we have a key
+    if (voiceConfig.key && worldData?.generateIntro) {
         try {
             const voiceResult = await (0, voice_1.generateNarrative)({
                 narrativeCues: [{
@@ -465,9 +734,11 @@ exports.createCampaign = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropic
                 chatHistory: [],
                 stateChanges: {},
                 diceRolls: [],
-                apiKey: anthropicKey,
+                apiKey: voiceConfig.key,
+                provider: voiceConfig.provider,
+                model: voiceConfig.model,
                 knowledgeDocuments: voiceKnowledgeDocs,
-                customRules: worldData?.customRules, // Pass custom rules directly
+                customRules: worldData?.customRules,
             });
             if (voiceResult.success && voiceResult.narrative) {
                 initialNarrative = voiceResult.narrative;
@@ -787,4 +1058,84 @@ const getKnowledgeForModule = async (worldModule, modelFilter, maxDocs = 3) => {
     return docs.map(d => d.text);
 };
 exports.getKnowledgeForModule = getKnowledgeForModule;
+// ==================== API KEY MANAGEMENT ====================
+const SECRET_NAMES = {
+    openai: 'OPENAI_API_KEY',
+    anthropic: 'ANTHROPIC_API_KEY',
+    google: 'GOOGLE_API_KEY',
+};
+// Get the status of configured API keys (masked hints only - never full keys)
+exports.getApiKeyStatus = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' }, async (request) => {
+    // Admin check
+    const auth = request.auth;
+    if (!auth)
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    const userDoc = await db.collection('users').doc(auth.uid).get();
+    const isAdmin = userDoc.data()?.role === 'admin';
+    if (!isAdmin)
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    const getHint = (key) => {
+        if (!key || key.length < 8) {
+            return { set: false, hint: '' };
+        }
+        // Show first 4 and last 4 characters
+        const first = key.substring(0, 4);
+        const last = key.substring(key.length - 4);
+        return { set: true, hint: `${first}...${last}` };
+    };
+    return {
+        openai: getHint(openaiApiKey.value()),
+        anthropic: getHint(anthropicApiKey.value()),
+        google: getHint(googleApiKey.value()),
+    };
+});
+// Update an API key in Secret Manager
+exports.updateApiKey = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
+    // Admin check
+    const auth = request.auth;
+    if (!auth)
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    const userDoc = await db.collection('users').doc(auth.uid).get();
+    const isAdmin = userDoc.data()?.role === 'admin';
+    if (!isAdmin)
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    const { provider, key } = request.data;
+    // Validate input
+    if (!provider || !['openai', 'anthropic', 'google'].includes(provider)) {
+        throw new https_1.HttpsError('invalid-argument', 'Invalid provider. Must be openai, anthropic, or google.');
+    }
+    if (!key || typeof key !== 'string' || key.length < 10) {
+        throw new https_1.HttpsError('invalid-argument', 'Invalid API key. Key must be at least 10 characters.');
+    }
+    // Basic format validation
+    if (provider === 'openai' && !key.startsWith('sk-')) {
+        throw new https_1.HttpsError('invalid-argument', 'OpenAI keys should start with "sk-"');
+    }
+    try {
+        const client = new secret_manager_1.SecretManagerServiceClient();
+        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+        const secretName = SECRET_NAMES[provider];
+        // Add a new version of the secret
+        const parent = `projects/${projectId}/secrets/${secretName}`;
+        await client.addSecretVersion({
+            parent,
+            payload: {
+                data: Buffer.from(key, 'utf8'),
+            },
+        });
+        console.log(`[UpdateApiKey] ${provider} key updated by ${auth.uid}`);
+        // Log the update for audit purposes
+        await db.collection('auditLog').add({
+            action: 'API_KEY_UPDATE',
+            provider,
+            updatedBy: auth.uid,
+            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+        return { success: true };
+    }
+    catch (error) {
+        console.error('[UpdateApiKey] Error:', error);
+        throw new https_1.HttpsError('internal', `Failed to update API key: ${error.message}`);
+    }
+});
 //# sourceMappingURL=index.js.map
