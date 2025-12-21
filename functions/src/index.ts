@@ -134,6 +134,7 @@ export const processGameAction = onCall(
 
             // Step 2: Generate narrative with Voice (Narrator)
             let narrativeText: string;
+            let voiceResult: any = null; // Declare outside conditional for token tracking
             let totalPromptTokens = brainResult.usage?.promptTokens || 0;
             let totalCompletionTokens = brainResult.usage?.completionTokens || 0;
 
@@ -145,7 +146,7 @@ export const processGameAction = onCall(
                 console.log('[Voice] Generating narrative with Claude');
 
                 // Voice gets knowledge docs for lore, but only last 4 messages for narrative flow
-                const voiceResult = await generateNarrative({
+                voiceResult = await generateNarrative({
                     narrativeCues: brainResult.data?.narrativeCues || [],
                     worldModule: engineType,
                     chatHistory: chatHistory.slice(-4),
@@ -207,12 +208,29 @@ export const processGameAction = onCall(
                             updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                         });
 
-                    // Increment user's turn/token usage
+                    // Separate token counts by model
+                    const brainPromptTokens = brainResult.usage?.promptTokens || 0;
+                    const brainCompletionTokens = brainResult.usage?.completionTokens || 0;
+                    const voicePromptTokens = voiceResult?.usage?.promptTokens || 0;
+                    const voiceCompletionTokens = voiceResult?.usage?.completionTokens || 0;
+
+                    // Increment user's turn/token usage with per-model tracking
                     await db.collection('users').doc(auth.uid).update({
                         turnsUsed: admin.firestore.FieldValue.increment(1),
+
+                        // Per-model tracking (new)
+                        'tokens.gpt4oMini.prompt': admin.firestore.FieldValue.increment(brainPromptTokens),
+                        'tokens.gpt4oMini.completion': admin.firestore.FieldValue.increment(brainCompletionTokens),
+                        'tokens.gpt4oMini.total': admin.firestore.FieldValue.increment(brainPromptTokens + brainCompletionTokens),
+                        'tokens.claude.prompt': admin.firestore.FieldValue.increment(voicePromptTokens),
+                        'tokens.claude.completion': admin.firestore.FieldValue.increment(voiceCompletionTokens),
+                        'tokens.claude.total': admin.firestore.FieldValue.increment(voicePromptTokens + voiceCompletionTokens),
+
+                        // Legacy fields (kept for backward compatibility)
                         tokensPrompt: admin.firestore.FieldValue.increment(totalPromptTokens),
                         tokensCompletion: admin.firestore.FieldValue.increment(totalCompletionTokens),
                         tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
+
                         lastActive: admin.firestore.FieldValue.serverTimestamp(),
                     });
 
@@ -280,7 +298,10 @@ export const generateText = onCall(
 
             // Get API key
             const openaiKey = openaiApiKey.value();
+            console.log(`[GenerateText] API key exists: ${!!openaiKey}, length: ${openaiKey?.length || 0}`);
+
             if (!openaiKey) {
+                console.error('[GenerateText] OpenAI API key not configured');
                 throw new HttpsError('failed-precondition', 'OpenAI API key not configured');
             }
 
@@ -313,7 +334,7 @@ export const generateText = onCall(
             if (!response.ok) {
                 const error = await response.text();
                 console.error('[GenerateText] OpenAI error:', error);
-                throw new HttpsError('internal', 'Failed to generate text');
+                throw new HttpsError('internal', `Failed to generate text: ${error.substring(0, 100)}`);
             }
 
             const data = await response.json();
@@ -323,10 +344,20 @@ export const generateText = onCall(
                 throw new HttpsError('internal', 'No text generated');
             }
 
-            // Track usage
+            // Track usage under GPT-4o-mini (text generation uses GPT-4o-mini)
+            const promptTokens = data.usage?.prompt_tokens || 0;
+            const completionTokens = data.usage?.completion_tokens || 0;
             const tokensUsed = data.usage?.total_tokens || 0;
+
             await db.collection('users').doc(auth.uid).update({
+                // Per-model tracking (new)
+                'tokens.gpt4oMini.prompt': admin.firestore.FieldValue.increment(promptTokens),
+                'tokens.gpt4oMini.completion': admin.firestore.FieldValue.increment(completionTokens),
+                'tokens.gpt4oMini.total': admin.firestore.FieldValue.increment(tokensUsed),
+
+                // Legacy field (kept for backward compatibility)
                 tokensTotal: admin.firestore.FieldValue.increment(tokensUsed),
+
                 lastActive: admin.firestore.FieldValue.serverTimestamp(),
             });
 
@@ -343,6 +374,157 @@ export const generateText = onCall(
                 success: false,
                 error: error instanceof Error ? error.message : 'An unexpected error occurred',
             };
+        }
+    }
+);
+
+// ==================== MODEL PRICING MANAGEMENT ====================
+
+interface ModelPricing {
+    prompt: number;
+    completion: number;
+}
+
+interface ModelPricingData {
+    gpt4oMini: ModelPricing;
+    claude: ModelPricing;
+    lastUpdated?: any;
+    updatedBy?: string;
+}
+
+// Refresh model pricing from latest sources
+export const refreshModelPricing = onCall(
+    async (request) => {
+        try {
+            const auth = request.auth;
+            if (!auth) {
+                throw new HttpsError('unauthenticated', 'User must be authenticated');
+            }
+
+            // Check if user is admin
+            const userDoc = await db.collection('users').doc(auth.uid).get();
+            const isAdmin = userDoc.data()?.role === 'admin';
+
+            if (!isAdmin) {
+                throw new HttpsError('permission-denied', 'Admin access required');
+            }
+
+            console.log(`[RefreshPricing] Fetching latest pricing for admin ${auth.uid}`);
+
+            // Fetch latest pricing (fallback to known values since APIs don't exist)
+            const pricing: ModelPricingData = {
+                gpt4oMini: {
+                    prompt: 0.15,      // $0.15 per 1M tokens (as of Dec 2024)
+                    completion: 0.60,  // $0.60 per 1M tokens
+                },
+                claude: {
+                    prompt: 3.00,      // $3.00 per 1M tokens (Claude Sonnet 3.5)
+                    completion: 15.00, // $15.00 per 1M tokens
+                },
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                updatedBy: auth.uid,
+            };
+
+            // Save to Firestore
+            await db.collection('config').doc('modelPricing').set(pricing);
+
+            console.log('[RefreshPricing] Pricing updated successfully');
+
+            return {
+                success: true,
+                pricing: {
+                    gpt4oMini: pricing.gpt4oMini,
+                    claude: pricing.claude,
+                }
+            };
+
+        } catch (error) {
+            console.error('[RefreshPricing] Error:', error);
+            throw error instanceof HttpsError ? error : new HttpsError('internal', 'Failed to refresh pricing');
+        }
+    }
+);
+
+// Update model pricing manually
+export const updateModelPricing = onCall(
+    async (request) => {
+        try {
+            const { gpt4oMini, claude } = request.data as { gpt4oMini?: ModelPricing; claude?: ModelPricing };
+            const auth = request.auth;
+
+            if (!auth) {
+                throw new HttpsError('unauthenticated', 'User must be authenticated');
+            }
+
+            // Check if user is admin
+            const userDoc = await db.collection('users').doc(auth.uid).get();
+            const isAdmin = userDoc.data()?.role === 'admin';
+
+            if (!isAdmin) {
+                throw new HttpsError('permission-denied', 'Admin access required');
+            }
+
+            // Validate pricing values
+            if (gpt4oMini) {
+                if (gpt4oMini.prompt < 0 || gpt4oMini.completion < 0) {
+                    throw new HttpsError('invalid-argument', 'Pricing must be positive');
+                }
+            }
+            if (claude) {
+                if (claude.prompt < 0 || claude.completion < 0) {
+                    throw new HttpsError('invalid-argument', 'Pricing must be positive');
+                }
+            }
+
+            console.log(`[UpdatePricing] Updating pricing for admin ${auth.uid}`);
+
+            // Get current pricing
+            const currentDoc = await db.collection('config').doc('modelPricing').get();
+            const current = currentDoc.data() as ModelPricingData || {
+                gpt4oMini: { prompt: 0.15, completion: 0.60 },
+                claude: { prompt: 3.00, completion: 15.00 },
+            };
+
+            // Update with new values
+            const updated: ModelPricingData = {
+                gpt4oMini: gpt4oMini || current.gpt4oMini,
+                claude: claude || current.claude,
+                lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+                updatedBy: auth.uid,
+            };
+
+            await db.collection('config').doc('modelPricing').set(updated);
+
+            console.log('[UpdatePricing] Pricing updated successfully');
+
+            return { success: true };
+
+        } catch (error) {
+            console.error('[UpdatePricing] Error:', error);
+            throw error instanceof HttpsError ? error : new HttpsError('internal', 'Failed to update pricing');
+        }
+    }
+);
+
+// Get current model pricing
+export const getModelPricing = onCall(
+    async (request) => {
+        try {
+            const doc = await db.collection('config').doc('modelPricing').get();
+
+            if (!doc.exists) {
+                // Return default pricing if not set
+                return {
+                    gpt4oMini: { prompt: 0.15, completion: 0.60 },
+                    claude: { prompt: 3.00, completion: 15.00 },
+                };
+            }
+
+            return doc.data();
+
+        } catch (error) {
+            console.error('[GetPricing] Error:', error);
+            throw new HttpsError('internal', 'Failed to get pricing');
         }
     }
 );
@@ -575,6 +757,7 @@ export const getAdminDashboardData = onCall({ cors: true, invoker: 'public' }, a
                 tokensPrompt: d.tokensPrompt || 0,
                 tokensCompletion: d.tokensCompletion || 0,
                 tokensTotal: d.tokensTotal || 0,
+                tokens: d.tokens || {}, // Include per-model breakdown
                 isAnonymous: !!d.isAnonymous,
                 createdAt: formatTimestamp(d.createdAt),
                 lastActive: formatTimestamp(d.lastActive),

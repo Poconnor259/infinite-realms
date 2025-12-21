@@ -341,6 +341,18 @@ export interface NarrativeCue {
 
 export type SubscriptionTier = 'scout' | 'hero' | 'legend';
 
+// Per-model token tracking
+export interface ModelTokenUsage {
+    prompt: number;
+    completion: number;
+    total: number;
+}
+
+export interface TokensByModel {
+    gpt4oMini?: ModelTokenUsage;  // Brain + Text Generation
+    claude?: ModelTokenUsage;      // Voice/Narrator
+}
+
 export interface User {
     id: string;
     email: string;
@@ -355,6 +367,11 @@ export interface User {
     createdAt: number;
     role?: 'user' | 'admin';
     turnsUsed?: number;
+
+    // Per-model token tracking (new)
+    tokens?: TokensByModel;
+
+    // Legacy token fields (kept for backward compatibility)
     tokensPrompt?: number;
     tokensCompletion?: number;
     tokensTotal?: number;

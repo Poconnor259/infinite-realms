@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
@@ -191,6 +191,7 @@ export default function AdminConfigScreen() {
                     To modify tier limits, pricing, or enable/disable modules, update the configuration in:
                     {'\n'}• <Text style={styles.codePath}>lib/types.ts</Text> (limits & packages)
                     {'\n'}• <Text style={styles.codePath}>functions/src/index.ts</Text> (backend logic)
+                    {'\n'}• <Text style={styles.codePath}>app/admin/costs.tsx</Text> (AI model pricing)
                 </Text>
             </View>
         </ScrollView>
@@ -204,7 +205,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     content: {
         padding: spacing.lg,
-        paddingBottom: spacing.xxl,
     },
     header: {
         flexDirection: 'row',
@@ -221,7 +221,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.text.primary,
     },
     section: {
-        marginBottom: spacing.lg,
+        marginBottom: spacing.xl,
     },
     sectionTitle: {
         fontSize: typography.fontSize.md,
@@ -232,7 +232,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     card: {
         backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.md,
-        padding: spacing.md,
+        padding: spacing.lg,
         borderWidth: 1,
         borderColor: colors.border.default,
     },
@@ -251,7 +251,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     tierName: {
         fontSize: typography.fontSize.md,
-        fontWeight: 'bold',
+        fontWeight: '600',
         color: colors.text.primary,
     },
     tierPrice: {
@@ -262,7 +262,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'flex-end',
     },
     tierLimitValue: {
-        fontSize: typography.fontSize.xl,
+        fontSize: typography.fontSize.lg,
         fontWeight: 'bold',
         color: colors.primary[400],
     },
@@ -286,11 +286,10 @@ const createStyles = (colors: any) => StyleSheet.create({
     packageName: {
         fontSize: typography.fontSize.md,
         color: colors.text.primary,
-        fontWeight: '500',
     },
     packagePrice: {
-        fontSize: typography.fontSize.lg,
-        fontWeight: 'bold',
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
         color: colors.gold.main,
     },
     moduleCard: {
@@ -300,6 +299,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         padding: spacing.md,
         borderWidth: 1,
         borderColor: colors.border.default,
+        gap: spacing.md,
     },
     moduleIcon: {
         width: 48,
@@ -307,7 +307,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderRadius: 24,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: spacing.md,
     },
     moduleInfo: {
         flex: 1,

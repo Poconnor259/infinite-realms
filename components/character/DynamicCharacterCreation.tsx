@@ -128,21 +128,30 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
         try {
             const aiPrompt = `Generate a ${fieldLabel.toLowerCase()} for a character named ${characterName} in a ${engine.name} game. ${prompt ? `User guidance: ${prompt}` : ''}. Respond with ONLY the generated text, no extra commentary. Keep it to 2-3 sentences.`;
 
+            console.log('[AI Generate] Calling generateText with prompt:', aiPrompt);
+
             const response = await generateText({
                 prompt: aiPrompt,
                 maxLength: 150
             });
 
+            console.log('[AI Generate] Response:', response);
+
             if (response.data.success && response.data.text) {
                 setFormData(prev => ({ ...prev, [fieldId]: response.data.text }));
             } else {
-                console.error('AI generation failed:', response.data.error);
-                alert('Failed to generate text. Please try again.');
+                console.error('[AI Generate] Failed:', response.data);
+                alert(`Failed to generate text: ${response.data.error || 'Unknown error'}`);
             }
 
-        } catch (error) {
-            console.error('AI generation error:', error);
-            alert('Failed to generate text. Please try again.');
+        } catch (error: any) {
+            console.error('[AI Generate] Error:', error);
+            console.error('[AI Generate] Error details:', {
+                message: error?.message,
+                code: error?.code,
+                details: error?.details
+            });
+            alert(`Failed to generate text: ${error?.message || 'Unknown error'}`);
         } finally {
             setGeneratingField(null);
         }

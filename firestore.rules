@@ -37,10 +37,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
-    // Subscription tiers / rotation schedule (read-only)
+    // Configuration (public read, admin write for pricing/API keys)
     match /config/{configId} {
       allow read: if true;
-      allow write: if false;
+      allow write: if isAdmin();
     }
     
     // Game engines (public read, admin write)

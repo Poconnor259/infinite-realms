@@ -1,26 +1,14 @@
-
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getAdminData } from '../../lib/firebase';
-import { User } from '../../lib/types';
+import { getAdminData, getModelPricing, refreshModelPricing, updateModelPricing } from '../../lib/firebase';
+import { User, ModelTokenUsage } from '../../lib/types';
 import { useSettingsStore } from '../../lib/store';
-
-// Actual Pricing (as of Dec 2024)
-// Brain: GPT-4o-mini - $0.15/1M in, $0.60/1M out
-// Voice: Claude Sonnet 4 - $3/1M in, $15/1M out
-// Per turn: ~$0.0005 (Brain) + ~$0.021 (Voice) = ~$0.0215 total
-const DEFAULT_COST_PER_1K_TURNS = 21.50; // $0.0215 per turn × 1000
-const AVG_TOKENS_PER_TURN = 3400; // ~2500 in + ~900 out (total for both models)
-
-// Pricing per 1M tokens (Blended GPT-4o-mini + Claude Sonnet 4)
-const BLENDED_INPUT_COST_1M = 1.575; // avg($0.15, $3.00) if equal weight, but Claude is heavier
-const BLENDED_OUTPUT_COST_1M = 7.80; // avg($0.60, $15.00)
 
 export default function AdminCostsScreen() {
     const router = useRouter();
@@ -30,9 +18,54 @@ export default function AdminCostsScreen() {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
+    // Model Pricing (fetched from Firestore)
+    const [modelPricing, setModelPricing] = useState({
+        gpt4oMini: { prompt: 0.15, completion: 0.60 },
+        claude: { prompt: 3.00, completion: 15.00 },
+    });
+
+    // Pricing edit state
+    const [pricing, setPricing] = useState({
+        gpt4oMini: { prompt: 0.15, completion: 0.60 },
+        claude: { prompt: 3.00, completion: 15.00 },
+    });
+    const [refreshing, setRefreshing] = useState(false);
+    const [saving, setSaving] = useState(false);
+
     // Calculator States
-    const [costPer1kTurns, setCostPer1kTurns] = useState('21.50'); // Based on actual model costs
     const [firebaseCostPerUser, setFirebaseCostPerUser] = useState('0.005'); // Est daily cost per active user
+
+    // Pricing handlers
+    const handleRefreshPricing = async () => {
+        setRefreshing(true);
+        try {
+            const result = await refreshModelPricing();
+            if (result.data && result.data.pricing) {
+                setPricing(result.data.pricing);
+                setModelPricing(result.data.pricing);
+                Alert.alert('Success', 'Pricing refreshed from latest values');
+            }
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to refresh pricing');
+        } finally {
+            setRefreshing(false);
+        }
+    };
+
+    const handleSavePricing = async () => {
+        setSaving(true);
+        try {
+            await updateModelPricing(pricing);
+            setModelPricing(pricing);
+            Alert.alert('Success', 'Pricing saved successfully');
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to save pricing');
+        } finally {
+            setSaving(false);
+        }
+    };
 
     useEffect(() => {
         loadData();
@@ -40,9 +73,17 @@ export default function AdminCostsScreen() {
 
     const loadData = async () => {
         try {
-            const data = await getAdminData();
-            setUsers(data.users);
-            setDailyStats(data.dailyStats);
+            const [adminData, pricing] = await Promise.all([
+                getAdminData(),
+                getModelPricing()
+            ]);
+
+            setUsers(adminData.users);
+            setDailyStats(adminData.dailyStats);
+
+            if (pricing.data) {
+                setModelPricing(pricing.data);
+            }
         } catch (error) {
             console.error(error);
             Alert.alert('Error', 'Failed to load usage data');
@@ -51,7 +92,43 @@ export default function AdminCostsScreen() {
         }
     };
 
-    // Computations
+    // Aggregate per-model tokens across all users
+    const aggregateModelTokens = () => {
+        const gpt4oMini: ModelTokenUsage = { prompt: 0, completion: 0, total: 0 };
+        const claude: ModelTokenUsage = { prompt: 0, completion: 0, total: 0 };
+
+        users.forEach(user => {
+            if (user.tokens?.gpt4oMini) {
+                gpt4oMini.prompt += user.tokens.gpt4oMini.prompt || 0;
+                gpt4oMini.completion += user.tokens.gpt4oMini.completion || 0;
+                gpt4oMini.total += user.tokens.gpt4oMini.total || 0;
+            }
+            if (user.tokens?.claude) {
+                claude.prompt += user.tokens.claude.prompt || 0;
+                claude.completion += user.tokens.claude.completion || 0;
+                claude.total += user.tokens.claude.total || 0;
+            }
+        });
+
+        return { gpt4oMini, claude };
+    };
+
+    const modelTokens = aggregateModelTokens();
+
+    // Calculate costs per model
+    const gpt4oMiniCost = (
+        (modelTokens.gpt4oMini.prompt / 1_000_000) * modelPricing.gpt4oMini.prompt +
+        (modelTokens.gpt4oMini.completion / 1_000_000) * modelPricing.gpt4oMini.completion
+    );
+
+    const claudeCost = (
+        (modelTokens.claude.prompt / 1_000_000) * modelPricing.claude.prompt +
+        (modelTokens.claude.completion / 1_000_000) * modelPricing.claude.completion
+    );
+
+    const totalAiCost = gpt4oMiniCost + claudeCost;
+
+    // Legacy calculations for backward compatibility
     const totalTurns = users.reduce((sum, u) => sum + (u.turnsUsed || 0), 0);
     const totalPromptTokens = users.reduce((sum, u) => sum + (u.tokensPrompt || 0), 0);
     const totalCompletionTokens = users.reduce((sum, u) => sum + (u.tokensCompletion || 0), 0);
@@ -74,18 +151,8 @@ export default function AdminCostsScreen() {
     const lastMonthStats = dailyStats.filter(s => new Date(s.date) >= oneMonthAgo);
     const tokensMonth = lastMonthStats.reduce((sum, s) => sum + (s.tokensTotal || 0), 0);
 
-    // Actual Cost Calculation (using tracked tokens if available, else fallback to turn estimate)
-    // We'll use a weighted blended rate since we store aggregate tokens
-    const actualAiCost = (totalPromptTokens / 1000000 * 1.575) + (totalCompletionTokens / 1000000 * 7.80);
-
-    // Fallback/Estimation comparison
-    const estimatedAiCost = (totalTurns / 1000) * parseFloat(costPer1kTurns || '0');
-
-    // Choose which to display (if tokens are tracked, use actual)
-    const displayAiCost = totalTokensTracked > 0 ? actualAiCost : estimatedAiCost;
-
     const estimatedDbCost = totalUsers * parseFloat(firebaseCostPerUser || '0') * 30; // Monthly
-    const totalEstimatedCost = displayAiCost + estimatedDbCost;
+    const totalEstimatedCost = totalAiCost + estimatedDbCost;
 
     if (loading) {
         return (
@@ -160,42 +227,63 @@ export default function AdminCostsScreen() {
                 </View>
             </View>
 
-            {/* Token Breakdown */}
-            {totalTokensTracked > 0 && (
-                <FadeInView style={styles.breakdownCard}>
-                    <Text style={styles.breakdownTitle}>Actual Usage Breakdown</Text>
-                    <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Prompt Tokens</Text>
-                        <Text style={styles.breakdownValue}>{totalPromptTokens.toLocaleString()}</Text>
+            {/* Per-Model Token Breakdown */}
+            <FadeInView style={styles.breakdownCard}>
+                <Text style={styles.breakdownTitle}>Token Usage by Model</Text>
+
+                {/* GPT-4o-mini */}
+                <View style={styles.modelSection}>
+                    <View style={styles.modelHeader}>
+                        <Ionicons name="flash" size={18} color={colors.status.success} />
+                        <Text style={styles.modelName}>GPT-4o-mini (Brain + Text Gen)</Text>
                     </View>
                     <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabel}>Completion Tokens</Text>
-                        <Text style={styles.breakdownValue}>{totalCompletionTokens.toLocaleString()}</Text>
+                        <Text style={styles.breakdownLabel}>Prompt</Text>
+                        <Text style={styles.breakdownValue}>{modelTokens.gpt4oMini.prompt.toLocaleString()}</Text>
                     </View>
-                    <View style={styles.divider} />
                     <View style={styles.breakdownRow}>
-                        <Text style={styles.breakdownLabelBold}>Actual AI Cost</Text>
-                        <Text style={styles.breakdownValueBold}>${actualAiCost.toFixed(4)}</Text>
+                        <Text style={styles.breakdownLabel}>Completion</Text>
+                        <Text style={styles.breakdownValue}>{modelTokens.gpt4oMini.completion.toLocaleString()}</Text>
                     </View>
-                </FadeInView>
-            )}
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabelBold}>Cost</Text>
+                        <Text style={styles.breakdownValueBold}>${gpt4oMiniCost.toFixed(4)}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                {/* Claude */}
+                <View style={styles.modelSection}>
+                    <View style={styles.modelHeader}>
+                        <Ionicons name="sparkles" size={18} color={colors.primary[400]} />
+                        <Text style={styles.modelName}>Claude Sonnet 3.5 (Voice)</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Prompt</Text>
+                        <Text style={styles.breakdownValue}>{modelTokens.claude.prompt.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Completion</Text>
+                        <Text style={styles.breakdownValue}>{modelTokens.claude.completion.toLocaleString()}</Text>
+                    </View>
+                    <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabelBold}>Cost</Text>
+                        <Text style={styles.breakdownValueBold}>${claudeCost.toFixed(4)}</Text>
+                    </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabelBold}>Total AI Cost</Text>
+                    <Text style={[styles.breakdownValueBold, { color: colors.primary[400], fontSize: typography.fontSize.lg }]}>${totalAiCost.toFixed(4)}</Text>
+                </View>
+            </FadeInView>
 
             {/* Calculator Settings */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Pricing Assumptions</Text>
-
-                <View style={styles.settingRow}>
-                    <View>
-                        <Text style={styles.settingLabel}>AI Cost per 1,000 Turns ($)</Text>
-                        <Text style={styles.settingSub}>Avg blended inference cost</Text>
-                    </View>
-                    <TextInput
-                        style={styles.input}
-                        value={costPer1kTurns}
-                        onChangeText={setCostPer1kTurns}
-                        keyboardType="numeric"
-                    />
-                </View>
 
                 <View style={styles.settingRow}>
                     <View>
@@ -208,6 +296,138 @@ export default function AdminCostsScreen() {
                         onChangeText={setFirebaseCostPerUser}
                         keyboardType="numeric"
                     />
+                </View>
+            </View>
+
+            {/* AI Model Pricing Configuration */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>AI Model Pricing</Text>
+                <View style={styles.card}>
+                    <Text style={[styles.settingLabel, { marginBottom: spacing.md }]}>
+                        Configure pricing per 1M tokens (used for cost calculations)
+                    </Text>
+
+                    {/* GPT-4o-mini */}
+                    <View style={styles.pricingModelSection}>
+                        <View style={styles.pricingModelHeader}>
+                            <Ionicons name="flash" size={20} color={colors.status.success} />
+                            <Text style={styles.pricingModelName}>GPT-4o-mini</Text>
+                            <Text style={styles.pricingModelSubtext}>(Brain + Text Generation)</Text>
+                        </View>
+                        <View style={styles.pricingInputRow}>
+                            <View style={styles.pricingInputGroup}>
+                                <Text style={styles.pricingInputLabel}>Prompt</Text>
+                                <View style={styles.pricingInputWrapper}>
+                                    <Text style={styles.pricingInputPrefix}>$</Text>
+                                    <TextInput
+                                        style={[styles.pricingInput, { color: colors.text.primary }]}
+                                        value={pricing.gpt4oMini.prompt.toString()}
+                                        onChangeText={(v) => setPricing({
+                                            ...pricing,
+                                            gpt4oMini: { ...pricing.gpt4oMini, prompt: parseFloat(v) || 0 }
+                                        })}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.15"
+                                        placeholderTextColor={colors.text.muted}
+                                    />
+                                </View>
+                            </View>
+                            <View style={styles.pricingInputGroup}>
+                                <Text style={styles.pricingInputLabel}>Completion</Text>
+                                <View style={styles.pricingInputWrapper}>
+                                    <Text style={styles.pricingInputPrefix}>$</Text>
+                                    <TextInput
+                                        style={[styles.pricingInput, { color: colors.text.primary }]}
+                                        value={pricing.gpt4oMini.completion.toString()}
+                                        onChangeText={(v) => setPricing({
+                                            ...pricing,
+                                            gpt4oMini: { ...pricing.gpt4oMini, completion: parseFloat(v) || 0 }
+                                        })}
+                                        keyboardType="decimal-pad"
+                                        placeholder="0.60"
+                                        placeholderTextColor={colors.text.muted}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Claude */}
+                    <View style={[styles.pricingModelSection, { borderBottomWidth: 0 }]}>
+                        <View style={styles.pricingModelHeader}>
+                            <Ionicons name="sparkles" size={20} color={colors.primary[400]} />
+                            <Text style={styles.pricingModelName}>Claude Sonnet 3.5</Text>
+                            <Text style={styles.pricingModelSubtext}>(Voice/Narrator)</Text>
+                        </View>
+                        <View style={styles.pricingInputRow}>
+                            <View style={styles.pricingInputGroup}>
+                                <Text style={styles.pricingInputLabel}>Prompt</Text>
+                                <View style={styles.pricingInputWrapper}>
+                                    <Text style={styles.pricingInputPrefix}>$</Text>
+                                    <TextInput
+                                        style={[styles.pricingInput, { color: colors.text.primary }]}
+                                        value={pricing.claude.prompt.toString()}
+                                        onChangeText={(v) => setPricing({
+                                            ...pricing,
+                                            claude: { ...pricing.claude, prompt: parseFloat(v) || 0 }
+                                        })}
+                                        keyboardType="decimal-pad"
+                                        placeholder="3.00"
+                                        placeholderTextColor={colors.text.muted}
+                                    />
+                                </View>
+                            </View>
+                            <View style={styles.pricingInputGroup}>
+                                <Text style={styles.pricingInputLabel}>Completion</Text>
+                                <View style={styles.pricingInputWrapper}>
+                                    <Text style={styles.pricingInputPrefix}>$</Text>
+                                    <TextInput
+                                        style={[styles.pricingInput, { color: colors.text.primary }]}
+                                        value={pricing.claude.completion.toString()}
+                                        onChangeText={(v) => setPricing({
+                                            ...pricing,
+                                            claude: { ...pricing.claude, completion: parseFloat(v) || 0 }
+                                        })}
+                                        keyboardType="decimal-pad"
+                                        placeholder="15.00"
+                                        placeholderTextColor={colors.text.muted}
+                                    />
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
+                    {/* Action Buttons */}
+                    <View style={styles.pricingActions}>
+                        <TouchableOpacity
+                            style={[styles.pricingButton, styles.pricingButtonSecondary, { borderColor: colors.border.default }]}
+                            onPress={handleRefreshPricing}
+                            disabled={refreshing}
+                        >
+                            {refreshing ? (
+                                <ActivityIndicator size="small" color={colors.text.secondary} />
+                            ) : (
+                                <Ionicons name="refresh" size={18} color={colors.text.secondary} />
+                            )}
+                            <Text style={[styles.pricingButtonText, { color: colors.text.secondary }]}>
+                                {refreshing ? 'Refreshing...' : 'Refresh from Latest'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.pricingButton, styles.pricingButtonPrimary, { backgroundColor: colors.primary[500] }]}
+                            onPress={handleSavePricing}
+                            disabled={saving}
+                        >
+                            {saving ? (
+                                <ActivityIndicator size="small" color="#fff" />
+                            ) : (
+                                <Ionicons name="save" size={18} color="#fff" />
+                            )}
+                            <Text style={[styles.pricingButtonText, { color: '#fff' }]}>
+                                {saving ? 'Saving...' : 'Save Pricing'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
 
@@ -430,5 +650,96 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.md,
         fontWeight: 'bold',
         color: colors.text.primary,
+    },
+    modelSection: {
+        marginBottom: spacing.md,
+    },
+    modelHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginBottom: spacing.sm,
+    },
+    modelName: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    // Pricing Configuration Styles
+    pricingModelSection: {
+        paddingVertical: spacing.md,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+    },
+    pricingModelHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    pricingModelName: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    pricingModelSubtext: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+    },
+    pricingInputRow: {
+        flexDirection: 'row',
+        gap: spacing.md,
+    },
+    pricingInputGroup: {
+        flex: 1,
+    },
+    pricingInputLabel: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        marginBottom: spacing.xs,
+    },
+    pricingInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.background.primary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        borderRadius: borderRadius.sm,
+        paddingHorizontal: spacing.sm,
+    },
+    pricingInputPrefix: {
+        fontSize: typography.fontSize.md,
+        color: colors.text.muted,
+        marginRight: spacing.xs,
+    },
+    pricingInput: {
+        flex: 1,
+        fontSize: typography.fontSize.md,
+        paddingVertical: spacing.sm,
+    },
+    pricingActions: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.md,
+    },
+    pricingButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.md,
+    },
+    pricingButtonSecondary: {
+        backgroundColor: 'transparent',
+        borderWidth: 1,
+    },
+    pricingButtonPrimary: {
+        // backgroundColor set inline
+    },
+    pricingButtonText: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
     },
 });

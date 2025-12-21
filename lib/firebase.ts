@@ -313,6 +313,22 @@ export const generateText = httpsCallable<
     { success: boolean; text?: string; error?: string }
 >(functions, 'generateText');
 
+// Model pricing management
+export const refreshModelPricing = httpsCallable<
+    void,
+    { success: boolean; pricing: { gpt4oMini: { prompt: number; completion: number }; claude: { prompt: number; completion: number } } }
+>(functions, 'refreshModelPricing');
+
+export const updateModelPricing = httpsCallable<
+    { gpt4oMini?: { prompt: number; completion: number }; claude?: { prompt: number; completion: number } },
+    { success: boolean }
+>(functions, 'updateModelPricing');
+
+export const getModelPricing = httpsCallable<
+    void,
+    { gpt4oMini: { prompt: number; completion: number }; claude: { prompt: number; completion: number } }
+>(functions, 'getModelPricing');
+
 export const deleteCampaignFn = httpsCallable<{ campaignId: string }, { success: boolean }>(
     functions,
     'deleteCampaign'
