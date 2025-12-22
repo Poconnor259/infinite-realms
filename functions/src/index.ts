@@ -5,6 +5,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
+import { initPromptHelper, seedAIPrompts } from './promptHelper';
 
 
 // Initialize Firebase Admin
@@ -12,6 +13,9 @@ admin.initializeApp();
 
 // Get Firestore instance
 const db = admin.firestore();
+
+// Initialize prompt helper with Firestore
+initPromptHelper(db);
 
 // ==================== API KEY HELPER ====================
 // Get API keys from Firestore (single source of truth)
@@ -1494,6 +1498,30 @@ export const updateApiKey = onCall(
         } catch (error: any) {
             console.error('[UpdateApiKey] Error:', error);
             throw new HttpsError('internal', `Failed to update API key: ${error.message}`);
+        }
+    }
+);
+
+// ==================== AI PROMPTS MANAGEMENT ====================
+
+// Seed AI prompts collection with default values
+export const seedPrompts = onCall(
+    { cors: true, invoker: 'public' },
+    async (request) => {
+        // Admin check
+        const auth = request.auth;
+        if (!auth) throw new HttpsError('unauthenticated', 'User must be authenticated');
+
+        const userDoc = await db.collection('users').doc(auth.uid).get();
+        const isAdmin = userDoc.data()?.role === 'admin';
+        if (!isAdmin) throw new HttpsError('permission-denied', 'Admin access required');
+
+        try {
+            await seedAIPrompts(db);
+            return { success: true, message: 'AI prompts seeded successfully' };
+        } catch (error: any) {
+            console.error('[SeedPrompts] Error:', error);
+            throw new HttpsError('internal', `Failed to seed prompts: ${error.message}`);
         }
     }
 );

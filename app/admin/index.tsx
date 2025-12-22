@@ -57,6 +57,12 @@ export default function AdminDashboard() {
             onPress: () => router.push('/admin/training')
         },
         {
+            title: "AI Prompts",
+            description: "Customize Brain, Voice, and State Reviewer prompts",
+            icon: "code-slash" as const,
+            onPress: () => router.push('/admin/prompts')
+        },
+        {
             title: "System Metrics",
             description: "View usage stats and system health",
             icon: "stats-chart" as const,

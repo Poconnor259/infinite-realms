@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { getPrompt } from './promptHelper';
 
 // ==================== TYPES ====================
 
@@ -42,50 +43,6 @@ interface DiceRoll {
     purpose?: string;
 }
 
-// ==================== WORLD STYLE PROMPTS ====================
-
-const WORLD_STYLES: Record<string, string> = {
-    classic: `You are the NARRATOR for a classic high fantasy RPG in the style of D&D.
-  
-STYLE GUIDELINES:
-- Write in second person ("You swing your sword...")
-- Use vivid, descriptive prose suitable for epic fantasy
-- Describe combat with weight and impact
-- Give NPCs distinct voices and personalities
-- Balance drama with moments of levity
-- Reference classic fantasy tropes while keeping things fresh
-
-TONE: Epic, heroic, occasionally humorous, always engaging.`,
-
-    outworlder: `You are the NARRATOR for a LitRPG adventure in the style of "He Who Fights With Monsters."
-
-STYLE GUIDELINES:
-- Write in second person with snarky, modern sensibilities
-- Include occasional pop culture references where fitting
-- Format system messages as "Blue Box" alerts using code blocks:
-  \`\`\`
-  『SYSTEM MESSAGE』
-  Content here
-  \`\`\`
-- Make abilities feel impactful and visually distinct
-- Balance serious moments with witty banter
-- The world should feel dangerous but also full of wonder
-
-TONE: Witty, irreverent, action-packed, with genuine emotional moments.`,
-
-    tactical: `You are the NARRATOR for a PRAXIS: Operation Dark Tide style elite tactical RPG.
-
-STYLE GUIDELINES:
-- Write in second person with emphasis on tactical precision and high-stakes missions
-- Format system notifications with brackets: [SYSTEM MESSAGE]
-- Combat should feel tactical, intense, and high-tech
-- Squad members and tactical units should feel like a disciplined elite force
-- Emphasize specialized gear and mission objectives
-- Build tension during covert operations and gate breaches
-
-TONE: Tactical, tense, high-stakes, professional, occasionally mysterious.`,
-};
-
 // ==================== MAIN VOICE FUNCTION ====================
 
 export async function generateNarrative(input: VoiceInput): Promise<VoiceOutput> {
@@ -115,7 +72,10 @@ ${customRules}
 `;
         }
 
-        const systemPrompt = `${WORLD_STYLES[worldModule] || WORLD_STYLES.classic}
+        // Get voice prompt from Firestore
+        const voicePrompt = await getPrompt('voice', worldModule);
+
+        const systemPrompt = `${voicePrompt}
 ${knowledgeSection}
 ${customRulesSection}
 CRITICAL LENGTH REQUIREMENT:
