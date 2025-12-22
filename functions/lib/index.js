@@ -49,10 +49,53 @@ const voice_1 = require("./voice");
 admin.initializeApp();
 // Get Firestore instance
 const db = admin.firestore();
-// Define secrets
+// Define secrets (fallback if Firestore doesn't have keys)
 const openaiApiKey = (0, params_1.defineSecret)('OPENAI_API_KEY');
 const anthropicApiKey = (0, params_1.defineSecret)('ANTHROPIC_API_KEY');
 const googleApiKey = (0, params_1.defineSecret)('GOOGLE_API_KEY');
+// ==================== API KEY HELPER ====================
+// Get API keys from Firestore first, fallback to Secret Manager
+async function getApiKeys() {
+    const providers = ['openai', 'anthropic', 'google'];
+    const keys = {};
+    for (const provider of providers) {
+        try {
+            const keyDoc = await db.collection('apiKeys').doc(provider).get();
+            if (keyDoc.exists && keyDoc.data()?.key) {
+                keys[provider] = keyDoc.data().key;
+            }
+            else {
+                // Fallback to Secret Manager
+                switch (provider) {
+                    case 'openai':
+                        keys[provider] = openaiApiKey.value();
+                        break;
+                    case 'anthropic':
+                        keys[provider] = anthropicApiKey.value();
+                        break;
+                    case 'google':
+                        keys[provider] = googleApiKey.value();
+                        break;
+                }
+            }
+        }
+        catch (error) {
+            console.warn(`[API Keys] Error reading ${provider} from Firestore, using Secret Manager`);
+            switch (provider) {
+                case 'openai':
+                    keys[provider] = openaiApiKey.value();
+                    break;
+                case 'anthropic':
+                    keys[provider] = anthropicApiKey.value();
+                    break;
+                case 'google':
+                    keys[provider] = googleApiKey.value();
+                    break;
+            }
+        }
+    }
+    return keys;
+}
 // ==================== HELPER ====================
 function getProviderFromModel(model) {
     if (model.startsWith('claude'))
@@ -1176,10 +1219,12 @@ exports.getApiKeyStatus = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropi
         const last = key.substring(key.length - 4);
         return { set: true, hint: `${first}...${last}` };
     };
+    // Get keys from Firestore first, fallback to Secret Manager
+    const keys = await getApiKeys();
     return {
-        openai: getHint(openaiApiKey.value()),
-        anthropic: getHint(anthropicApiKey.value()),
-        google: getHint(googleApiKey.value()),
+        openai: getHint(keys.openai),
+        anthropic: getHint(keys.anthropic),
+        google: getHint(keys.google),
     };
 });
 // Update an API key in Secret Manager
