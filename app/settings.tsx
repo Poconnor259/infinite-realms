@@ -302,6 +302,43 @@ export default function SettingsScreen() {
                     </Section>
                 </FadeInView>
 
+                {/* Gameplay Preferences Section */}
+                <FadeInView delay={150}>
+                    <Section title="Gameplay">
+                        <Row
+                            label="Show Suggested Choices"
+                            sublabel={user?.showSuggestedChoices !== false ? "AI suggests 2-4 choices for ambiguous situations" : "Type your own response for freeform play"}
+                            icon="list-outline"
+                            iconColor="#ec4899"
+                            rightElement={
+                                <Switch
+                                    value={user?.showSuggestedChoices !== false} // Default to true
+                                    onValueChange={async (value) => {
+                                        if (user?.id) {
+                                            try {
+                                                await updateDoc(doc(db, 'users', user.id), {
+                                                    showSuggestedChoices: value
+                                                });
+                                                // Update local store
+                                                useUserStore.setState({
+                                                    user: {
+                                                        ...user,
+                                                        showSuggestedChoices: value
+                                                    }
+                                                });
+                                            } catch (error) {
+                                                console.error('Failed to update preference:', error);
+                                            }
+                                        }
+                                    }}
+                                    trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
+                                    thumbColor={user?.showSuggestedChoices !== false ? colors.primary[300] : colors.text.muted}
+                                />
+                            }
+                        />
+                    </Section>
+                </FadeInView>
+
                 {/* BYOK Section */}
                 <FadeInView delay={200}>
                     <Section title="Bring Your Own Key (BYOK)">

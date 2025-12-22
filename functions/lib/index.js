@@ -284,11 +284,13 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
         let effectiveByokKeys = undefined;
         let userTier = 'scout';
         let preferredModels = {};
+        let showSuggestedChoices = true; // Default to true
         if (auth?.uid) {
             const userDoc = await db.collection('users').doc(auth.uid).get();
             if (userDoc.exists) {
                 const userData = userDoc.data();
                 userTier = userData?.tier || 'scout';
+                showSuggestedChoices = userData?.showSuggestedChoices !== false; // Default to true
                 // Only Legend users can override models
                 if (userTier === 'legend') {
                     preferredModels = userData?.preferredModels || {};
@@ -350,6 +352,7 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
             model: brainConfig.model,
             knowledgeDocuments: [], // Converting optimization: Brain doesn't get heavy lore docs
             customRules: worldData?.customRules,
+            showSuggestedChoices, // Pass user preference
         });
         if (!brainResult.success || !brainResult.data) {
             return {

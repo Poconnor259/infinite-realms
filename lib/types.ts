@@ -389,6 +389,7 @@ export interface User {
         brain?: string;
         voice?: string;
     };
+    showSuggestedChoices?: boolean; // Default: true - Show AI-suggested choices for ambiguous inputs
     isAnonymous?: boolean;
     createdAt: number;
     role?: 'user' | 'admin';

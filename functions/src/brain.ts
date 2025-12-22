@@ -16,6 +16,7 @@ interface BrainInput {
     model: string;
     knowledgeDocuments?: string[]; // Reference documents for context
     customRules?: string; // Optional custom rules for the AI logic
+    showSuggestedChoices?: boolean; // Whether to include options in pendingChoice (default: true)
 }
 
 interface BrainOutput {
@@ -84,7 +85,7 @@ const BrainResponseSchema = z.object({
 // ==================== MAIN BRAIN FUNCTION ====================
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
-    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules } = input;
+    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true } = input;
 
     try {
         // Build knowledge base section if documents exist
@@ -124,6 +125,7 @@ CRITICAL INSTRUCTIONS:
 5. Provide narrative cues for the storyteller, not full prose.
 6. Include any system messages (level ups, achievements, warnings).
 7. If reference materials or custom rules are provided, use them for world-consistent responses.
+8. USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}
 
 CURRENT GAME STATE:
 ${JSON.stringify(currentState, null, 2)}

@@ -311,12 +311,14 @@ export const processGameAction = onCall(
             let effectiveByokKeys = undefined;
             let userTier = 'scout';
             let preferredModels: { brain?: string; voice?: string } = {};
+            let showSuggestedChoices = true; // Default to true
 
             if (auth?.uid) {
                 const userDoc = await db.collection('users').doc(auth.uid).get();
                 if (userDoc.exists) {
                     const userData = userDoc.data();
                     userTier = userData?.tier || 'scout';
+                    showSuggestedChoices = userData?.showSuggestedChoices !== false; // Default to true
                     // Only Legend users can override models
                     if (userTier === 'legend') {
                         preferredModels = userData?.preferredModels || {};
@@ -386,6 +388,7 @@ export const processGameAction = onCall(
                 model: brainConfig.model,
                 knowledgeDocuments: [], // Converting optimization: Brain doesn't get heavy lore docs
                 customRules: worldData?.customRules,
+                showSuggestedChoices, // Pass user preference
             });
 
             if (!brainResult.success || !brainResult.data) {
