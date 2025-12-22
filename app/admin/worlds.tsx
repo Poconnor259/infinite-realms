@@ -459,11 +459,11 @@ export default function AdminWorldsScreen() {
                         key={engine.id}
                         style={[
                             styles.typeChip,
-                            newWorld.type === engine.name ? { backgroundColor: colors.primary[500] } : { backgroundColor: colors.background.tertiary }
+                            newWorld.type === engine.id ? { backgroundColor: colors.primary[500] } : { backgroundColor: colors.background.tertiary }
                         ]}
-                        onPress={() => setNewWorld(prev => ({ ...prev, type: engine.name as WorldModuleType }))}
+                        onPress={() => setNewWorld(prev => ({ ...prev, type: engine.id as WorldModuleType }))}
                     >
-                        <Text style={[styles.typeText, { color: newWorld.type === engine.name ? '#fff' : colors.text.secondary }]}>
+                        <Text style={[styles.typeText, { color: newWorld.type === engine.id ? '#fff' : colors.text.secondary }]}>
                             {engine.name}
                         </Text>
                     </TouchableOpacity>
