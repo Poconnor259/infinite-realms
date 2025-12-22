@@ -48,5 +48,28 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+    
+    // AI Prompts (admin read/write)
+    match /aiPrompts/{promptId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // API Keys (admin read/write only)
+    match /apiKeys/{provider} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
+    // System stats (admin read/write)
+    match /systemStats/{statId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+      
+      match /daily/{dayId} {
+        allow read: if isAdmin();
+        allow write: if isAdmin();
+      }
+    }
   }
 }
