@@ -499,6 +499,8 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
             diceRolls: brainResult.data.diceRolls,
             systemMessages: brainResult.data.systemMessages,
             reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
+            requiresUserInput: brainResult.data.requiresUserInput,
+            pendingChoice: brainResult.data.pendingChoice,
         };
     }
     catch (error) {

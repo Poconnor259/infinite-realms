@@ -27,6 +27,12 @@ const BrainResponseSchema = zod_1.z.object({
     })).describe('Any dice rolls made'),
     systemMessages: zod_1.z.array(zod_1.z.string()).describe('Game system notifications for the player'),
     narrativeCue: zod_1.z.string().optional().describe('Simple narrative fallback if Claude is unavailable'),
+    requiresUserInput: zod_1.z.boolean().optional().describe('True if player clarification is needed before proceeding'),
+    pendingChoice: zod_1.z.object({
+        prompt: zod_1.z.string().describe('Question to ask the player'),
+        options: zod_1.z.array(zod_1.z.string()).optional().describe('Suggested choices (only if user preference allows)'),
+        choiceType: zod_1.z.enum(['action', 'target', 'dialogue', 'direction', 'item', 'decision']).describe('Category of choice'),
+    }).optional().describe('Player choice data when requiresUserInput is true'),
 });
 // ==================== MAIN BRAIN FUNCTION ====================
 async function processWithBrain(input) {
