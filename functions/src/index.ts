@@ -1,12 +1,12 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
-import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
+
 
 // Initialize Firebase Admin
 admin.initializeApp();
@@ -1463,18 +1463,15 @@ export const updateApiKey = onCall(
         }
 
         try {
-            const client = new SecretManagerServiceClient();
-            const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-            const secretName = SECRET_NAMES[provider];
-
-            // Add a new version of the secret
-            const parent = `projects/${projectId}/secrets/${secretName}`;
-
-            await client.addSecretVersion({
-                parent,
-                payload: {
-                    data: Buffer.from(key, 'utf8'),
-                },
+            // Store API key in Firestore (encrypted in production, you should add encryption)
+            // WARNING: In production, you should encrypt these keys before storing
+            await db.collection('apiKeys').doc(provider).set({
+                key: key,
+                provider: provider,
+                set: true,
+                hint: `${key.substring(0, 4)}...${key.substring(key.length - 3)}`,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedBy: auth.uid,
             });
 
             console.log(`[UpdateApiKey] ${provider} key updated by ${auth.uid}`);
