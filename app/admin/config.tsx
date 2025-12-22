@@ -7,7 +7,7 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 // REMOVED ANIMATIONS: import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 import { AVAILABLE_MODELS, ModelDefinition, GlobalConfig, SubscriptionTier } from '../../lib/types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { db, getAvailableModels, getGlobalConfig, updateGlobalConfig, getApiKeyStatus, updateApiKey, ApiKeyStatus, ApiProvider } from '../../lib/firebase';
+import { db, getAvailableModels, getGlobalConfig, updateGlobalConfig, getApiKeyStatus, updateApiKey, ApiKeyStatus, ApiProvider, generateText } from '../../lib/firebase';
 
 // Static metadata for modules (display info only)
 const MODULE_METADATA = [
@@ -56,6 +56,14 @@ export default function AdminConfigScreen() {
     const [refreshingModels, setRefreshingModels] = useState(false);
     const [brainDropdownOpen, setBrainDropdownOpen] = useState(false);
     const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
+
+    // Model testing state
+    const [brainTestInput, setBrainTestInput] = useState('Hello, world!');
+    const [voiceTestInput, setVoiceTestInput] = useState('Hello, world!');
+    const [brainTestResponse, setBrainTestResponse] = useState('');
+    const [voiceTestResponse, setVoiceTestResponse] = useState('');
+    const [testingBrain, setTestingBrain] = useState(false);
+    const [testingVoice, setTestingVoice] = useState(false);
 
     // API Keys State
     const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
@@ -114,6 +122,48 @@ export default function AdminConfigScreen() {
             Alert.alert('Error', 'Failed to refresh model list');
         } finally {
             setRefreshingModels(false);
+        }
+    };
+
+    const testBrainModel = async () => {
+        if (!brainTestInput.trim()) {
+            Alert.alert('Error', 'Please enter a test message');
+            return;
+        }
+        setTestingBrain(true);
+        setBrainTestResponse('');
+        try {
+            const result = await generateText({ prompt: brainTestInput });
+            if (result.data.success) {
+                setBrainTestResponse(result.data.text || 'No response');
+            } else {
+                setBrainTestResponse(`Error: ${result.data.error}`);
+            }
+        } catch (error: any) {
+            setBrainTestResponse(`Error: ${error.message}`);
+        } finally {
+            setTestingBrain(false);
+        }
+    };
+
+    const testVoiceModel = async () => {
+        if (!voiceTestInput.trim()) {
+            Alert.alert('Error', 'Please enter a test message');
+            return;
+        }
+        setTestingVoice(true);
+        setVoiceTestResponse('');
+        try {
+            const result = await generateText({ prompt: voiceTestInput });
+            if (result.data.success) {
+                setVoiceTestResponse(result.data.text || 'No response');
+            } else {
+                setVoiceTestResponse(`Error: ${result.data.error}`);
+            }
+        } catch (error: any) {
+            setVoiceTestResponse(`Error: ${error.message}`);
+        } finally {
+            setTestingVoice(false);
         }
     };
 
@@ -352,6 +402,35 @@ export default function AdminConfigScreen() {
                         </View>
                     )}
 
+                    {/* Brain Model Test */}
+                    <View style={styles.testSection}>
+                        <Text style={styles.testLabel}>Test Brain Model</Text>
+                        <View style={styles.testInputRow}>
+                            <TextInput
+                                style={styles.testInput}
+                                value={brainTestInput}
+                                onChangeText={setBrainTestInput}
+                                placeholder="Enter test message..."
+                                placeholderTextColor={colors.text.muted}
+                            />
+                            <TouchableOpacity
+                                style={[styles.testButton, testingBrain && { opacity: 0.6 }]}
+                                onPress={testBrainModel}
+                                disabled={testingBrain}
+                            >
+                                {testingBrain ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.testButtonText}>Test</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                        {brainTestResponse !== '' && (
+                            <View style={styles.testResponse}>
+                                <Text style={styles.testResponseText}>{brainTestResponse}</Text>
+                            </View>
+                        )}
+                    </View>
 
                     {/* Voice Model */}
                     <View style={[styles.settingHeader, { marginTop: spacing.lg }]}>
@@ -395,6 +474,36 @@ export default function AdminConfigScreen() {
                             ))}
                         </View>
                     )}
+
+                    {/* Voice Model Test */}
+                    <View style={styles.testSection}>
+                        <Text style={styles.testLabel}>Test Voice Model</Text>
+                        <View style={styles.testInputRow}>
+                            <TextInput
+                                style={styles.testInput}
+                                value={voiceTestInput}
+                                onChangeText={setVoiceTestInput}
+                                placeholder="Enter test message..."
+                                placeholderTextColor={colors.text.muted}
+                            />
+                            <TouchableOpacity
+                                style={[styles.testButton, testingVoice && { opacity: 0.6 }]}
+                                onPress={testVoiceModel}
+                                disabled={testingVoice}
+                            >
+                                {testingVoice ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                    <Text style={styles.testButtonText}>Test</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                        {voiceTestResponse !== '' && (
+                            <View style={styles.testResponse}>
+                                <Text style={styles.testResponseText}>{voiceTestResponse}</Text>
+                            </View>
+                        )}
+                    </View>
 
                     <TouchableOpacity
                         style={[styles.saveButton, { marginTop: spacing.md }]}
@@ -868,5 +977,60 @@ const createStyles = (colors: any) => StyleSheet.create({
     modelMetaText: {
         fontSize: typography.fontSize.xs,
         color: colors.text.muted,
+    },
+    testSection: {
+        marginTop: spacing.md,
+        padding: spacing.md,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    testLabel: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        marginBottom: spacing.sm,
+    },
+    testInputRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    testInput: {
+        flex: 1,
+        backgroundColor: colors.background.tertiary,
+        color: colors.text.primary,
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        fontSize: typography.fontSize.sm,
+    },
+    testButton: {
+        backgroundColor: colors.primary[500],
+        paddingHorizontal: spacing.lg,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.sm,
+        justifyContent: 'center',
+        alignItems: 'center',
+        minWidth: 80,
+    },
+    testButtonText: {
+        color: '#fff',
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    testResponse: {
+        marginTop: spacing.sm,
+        padding: spacing.md,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.sm,
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary[400],
+    },
+    testResponseText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        lineHeight: 20,
     },
 });
