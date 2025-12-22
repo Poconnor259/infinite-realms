@@ -9,37 +9,7 @@ const openai_1 = __importDefault(require("openai"));
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const generative_ai_1 = require("@google/generative-ai");
 const zod_1 = require("zod");
-// ==================== WORLD MODULE PROMPTS ====================
-const WORLD_PROMPTS = {
-    classic: `You are the LOGIC ENGINE for a D&D 5th Edition RPG.
-Rules:
-- Use standard 5e rules for combat, skill checks, and saves
-- Roll d20 for attacks and checks, add appropriate modifiers
-- AC determines if attacks hit
-- Track HP changes from damage and healing
-- Manage spell slots for spellcasters
-- Track inventory changes
-
-Stats to track: HP, AC, STR, DEX, CON, INT, WIS, CHA, proficiency bonus, gold, inventory items, spell slots.`,
-    outworlder: `You are the LOGIC ENGINE for a HWFWM (He Who Fights With Monsters) style RPG.
-Rules:
-- Characters have essence abilities tied to their essences
-- Rank progression: Iron → Bronze → Silver → Gold → Diamond
-- Abilities have cooldowns and mana/spirit costs
-- Health scales with rank
-- Generate "Blue Box" style system notifications
-
-Stats to track: HP, Mana, Spirit, Rank, Essences (max 4), Confluence, Abilities with cooldowns.`,
-    tactical: `You are the LOGIC ENGINE for a PRAXIS: Operation Dark Tide RPG.
-Rules:
-- Daily missions must be tracked (physical training, tactical drills)
-- Failure to complete daily missions triggers a penalty zone or mission failure
-- Tactical recruitment and unit management can expand your squad
-- Stats can be allocated from earned mission points
-- Gates and mission zones have ranks from E to S
-
-Stats to track: HP, Mana, Fatigue, STR/AGI/VIT/INT/PER, Mission Points, Tactical Squad roster, Rank/Job, Skills.`,
-};
+const promptHelper_1 = require("./promptHelper");
 // ==================== JSON SCHEMA FOR RESPONSE ====================
 const BrainResponseSchema = zod_1.z.object({
     stateUpdates: zod_1.z.record(zod_1.z.unknown()).describe('Updated game state fields'),
@@ -83,7 +53,9 @@ ${customRules}
 ---
 `;
         }
-        const systemPrompt = `${WORLD_PROMPTS[worldModule] || WORLD_PROMPTS.classic}
+        // Get brain prompt from Firestore
+        const brainPrompt = await (0, promptHelper_1.getPrompt)('brain', worldModule);
+        const systemPrompt = `${brainPrompt}
 ${knowledgeSection}
 ${customRulesSection}
 CRITICAL INSTRUCTIONS:

@@ -218,12 +218,12 @@ export default function AdminPromptsScreen() {
             <View style={styles.container}>
                 <View style={styles.header}>
                     <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                        <Ionicons name="arrow-back" size={24} color={colors.text} />
+                        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
                     </TouchableOpacity>
                     <Text style={styles.title}>AI Prompts</Text>
                 </View>
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color={colors.primary} />
+                    <ActivityIndicator size="large" color={colors.primary[400]} />
                     <Text style={styles.loadingText}>Loading prompts...</Text>
                 </View>
             </View>
@@ -234,7 +234,7 @@ export default function AdminPromptsScreen() {
         <View style={styles.container}>
             <View style={styles.header}>
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-                    <Ionicons name="arrow-back" size={24} color={colors.text} />
+                    <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
                 </TouchableOpacity>
                 <Text style={styles.title}>AI Prompts</Text>
                 <View style={styles.headerActions}>
@@ -244,9 +244,9 @@ export default function AdminPromptsScreen() {
                         disabled={seeding}
                     >
                         {seeding ? (
-                            <ActivityIndicator size="small" color={colors.text} />
+                            <ActivityIndicator size="small" color={colors.text.primary} />
                         ) : (
-                            <Ionicons name="refresh" size={20} color={colors.text} />
+                            <Ionicons name="refresh" size={20} color={colors.text.primary} />
                         )}
                     </TouchableOpacity>
                     <TouchableOpacity
@@ -281,7 +281,7 @@ export default function AdminPromptsScreen() {
                             <Ionicons
                                 name={scope.icon as any}
                                 size={16}
-                                color={selectedScope === scope.value ? '#fff' : colors.textSecondary}
+                                color={selectedScope === scope.value ? '#fff' : colors.text.muted}
                             />
                             <Text style={[
                                 styles.scopeButtonText,
@@ -299,7 +299,7 @@ export default function AdminPromptsScreen() {
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <View style={styles.sectionTitleRow}>
-                            <Ionicons name="hardware-chip" size={20} color={colors.primary} />
+                            <Ionicons name="hardware-chip" size={20} color={colors.primary[400]} />
                             <Text style={styles.sectionTitle}>Brain (Logic Engine)</Text>
                         </View>
                         {selectedScope !== 'global' && (
@@ -308,7 +308,7 @@ export default function AdminPromptsScreen() {
                                 <Switch
                                     value={overrideEnabled.brainPrompt}
                                     onValueChange={() => toggleOverride('brainPrompt')}
-                                    trackColor={{ false: colors.border, true: colors.primary }}
+                                    trackColor={{ false: colors.border.default, true: colors.primary[400] }}
                                 />
                             </View>
                         )}
@@ -326,7 +326,7 @@ export default function AdminPromptsScreen() {
                         multiline
                         textAlignVertical="top"
                         placeholder="Enter brain prompt..."
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={colors.text.muted}
                         editable={selectedScope === 'global' || overrideEnabled.brainPrompt}
                     />
                 </View>
@@ -344,7 +344,7 @@ export default function AdminPromptsScreen() {
                                 <Switch
                                     value={overrideEnabled.voicePrompt}
                                     onValueChange={() => toggleOverride('voicePrompt')}
-                                    trackColor={{ false: colors.border, true: colors.primary }}
+                                    trackColor={{ false: colors.border.default, true: colors.primary[400] }}
                                 />
                             </View>
                         )}
@@ -362,7 +362,7 @@ export default function AdminPromptsScreen() {
                         multiline
                         textAlignVertical="top"
                         placeholder="Enter voice prompt..."
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={colors.text.muted}
                         editable={selectedScope === 'global' || overrideEnabled.voicePrompt}
                     />
                 </View>
@@ -380,7 +380,7 @@ export default function AdminPromptsScreen() {
                                 <Switch
                                     value={globalPrompts.stateReviewerEnabled}
                                     onValueChange={(val) => setGlobalPrompts(prev => ({ ...prev, stateReviewerEnabled: val }))}
-                                    trackColor={{ false: colors.border, true: colors.primary }}
+                                    trackColor={{ false: colors.border.default, true: colors.primary[400] }}
                                 />
                             </View>
                         )}
@@ -390,7 +390,7 @@ export default function AdminPromptsScreen() {
                                 <Switch
                                     value={overrideEnabled.stateReviewerPrompt}
                                     onValueChange={() => toggleOverride('stateReviewerPrompt')}
-                                    trackColor={{ false: colors.border, true: colors.primary }}
+                                    trackColor={{ false: colors.border.default, true: colors.primary[400] }}
                                 />
                             </View>
                         )}
@@ -414,7 +414,7 @@ export default function AdminPromptsScreen() {
                                     <Ionicons
                                         name={modelDropdownOpen ? "chevron-up" : "chevron-down"}
                                         size={16}
-                                        color={colors.textSecondary}
+                                        color={colors.text.muted}
                                     />
                                 </TouchableOpacity>
                             </View>
@@ -472,7 +472,7 @@ export default function AdminPromptsScreen() {
                         multiline
                         textAlignVertical="top"
                         placeholder="Enter state reviewer prompt..."
-                        placeholderTextColor={colors.textSecondary}
+                        placeholderTextColor={colors.text.muted}
                         editable={selectedScope === 'global' || overrideEnabled.stateReviewerPrompt}
                     />
                 </View>
@@ -488,7 +488,7 @@ export default function AdminPromptsScreen() {
 const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: colors.background,
+        backgroundColor: colors.background.primary,
     },
     header: {
         flexDirection: 'row',
@@ -496,17 +496,17 @@ const createStyles = (colors: any) => StyleSheet.create({
         padding: spacing.md,
         paddingTop: Platform.OS === 'web' ? spacing.md : 60,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-        backgroundColor: colors.surface,
+        borderBottomColor: colors.border.default,
+        backgroundColor: colors.background.secondary,
     },
     backButton: {
         padding: spacing.xs,
         marginRight: spacing.sm,
     },
     title: {
-        fontSize: typography.sizes.xl,
-        fontWeight: typography.weights.bold as any,
-        color: colors.text,
+        fontSize: typography.fontSize.xl,
+        fontWeight: 'bold',
+        color: colors.text.primary,
         flex: 1,
     },
     headerActions: {
@@ -516,9 +516,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     actionButton: {
         padding: spacing.sm,
         borderRadius: borderRadius.md,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background.secondary,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.border.default,
     },
     actionButtonDisabled: {
         opacity: 0.5,
@@ -530,14 +530,14 @@ const createStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         borderRadius: borderRadius.md,
-        backgroundColor: colors.primary,
+        backgroundColor: colors.primary[400],
     },
     saveButtonDisabled: {
         opacity: 0.5,
     },
     saveButtonText: {
         color: '#fff',
-        fontWeight: typography.weights.semibold as any,
+        fontWeight: '600',
     },
     loadingContainer: {
         flex: 1,
@@ -546,13 +546,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     loadingText: {
         marginTop: spacing.md,
-        color: colors.textSecondary,
+        color: colors.text.muted,
     },
     scopeContainer: {
         padding: spacing.sm,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background.secondary,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderBottomColor: colors.border.default,
     },
     scopeButton: {
         flexDirection: 'row',
@@ -561,19 +561,19 @@ const createStyles = (colors: any) => StyleSheet.create({
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         borderRadius: borderRadius.full,
-        backgroundColor: colors.background,
+        backgroundColor: colors.background.primary,
         marginRight: spacing.sm,
     },
     scopeButtonActive: {
-        backgroundColor: colors.primary,
+        backgroundColor: colors.primary[400],
     },
     scopeButtonText: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
     },
     scopeButtonTextActive: {
         color: '#fff',
-        fontWeight: typography.weights.semibold as any,
+        fontWeight: '600',
     },
     content: {
         flex: 1,
@@ -581,7 +581,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     section: {
         marginBottom: spacing.lg,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.lg,
         padding: spacing.md,
         ...shadows.sm,
@@ -598,13 +598,13 @@ const createStyles = (colors: any) => StyleSheet.create({
         gap: spacing.sm,
     },
     sectionTitle: {
-        fontSize: typography.sizes.lg,
-        fontWeight: typography.weights.semibold as any,
-        color: colors.text,
+        fontSize: typography.fontSize.lg,
+        fontWeight: '600',
+        color: colors.text.primary,
     },
     sectionDescription: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
         marginBottom: spacing.md,
     },
     overrideToggle: {
@@ -613,28 +613,28 @@ const createStyles = (colors: any) => StyleSheet.create({
         gap: spacing.sm,
     },
     overrideLabel: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
     },
     promptInput: {
-        backgroundColor: colors.background,
+        backgroundColor: colors.background.primary,
         borderRadius: borderRadius.md,
         padding: spacing.md,
         minHeight: 200,
-        fontSize: typography.sizes.sm,
-        color: colors.text,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.border.default,
     },
     promptInputDisabled: {
         opacity: 0.5,
-        backgroundColor: colors.border,
+        backgroundColor: colors.border.muted,
     },
     reviewerSettings: {
         marginBottom: spacing.md,
         padding: spacing.sm,
-        backgroundColor: colors.background,
+        backgroundColor: colors.background.primary,
         borderRadius: borderRadius.md,
     },
     settingRow: {
@@ -644,9 +644,9 @@ const createStyles = (colors: any) => StyleSheet.create({
         marginBottom: spacing.sm,
     },
     settingLabel: {
-        fontSize: typography.sizes.sm,
-        color: colors.text,
-        fontWeight: typography.weights.medium as any,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        fontWeight: '500',
     },
     dropdown: {
         flexDirection: 'row',
@@ -654,40 +654,40 @@ const createStyles = (colors: any) => StyleSheet.create({
         gap: spacing.xs,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.border.default,
         minWidth: 200,
     },
     dropdownText: {
         flex: 1,
-        fontSize: typography.sizes.sm,
-        color: colors.text,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
     },
     dropdownMenu: {
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.md,
         borderWidth: 1,
-        borderColor: colors.border,
+        borderColor: colors.border.default,
         marginBottom: spacing.sm,
         ...shadows.md,
     },
     dropdownItem: {
         padding: spacing.sm,
         borderBottomWidth: 1,
-        borderBottomColor: colors.border,
+        borderBottomColor: colors.border.default,
     },
     dropdownItemActive: {
-        backgroundColor: colors.primary + '20',
+        backgroundColor: colors.primary[400] + '20',
     },
     dropdownItemText: {
-        fontSize: typography.sizes.sm,
-        color: colors.text,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
     },
     dropdownItemTextActive: {
-        color: colors.primary,
-        fontWeight: typography.weights.semibold as any,
+        color: colors.primary[400],
+        fontWeight: '600',
     },
     frequencyInput: {
         flexDirection: 'row',
@@ -698,16 +698,16 @@ const createStyles = (colors: any) => StyleSheet.create({
         width: 50,
         paddingHorizontal: spacing.sm,
         paddingVertical: spacing.xs,
-        backgroundColor: colors.surface,
+        backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.md,
         borderWidth: 1,
-        borderColor: colors.border,
-        fontSize: typography.sizes.sm,
-        color: colors.text,
+        borderColor: colors.border.default,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
         textAlign: 'center',
     },
     frequencyLabel: {
-        fontSize: typography.sizes.sm,
-        color: colors.textSecondary,
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
     },
 });

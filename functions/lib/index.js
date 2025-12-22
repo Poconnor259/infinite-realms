@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.verifyModelConfig = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
+exports.seedPrompts = exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.verifyModelConfig = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const openai_1 = __importDefault(require("openai"));
@@ -44,10 +44,13 @@ const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const generative_ai_1 = require("@google/generative-ai");
 const brain_1 = require("./brain");
 const voice_1 = require("./voice");
+const promptHelper_1 = require("./promptHelper");
 // Initialize Firebase Admin
 admin.initializeApp();
 // Get Firestore instance
 const db = admin.firestore();
+// Initialize prompt helper with Firestore
+(0, promptHelper_1.initPromptHelper)(db);
 // ==================== API KEY HELPER ====================
 // Get API keys from Firestore (single source of truth)
 async function getApiKeys() {
@@ -1232,6 +1235,26 @@ exports.updateApiKey = (0, https_1.onCall)({ cors: true, invoker: 'public' }, as
     catch (error) {
         console.error('[UpdateApiKey] Error:', error);
         throw new https_1.HttpsError('internal', `Failed to update API key: ${error.message}`);
+    }
+});
+// ==================== AI PROMPTS MANAGEMENT ====================
+// Seed AI prompts collection with default values
+exports.seedPrompts = (0, https_1.onCall)({ cors: true, invoker: 'public' }, async (request) => {
+    // Admin check
+    const auth = request.auth;
+    if (!auth)
+        throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+    const userDoc = await db.collection('users').doc(auth.uid).get();
+    const isAdmin = userDoc.data()?.role === 'admin';
+    if (!isAdmin)
+        throw new https_1.HttpsError('permission-denied', 'Admin access required');
+    try {
+        await (0, promptHelper_1.seedAIPrompts)(db);
+        return { success: true, message: 'AI prompts seeded successfully' };
+    }
+    catch (error) {
+        console.error('[SeedPrompts] Error:', error);
+        throw new https_1.HttpsError('internal', `Failed to seed prompts: ${error.message}`);
     }
 });
 //# sourceMappingURL=index.js.map
