@@ -40,7 +40,6 @@ exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule =
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
-const secret_manager_1 = require("@google-cloud/secret-manager");
 const openai_1 = __importDefault(require("openai"));
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const generative_ai_1 = require("@google/generative-ai");
@@ -1206,16 +1205,15 @@ exports.updateApiKey = (0, https_1.onCall)({ cors: true, invoker: 'public' }, as
         throw new https_1.HttpsError('invalid-argument', 'OpenAI keys should start with "sk-"');
     }
     try {
-        const client = new secret_manager_1.SecretManagerServiceClient();
-        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
-        const secretName = SECRET_NAMES[provider];
-        // Add a new version of the secret
-        const parent = `projects/${projectId}/secrets/${secretName}`;
-        await client.addSecretVersion({
-            parent,
-            payload: {
-                data: Buffer.from(key, 'utf8'),
-            },
+        // Store API key in Firestore (encrypted in production, you should add encryption)
+        // WARNING: In production, you should encrypt these keys before storing
+        await db.collection('apiKeys').doc(provider).set({
+            key: key,
+            provider: provider,
+            set: true,
+            hint: `${key.substring(0, 4)}...${key.substring(key.length - 3)}`,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            updatedBy: auth.uid,
         });
         console.log(`[UpdateApiKey] ${provider} key updated by ${auth.uid}`);
         // Log the update for audit purposes

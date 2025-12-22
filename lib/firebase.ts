@@ -358,10 +358,41 @@ export interface ApiKeyStatus {
     google: { set: boolean; hint: string };
 }
 
-export const getApiKeyStatus = httpsCallable<void, ApiKeyStatus>(
-    functions,
-    'getApiKeyStatus'
-);
+
+// Get API key status from Firestore
+export async function getApiKeyStatus(): Promise<{ data: ApiKeyStatus }> {
+    try {
+        const providers: ApiProvider[] = ['openai', 'anthropic', 'google'];
+        const status: any = {};
+
+        for (const provider of providers) {
+            const keyDoc = await getDoc(doc(db, 'apiKeys', provider));
+            if (keyDoc.exists()) {
+                const data = keyDoc.data();
+                status[provider] = {
+                    set: data.set || false,
+                    hint: data.hint || 'Not configured'
+                };
+            } else {
+                status[provider] = {
+                    set: false,
+                    hint: 'Not configured'
+                };
+            }
+        }
+
+        return { data: status as ApiKeyStatus };
+    } catch (error) {
+        console.error('Error getting API key status:', error);
+        return {
+            data: {
+                openai: { set: false, hint: 'Error loading' },
+                anthropic: { set: false, hint: 'Error loading' },
+                google: { set: false, hint: 'Error loading' }
+            }
+        };
+    }
+}
 
 export const updateApiKey = httpsCallable<{ provider: ApiProvider; key: string }, { success: boolean }>(
     functions,
