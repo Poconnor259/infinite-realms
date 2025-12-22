@@ -160,25 +160,25 @@ export function TacticalCharacterPanel({ moduleState }: TacticalCharacterPanelPr
                 )}
             </View>
 
-            {/* Tactical Squad */}
+            {/* Nanite Count */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                    Tactical Squad ({character.tacticalSquad.filter(s => s.status === 'active').length})
-                </Text>
-                {character.tacticalSquad
-                    .filter(unit => unit.status === 'active')
-                    .map((unit) => (
-                        <View key={unit.id} style={styles.unitItem}>
-                            <View style={styles.unitHeader}>
-                                <Text style={styles.unitName}>{unit.name}</Text>
-                                <Text style={styles.unitRank}>{unit.rank}</Text>
-                            </View>
-                            <Text style={styles.unitType}>{unit.type}</Text>
-                        </View>
-                    ))}
-                {character.tacticalSquad.filter(s => s.status === 'active').length === 0 && (
-                    <Text style={styles.emptyText}>No active squad members</Text>
-                )}
+                <Text style={styles.sectionTitle}>Nanite Count</Text>
+                <View style={styles.resourceContainer}>
+                    <View style={styles.resourceBar}>
+                        <View
+                            style={[
+                                styles.resourceFill,
+                                {
+                                    width: `${((character.nanites?.current || 0) / (character.nanites?.max || 1000)) * 100}%`,
+                                    backgroundColor: '#8B5CF6' // Purple/violet for nanites
+                                }
+                            ]}
+                        />
+                    </View>
+                    <Text style={styles.resourceText}>
+                        {character.nanites?.current || 0} / {character.nanites?.max || 1000}
+                    </Text>
+                </View>
             </View>
 
             {/* Daily Objectives */}

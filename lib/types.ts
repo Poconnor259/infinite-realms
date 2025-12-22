@@ -273,6 +273,10 @@ export interface TacticalCharacter extends Character {
         current: number;
         max: number;
     };
+    nanites?: {
+        current: number;
+        max: number;
+    };
     skills: TacticalSkill[];
     tacticalSquad: TacticalUnit[];
 }
