@@ -243,17 +243,17 @@ export default function CampaignScreen() {
                         <View style={styles.hudRow}>
                             <View style={styles.hudStat}>
                                 <Text style={styles.hudLabel}>AC</Text>
-                                <Text style={styles.hudValue}>{classicState.character.ac}</Text>
+                                <Text style={styles.hudValue}>{classicState.character?.ac ?? 10}</Text>
                             </View>
                             <View style={styles.hudStat}>
                                 <Text style={styles.hudLabel}>Gold</Text>
                                 <Text style={[styles.hudValue, { color: colors.gold.main }]}>
-                                    {classicState.character.gold}
+                                    {classicState.character?.gold ?? 0}
                                 </Text>
                             </View>
                             <View style={styles.hudStat}>
                                 <Text style={styles.hudLabel}>Prof</Text>
-                                <Text style={styles.hudValue}>+{classicState.character.proficiencyBonus}</Text>
+                                <Text style={styles.hudValue}>+{classicState.character?.proficiencyBonus ?? 2}</Text>
                             </View>
                         </View>
                     </View>
@@ -266,31 +266,35 @@ export default function CampaignScreen() {
                         <View style={styles.hudRow}>
                             <View style={[styles.rankBadge, { borderColor: worldInfo.color }]}>
                                 <Text style={[styles.rankText, { color: worldInfo.color }]}>
-                                    {outworlderState.character.rank}
+                                    {outworlderState.character?.rank ?? 'Iron'}
                                 </Text>
                             </View>
                             <View style={styles.essences}>
-                                {outworlderState.character.essences.map((essence, i) => (
+                                {(outworlderState.character?.essences || []).map((essence, i) => (
                                     <View key={i} style={styles.essenceBadge}>
                                         <Text style={styles.essenceText}>{essence}</Text>
                                     </View>
                                 ))}
                             </View>
                         </View>
-                        <ResourceBar
-                            label="Mana"
-                            current={outworlderState.character.mana.current}
-                            max={outworlderState.character.mana.max}
-                            color="#3b82f6"
-                            icon="💧"
-                        />
-                        <ResourceBar
-                            label="Spirit"
-                            current={outworlderState.character.spirit.current}
-                            max={outworlderState.character.spirit.max}
-                            color="#a855f7"
-                            icon="✨"
-                        />
+                        {outworlderState.character?.mana && (
+                            <ResourceBar
+                                label="Mana"
+                                current={outworlderState.character.mana.current}
+                                max={outworlderState.character.mana.max}
+                                color="#3b82f6"
+                                icon="💧"
+                            />
+                        )}
+                        {outworlderState.character?.spirit && (
+                            <ResourceBar
+                                label="Spirit"
+                                current={outworlderState.character.spirit.current}
+                                max={outworlderState.character.spirit.max}
+                                color="#a855f7"
+                                icon="✨"
+                            />
+                        )}
                     </View>
                 );
 
@@ -301,31 +305,35 @@ export default function CampaignScreen() {
                     <View style={styles.moduleHud}>
                         <View style={styles.hudRow}>
                             <View style={styles.jobBadge}>
-                                <Text style={styles.jobText}>{tacticalState.character.job}</Text>
+                                <Text style={styles.jobText}>{tacticalState.character?.job ?? 'Recruit'}</Text>
                             </View>
-                            {tacticalState.character.title && (
+                            {tacticalState.character?.title && (
                                 <View style={styles.titleBadge}>
                                     <Text style={styles.titleText}>{tacticalState.character.title}</Text>
                                 </View>
                             )}
                         </View>
-                        <ResourceBar
-                            label="Tactical Energy"
-                            current={tacticalState.character.mana.current}
-                            max={tacticalState.character.mana.max}
-                            color="#3b82f6"
-                            icon="⚡"
-                        />
-                        <ResourceBar
-                            label="Fatigue Status"
-                            current={tacticalState.character.fatigue.current}
-                            max={tacticalState.character.fatigue.max}
-                            color="#f59e0b"
-                            icon="🔋"
-                        />
+                        {tacticalState.character?.mana && (
+                            <ResourceBar
+                                label="Tactical Energy"
+                                current={tacticalState.character.mana.current}
+                                max={tacticalState.character.mana.max}
+                                color="#3b82f6"
+                                icon="⚡"
+                            />
+                        )}
+                        {tacticalState.character?.fatigue && (
+                            <ResourceBar
+                                label="Fatigue Status"
+                                current={tacticalState.character.fatigue.current}
+                                max={tacticalState.character.fatigue.max}
+                                color="#f59e0b"
+                                icon="🔋"
+                            />
+                        )}
                         <View style={styles.tacticalSquadPreview}>
                             <Text style={styles.tacticalSquadLabel}>
-                                👥 Tactical Squad: {tacticalState.character.tacticalSquad.length}
+                                👥 Tactical Squad: {tacticalState.character?.tacticalSquad?.length ?? 0}
                             </Text>
                         </View>
                     </View>
@@ -381,6 +389,14 @@ export default function CampaignScreen() {
 
                             <TurnCounter />
 
+                            {/* Menu Button */}
+                            <TouchableOpacity
+                                style={styles.headerButton}
+                                onPress={() => setMenuVisible(!menuVisible)}
+                            >
+                                <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
+                            </TouchableOpacity>
+
                             {/* Inventory Button (Mobile) */}
                             {!isDesktop && (
                                 <TouchableOpacity
@@ -395,6 +411,22 @@ export default function CampaignScreen() {
                                 </TouchableOpacity>
                             )}
                         </View>
+
+                        {/* Menu Dropdown */}
+                        {menuVisible && (
+                            <View style={styles.menuDropdown}>
+                                <TouchableOpacity
+                                    style={styles.menuItem}
+                                    onPress={handleDeleteCampaign}
+                                    disabled={isDeleting}
+                                >
+                                    <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                                    <Text style={[styles.menuItemText, { color: '#ef4444' }]}>
+                                        {isDeleting ? 'Deleting...' : 'Delete Campaign'}
+                                    </Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
 
                         {/* Collapsible HUD */}
                         <Animated.View style={[styles.hudContainer, { maxHeight: hudHeight, opacity: hudAnimation }]}>
@@ -701,6 +733,22 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'flex-end' as const,
         paddingTop: 60,
         paddingRight: spacing.md,
+    },
+    menuDropdown: {
+        position: 'absolute' as const,
+        top: 60,
+        right: spacing.md,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 5,
+        zIndex: 1000,
+        minWidth: 180,
     },
     menuContainer: {
         backgroundColor: colors.background.secondary,

@@ -32,12 +32,18 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
+exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.verifyModelConfig = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const params_1 = require("firebase-functions/params");
 const admin = __importStar(require("firebase-admin"));
 const secret_manager_1 = require("@google-cloud/secret-manager");
+const openai_1 = __importDefault(require("openai"));
+const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
+const generative_ai_1 = require("@google/generative-ai");
 const brain_1 = require("./brain");
 const voice_1 = require("./voice");
 // Initialize Firebase Admin
@@ -261,10 +267,16 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         // Security: Fetch actual user tier from Firestore, don't trust client
         let effectiveByokKeys = undefined;
         let userTier = 'scout';
+        let preferredModels = {};
         if (auth?.uid) {
             const userDoc = await db.collection('users').doc(auth.uid).get();
             if (userDoc.exists) {
-                userTier = userDoc.data()?.tier || 'scout';
+                const userData = userDoc.data();
+                userTier = userData?.tier || 'scout';
+                // Only Legend users can override models
+                if (userTier === 'legend') {
+                    preferredModels = userData?.preferredModels || {};
+                }
             }
         }
         if (userTier === 'legend') {
@@ -290,8 +302,10 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
         if (userTier === 'legend') {
             effectiveSecrets = { openai: '', anthropic: '', google: '' };
         }
-        const brainConfig = resolveModelConfig(aiSettings.brainModel, effectiveByokKeys, effectiveSecrets);
-        const voiceConfig = resolveModelConfig(aiSettings.voiceModel, effectiveByokKeys, effectiveSecrets);
+        const brainModelId = preferredModels.brain || aiSettings.brainModel;
+        const voiceModelId = preferredModels.voice || aiSettings.voiceModel;
+        const brainConfig = resolveModelConfig(brainModelId, effectiveByokKeys, effectiveSecrets);
+        const voiceConfig = resolveModelConfig(voiceModelId, effectiveByokKeys, effectiveSecrets);
         if (!brainConfig.key) {
             return { success: false, error: 'Configuration Error: No valid API key available for Brain.' };
         }
@@ -344,6 +358,16 @@ exports.processGameAction = (0, https_1.onCall)({ secrets: [openaiApiKey, anthro
             knowledgeDocuments: knowledgeDocs,
             customRules: worldData?.customRules,
         });
+        // Log Voice result for debugging
+        console.log('[Voice] Result:', {
+            success: voiceResult.success,
+            hasNarrative: !!voiceResult.narrative,
+            hasUsage: !!voiceResult.usage,
+            error: voiceResult.error
+        });
+        if (!voiceResult.success) {
+            console.error('[Voice] Generation failed:', voiceResult.error);
+        }
         // 6. Record Token Usage
         if (auth?.uid) {
             const updates = {};
@@ -504,6 +528,76 @@ exports.generateText = (0, https_1.onCall)({ secrets: [openaiApiKey], cors: true
         return {
             success: false,
             error: error instanceof Error ? error.message : 'An unexpected error occurred',
+        };
+    }
+});
+exports.verifyModelConfig = (0, https_1.onCall)({ secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' }, async (request) => {
+    try {
+        const { provider, model } = request.data;
+        const auth = request.auth;
+        if (!auth) {
+            throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
+        }
+        console.log(`[Verify] Testing ${provider}/${model} for user ${auth.uid}`);
+        // 1. Get Keys (System Keys only for now)
+        const secrets = {
+            openai: openaiApiKey.value(),
+            anthropic: anthropicApiKey.value(),
+            google: googleApiKey.value(),
+        };
+        let apiKey = '';
+        if (provider === 'openai')
+            apiKey = secrets.openai;
+        else if (provider === 'anthropic')
+            apiKey = secrets.anthropic;
+        else if (provider === 'google')
+            apiKey = secrets.google;
+        if (!apiKey) {
+            return { success: false, error: `No system API key configured for ${provider}` };
+        }
+        // 2. Simple Ping
+        console.log(`[Verify] Pinging ${provider} with model ${model}...`);
+        const startTime = Date.now();
+        let success = false;
+        let message = '';
+        if (provider === 'openai') {
+            const openai = new openai_1.default({ apiKey });
+            await openai.chat.completions.create({
+                model: model,
+                messages: [{ role: 'user', content: 'Ping' }],
+                max_tokens: 5,
+            });
+            success = true;
+            message = 'OpenAI Connection Verified';
+        }
+        else if (provider === 'anthropic') {
+            const anthropic = new sdk_1.default({ apiKey });
+            await anthropic.messages.create({
+                model: model,
+                max_tokens: 5,
+                messages: [{ role: 'user', content: 'Ping' }],
+            });
+            success = true;
+            message = 'Anthropic Connection Verified';
+        }
+        else if (provider === 'google') {
+            const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
+            const gModel = genAI.getGenerativeModel({ model: model });
+            await gModel.generateContent('Ping');
+            success = true;
+            message = 'Google Connection Verified';
+        }
+        const latency = Date.now() - startTime;
+        console.log(`[Verify] ${provider} success in ${latency}ms`);
+        return { success, message, latency };
+    }
+    catch (error) {
+        console.error('Verification failed:', error);
+        // Return the raw error message to help debugging
+        return {
+            success: false,
+            error: error.message || 'Verification Failed',
+            details: JSON.stringify(error),
         };
     }
 });

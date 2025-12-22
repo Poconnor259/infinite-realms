@@ -968,7 +968,7 @@ export default function AdminWorldsScreen() {
                                                 <View style={{ flex: 1 }}>
                                                     <Text style={[styles.miniLabel, { color: colors.text.muted }]}>Field Type</Text>
                                                     <View style={{ flexDirection: 'row', gap: spacing.xs, flexWrap: 'wrap' }}>
-                                                        {['text', 'select', 'number', 'statPicker'].map((type) => (
+                                                        {['text', 'textarea', 'select', 'multiselect', 'number', 'slider', 'checkbox', 'image'].map((type) => (
                                                             <TouchableOpacity
                                                                 key={type}
                                                                 onPress={() => {
@@ -1014,8 +1014,8 @@ export default function AdminWorldsScreen() {
                                                 </View>
                                             </View>
 
-                                            {/* Options Editor for Select Fields */}
-                                            {field.type === 'select' && (
+                                            {/* Options Editor for Select/Multiselect Fields */}
+                                            {(field.type === 'select' || field.type === 'multiselect') && (
                                                 <View style={{ marginTop: spacing.sm }}>
                                                     <Text style={[styles.miniLabel, { color: colors.text.muted, marginBottom: spacing.xs }]}>Dropdown Options</Text>
                                                     {field.options?.map((option, optIndex) => (

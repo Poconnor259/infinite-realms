@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Switch, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable } from '../ui/Animated';
 import { generateText } from '../../lib/firebase';
-import type { GameEngine, ModuleCharacter } from '../../lib/types';
+import type { GameEngine, ModuleCharacter, FormFieldDefinition } from '../../lib/types';
 
 interface DynamicCharacterCreationProps {
     characterName: string;
@@ -22,6 +22,7 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
     const [stats, setStats] = useState<Record<string, number>>({});
     const [generatingField, setGeneratingField] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
+    const [errors, setErrors] = useState<Record<string, string>>({});
 
     // Initialize stats with default values
     useEffect(() => {
@@ -31,6 +32,23 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                 initialStats[stat.id] = stat.default;
             });
             setStats(initialStats);
+        }
+
+        // Initialize form data with defaults
+        if (engine.creationFields) {
+            const initialData: Record<string, any> = {};
+            engine.creationFields.forEach(field => {
+                if (field.defaultValue !== undefined) {
+                    initialData[field.id] = field.defaultValue;
+                } else if (field.type === 'checkbox') {
+                    initialData[field.id] = false;
+                } else if (field.type === 'multiselect') {
+                    initialData[field.id] = [];
+                } else if (field.type === 'slider') {
+                    initialData[field.id] = field.validation?.min ?? 0;
+                }
+            });
+            setFormData(initialData);
         }
     }, [engine]);
 
@@ -252,7 +270,180 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                                             </TouchableOpacity>
                                         ))}
                                     </View>
+                                ) : field.type === 'textarea' ? (
+                                    <View>
+                                        <TextInput
+                                            style={[styles.textareaInput, {
+                                                backgroundColor: colors.background.secondary,
+                                                color: colors.text.primary,
+                                                borderColor: colors.border.default
+                                            }]}
+                                            placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+                                            placeholderTextColor={colors.text.muted}
+                                            value={formData[field.id] || ''}
+                                            onChangeText={(text) => setFormData(prev => ({ ...prev, [field.id]: text }))}
+                                            multiline
+                                            numberOfLines={5}
+                                            textAlignVertical="top"
+                                        />
+                                        {(field.aiGeneratable !== false) && (
+                                            <TouchableOpacity
+                                                style={[
+                                                    styles.aiButton,
+                                                    {
+                                                        backgroundColor: colors.primary[500],
+                                                        opacity: generatingField === field.id ? 0.7 : 1
+                                                    }
+                                                ]}
+                                                onPress={() => handleAIGenerate(field.id, field.label)}
+                                                disabled={generatingField === field.id}
+                                            >
+                                                {generatingField === field.id ? (
+                                                    <ActivityIndicator size="small" color="#fff" />
+                                                ) : (
+                                                    <Ionicons name="sparkles" size={16} color="#fff" />
+                                                )}
+                                                <Text style={styles.aiButtonText}>
+                                                    {generatingField === field.id ? 'Generating...' : 'Generate with AI'}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )}
+                                    </View>
+                                ) : field.type === 'slider' ? (
+                                    <View style={styles.sliderContainer}>
+                                        <TouchableOpacity
+                                            style={[styles.sliderButton, { backgroundColor: colors.background.tertiary }]}
+                                            onPress={() => {
+                                                const min = field.validation?.min ?? 0;
+                                                const current = formData[field.id] ?? min;
+                                                if (current > min) {
+                                                    setFormData(prev => ({ ...prev, [field.id]: current - 1 }));
+                                                }
+                                            }}
+                                        >
+                                            <Ionicons name="remove" size={20} color={colors.text.primary} />
+                                        </TouchableOpacity>
+                                        <View style={styles.sliderValueContainer}>
+                                            <Text style={[styles.sliderValue, { color: colors.text.primary }]}>
+                                                {formData[field.id] ?? field.validation?.min ?? 0}
+                                            </Text>
+                                            <Text style={[styles.sliderRange, { color: colors.text.muted }]}>
+                                                ({field.validation?.min ?? 0} - {field.validation?.max ?? 100})
+                                            </Text>
+                                        </View>
+                                        <TouchableOpacity
+                                            style={[styles.sliderButton, { backgroundColor: colors.background.tertiary }]}
+                                            onPress={() => {
+                                                const min = field.validation?.min ?? 0;
+                                                const max = field.validation?.max ?? 100;
+                                                const current = formData[field.id] ?? min;
+                                                if (current < max) {
+                                                    setFormData(prev => ({ ...prev, [field.id]: current + 1 }));
+                                                }
+                                            }}
+                                        >
+                                            <Ionicons name="add" size={20} color={colors.text.primary} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : field.type === 'checkbox' ? (
+                                    <View style={styles.checkboxContainer}>
+                                        <Switch
+                                            value={!!formData[field.id]}
+                                            onValueChange={(value) => setFormData(prev => ({ ...prev, [field.id]: value }))}
+                                            trackColor={{ false: colors.background.tertiary, true: colors.primary[500] }}
+                                            thumbColor={formData[field.id] ? colors.primary[300] : colors.text.muted}
+                                        />
+                                        <Text style={[styles.checkboxLabel, { color: colors.text.secondary }]}>
+                                            {formData[field.id] ? 'Yes' : 'No'}
+                                        </Text>
+                                    </View>
+                                ) : field.type === 'multiselect' && field.options ? (
+                                    <View style={styles.optionsContainer}>
+                                        {field.options.map((option) => {
+                                            const selected = (formData[field.id] || []).includes(option.value);
+                                            return (
+                                                <TouchableOpacity
+                                                    key={option.value}
+                                                    style={[
+                                                        styles.optionChip,
+                                                        {
+                                                            backgroundColor: selected
+                                                                ? colors.primary[500]
+                                                                : colors.background.tertiary,
+                                                            borderColor: colors.border.default,
+                                                        }
+                                                    ]}
+                                                    onPress={() => {
+                                                        setFormData(prev => {
+                                                            const current = prev[field.id] || [];
+                                                            if (selected) {
+                                                                return { ...prev, [field.id]: current.filter((v: string) => v !== option.value) };
+                                                            } else {
+                                                                return { ...prev, [field.id]: [...current, option.value] };
+                                                            }
+                                                        });
+                                                    }}
+                                                >
+                                                    <Text style={{
+                                                        color: selected ? '#fff' : colors.text.secondary,
+                                                        fontSize: typography.fontSize.sm,
+                                                    }}>
+                                                        {option.label}
+                                                    </Text>
+                                                    {selected && (
+                                                        <Ionicons name="checkmark" size={14} color="#fff" style={{ marginLeft: 4 }} />
+                                                    )}
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                ) : field.type === 'image' ? (
+                                    <View style={styles.imageFieldContainer}>
+                                        {formData[field.id] ? (
+                                            <Image
+                                                source={{ uri: formData[field.id] }}
+                                                style={styles.characterImage}
+                                                resizeMode="cover"
+                                            />
+                                        ) : (
+                                            <View style={[styles.imagePlaceholder, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                                                <Ionicons name="person" size={48} color={colors.text.muted} />
+                                                <Text style={{ color: colors.text.muted, marginTop: spacing.sm }}>No portrait</Text>
+                                            </View>
+                                        )}
+                                        <TouchableOpacity
+                                            style={[
+                                                styles.aiButton,
+                                                {
+                                                    backgroundColor: colors.primary[500],
+                                                    opacity: generatingField === field.id ? 0.7 : 1
+                                                }
+                                            ]}
+                                            onPress={() => {
+                                                // TODO: Implement AI image generation
+                                                alert('AI portrait generation coming soon!');
+                                            }}
+                                            disabled={generatingField === field.id}
+                                        >
+                                            <Ionicons name="sparkles" size={16} color="#fff" />
+                                            <Text style={styles.aiButtonText}>Generate Portrait</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 ) : null}
+
+                                {/* Help Text */}
+                                {field.helpText && (
+                                    <Text style={[styles.helpText, { color: colors.text.muted }]}>
+                                        {field.helpText}
+                                    </Text>
+                                )}
+
+                                {/* Validation Error */}
+                                {errors[field.id] && (
+                                    <Text style={[styles.errorText, { color: colors.status.error }]}>
+                                        {errors[field.id]}
+                                    </Text>
+                                )}
                             </View>
                         ))}
                     </View>
@@ -466,5 +657,71 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: typography.fontSize.sm,
         fontWeight: '600',
+    },
+    // New field type styles
+    textareaInput: {
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        fontSize: typography.fontSize.md,
+        borderWidth: 1,
+        minHeight: 120,
+        textAlignVertical: 'top',
+    },
+    sliderContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    sliderButton: {
+        width: 40,
+        height: 40,
+        borderRadius: borderRadius.full,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    sliderValueContainer: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    sliderValue: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: 'bold',
+    },
+    sliderRange: {
+        fontSize: typography.fontSize.xs,
+    },
+    checkboxContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    checkboxLabel: {
+        fontSize: typography.fontSize.md,
+    },
+    imageFieldContainer: {
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    characterImage: {
+        width: 150,
+        height: 150,
+        borderRadius: borderRadius.lg,
+    },
+    imagePlaceholder: {
+        width: 150,
+        height: 150,
+        borderRadius: borderRadius.lg,
+        borderWidth: 2,
+        borderStyle: 'dashed',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    helpText: {
+        fontSize: typography.fontSize.xs,
+        marginTop: spacing.xs,
+    },
+    errorText: {
+        fontSize: typography.fontSize.xs,
+        marginTop: spacing.xs,
     },
 });

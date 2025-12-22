@@ -1,0 +1,302 @@
+{
+    "id": "praxis",
+    "name": "PRAXIS: Operation Dark Tide",
+    "description": "Join PRAXIS, an elite tactical unit operating in a world of supernatural threats. Complete missions, upgrade your gear, and lead covert operations against dark forces.",
+    "icon": "🕵️",
+    "color": "#8b5cf6",
+    "subtitle": "Your imagination is your only limit",
+    "type": "Praxis",
+    "order": 3,
+    "generateIntro": true,
+    "features": [
+        "Military rank progression (Private → General)",
+        "Adaptive nanite suit that morphs into any equipment",
+        "Crashed ship serves as your base of operations",
+        "Mission-based objectives with tactical choices",
+        "Nanite command abilities"
+    ],
+    "stats": [
+        {
+            "id": "combat",
+            "name": "Combat",
+            "description": "Your proficiency in tactical combat and weapons handling",
+            "icon": "🎯",
+            "min": 0,
+            "max": 100,
+            "default": 10
+        },
+        {
+            "id": "tactics",
+            "name": "Tactics",
+            "description": "Your ability to plan and execute strategic operations",
+            "icon": "🧠",
+            "min": 0,
+            "max": 100,
+            "default": 10
+        },
+        {
+            "id": "stealth",
+            "name": "Stealth",
+            "description": "Your skill in covert operations and infiltration",
+            "icon": "👤",
+            "min": 0,
+            "max": 100,
+            "default": 10
+        },
+        {
+            "id": "leadership",
+            "name": "Leadership",
+            "description": "Your ability to command and inspire your squad",
+            "icon": "⭐",
+            "min": 0,
+            "max": 100,
+            "default": 10
+        }
+    ],
+    "resources": [
+        {
+            "id": "health",
+            "name": "Health",
+            "icon": "❤️",
+            "color": "#ef4444",
+            "min": 0,
+            "max": 100,
+            "default": 100,
+            "regenerates": false
+        },
+        {
+            "id": "stamina",
+            "name": "Stamina",
+            "icon": "⚡",
+            "color": "#f59e0b",
+            "min": 0,
+            "max": 100,
+            "default": 100,
+            "regenerates": true,
+            "regenRate": 10
+        },
+        {
+            "id": "focus",
+            "name": "Focus",
+            "icon": "🎯",
+            "color": "#3b82f6",
+            "min": 0,
+            "max": 100,
+            "default": 100,
+            "regenerates": true,
+            "regenRate": 5
+        }
+    ],
+    "progressionSystem": {
+        "type": "rank",
+        "name": "Military Rank",
+        "icon": "🎖️",
+        "ranks": [
+            {
+                "id": "private",
+                "name": "Private",
+                "icon": "🔰",
+                "minXP": 0,
+                "description": "Fresh recruit, learning the ropes"
+            },
+            {
+                "id": "corporal",
+                "name": "Corporal",
+                "icon": "⚔️",
+                "minXP": 1000,
+                "description": "Proven in the field, trusted with small teams"
+            },
+            {
+                "id": "sergeant",
+                "name": "Sergeant",
+                "icon": "🛡️",
+                "minXP": 3000,
+                "description": "Experienced leader, commands respect"
+            },
+            {
+                "id": "lieutenant",
+                "name": "Lieutenant",
+                "icon": "⭐",
+                "minXP": 6000,
+                "description": "Officer rank, leads tactical operations"
+            },
+            {
+                "id": "captain",
+                "name": "Captain",
+                "icon": "🌟",
+                "minXP": 10000,
+                "description": "Commands multiple squads, strategic thinker"
+            },
+            {
+                "id": "major",
+                "name": "Major",
+                "icon": "💫",
+                "minXP": 15000,
+                "description": "Senior officer, coordinates large-scale operations"
+            },
+            {
+                "id": "colonel",
+                "name": "Colonel",
+                "icon": "🎖️",
+                "minXP": 25000,
+                "description": "Elite commander, shapes PRAXIS strategy"
+            },
+            {
+                "id": "general",
+                "name": "General",
+                "icon": "👑",
+                "minXP": 40000,
+                "description": "Supreme commander, legend among operatives"
+            }
+        ]
+    },
+    "creationFields": [
+        {
+            "id": "name",
+            "type": "text",
+            "label": "Operative Name",
+            "placeholder": "Enter your codename...",
+            "required": true,
+            "maxLength": 30
+        },
+        {
+            "id": "specialization",
+            "type": "select",
+            "label": "Specialization",
+            "required": true,
+            "options": [
+                {
+                    "id": "assault",
+                    "name": "Assault Specialist",
+                    "description": "Heavy weapons and frontline combat",
+                    "icon": "💥",
+                    "bonuses": {
+                        "combat": 15,
+                        "tactics": 5
+                    }
+                },
+                {
+                    "id": "recon",
+                    "name": "Recon Operative",
+                    "description": "Stealth, infiltration, and intelligence gathering",
+                    "icon": "🔍",
+                    "bonuses": {
+                        "stealth": 15,
+                        "tactics": 5
+                    }
+                },
+                {
+                    "id": "medic",
+                    "name": "Combat Medic",
+                    "description": "Field medicine and squad support",
+                    "icon": "⚕️",
+                    "bonuses": {
+                        "leadership": 10,
+                        "combat": 5,
+                        "stealth": 5
+                    }
+                },
+                {
+                    "id": "engineer",
+                    "name": "Tech Specialist",
+                    "description": "Gadgets, explosives, and technical expertise",
+                    "icon": "🔧",
+                    "bonuses": {
+                        "tactics": 15,
+                        "combat": 5
+                    }
+                },
+                {
+                    "id": "commander",
+                    "name": "Squad Leader",
+                    "description": "Tactical command and team coordination",
+                    "icon": "🎖️",
+                    "bonuses": {
+                        "leadership": 15,
+                        "tactics": 5
+                    }
+                }
+            ]
+        },
+        {
+            "id": "background",
+            "type": "select",
+            "label": "Background",
+            "required": true,
+            "options": [
+                {
+                    "id": "military",
+                    "name": "Military Veteran",
+                    "description": "Former special forces, disciplined and experienced",
+                    "icon": "🪖",
+                    "bonuses": {
+                        "combat": 10,
+                        "leadership": 5
+                    }
+                },
+                {
+                    "id": "intelligence",
+                    "name": "Intelligence Agent",
+                    "description": "Spy background, expert in covert operations",
+                    "icon": "🕵️",
+                    "bonuses": {
+                        "stealth": 10,
+                        "tactics": 5
+                    }
+                },
+                {
+                    "id": "mercenary",
+                    "name": "Mercenary",
+                    "description": "Freelance operator, adaptable and resourceful",
+                    "icon": "💰",
+                    "bonuses": {
+                        "combat": 7,
+                        "stealth": 7
+                    }
+                },
+                {
+                    "id": "scientist",
+                    "name": "Field Scientist",
+                    "description": "Researcher studying supernatural phenomena",
+                    "icon": "🔬",
+                    "bonuses": {
+                        "tactics": 10,
+                        "leadership": 5
+                    }
+                }
+            ]
+        },
+        {
+            "id": "loadout",
+            "type": "select",
+            "label": "Primary Loadout",
+            "required": true,
+            "options": [
+                {
+                    "id": "rifle",
+                    "name": "Assault Rifle",
+                    "description": "Versatile automatic weapon for all situations",
+                    "icon": "🔫"
+                },
+                {
+                    "id": "smg",
+                    "name": "Submachine Gun",
+                    "description": "Compact, high rate of fire, perfect for CQB",
+                    "icon": "🔫"
+                },
+                {
+                    "id": "sniper",
+                    "name": "Sniper Rifle",
+                    "description": "Long-range precision weapon",
+                    "icon": "🎯"
+                },
+                {
+                    "id": "shotgun",
+                    "name": "Combat Shotgun",
+                    "description": "Devastating close-range firepower",
+                    "icon": "💥"
+                }
+            ]
+        }
+    ]
+}

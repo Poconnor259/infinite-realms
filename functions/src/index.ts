@@ -2,6 +2,9 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import { SecretManagerServiceClient } from '@google-cloud/secret-manager';
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
 
@@ -282,11 +285,17 @@ export const processGameAction = onCall(
             // Security: Fetch actual user tier from Firestore, don't trust client
             let effectiveByokKeys = undefined;
             let userTier = 'scout';
+            let preferredModels: { brain?: string; voice?: string } = {};
 
             if (auth?.uid) {
                 const userDoc = await db.collection('users').doc(auth.uid).get();
                 if (userDoc.exists) {
-                    userTier = userDoc.data()?.tier || 'scout';
+                    const userData = userDoc.data();
+                    userTier = userData?.tier || 'scout';
+                    // Only Legend users can override models
+                    if (userTier === 'legend') {
+                        preferredModels = userData?.preferredModels || {};
+                    }
                 }
             }
 
@@ -315,8 +324,11 @@ export const processGameAction = onCall(
                 effectiveSecrets = { openai: '', anthropic: '', google: '' };
             }
 
-            const brainConfig = resolveModelConfig(aiSettings.brainModel, effectiveByokKeys, effectiveSecrets);
-            const voiceConfig = resolveModelConfig(aiSettings.voiceModel, effectiveByokKeys, effectiveSecrets);
+            const brainModelId = preferredModels.brain || aiSettings.brainModel;
+            const voiceModelId = preferredModels.voice || aiSettings.voiceModel;
+
+            const brainConfig = resolveModelConfig(brainModelId, effectiveByokKeys, effectiveSecrets);
+            const voiceConfig = resolveModelConfig(voiceModelId, effectiveByokKeys, effectiveSecrets);
 
             if (!brainConfig.key) {
                 return { success: false, error: 'Configuration Error: No valid API key available for Brain.' };
@@ -375,6 +387,18 @@ export const processGameAction = onCall(
                 knowledgeDocuments: knowledgeDocs,
                 customRules: worldData?.customRules,
             });
+
+            // Log Voice result for debugging
+            console.log('[Voice] Result:', {
+                success: voiceResult.success,
+                hasNarrative: !!voiceResult.narrative,
+                hasUsage: !!voiceResult.usage,
+                error: voiceResult.error
+            });
+
+            if (!voiceResult.success) {
+                console.error('[Voice] Generation failed:', voiceResult.error);
+            }
 
             // 6. Record Token Usage
             if (auth?.uid) {
@@ -581,6 +605,91 @@ export const generateText = onCall(
             return {
                 success: false,
                 error: error instanceof Error ? error.message : 'An unexpected error occurred',
+            };
+        }
+    }
+);
+
+// ==================== CONFIG VERIFICATION ====================
+
+interface VerifyConfigOneRequest {
+    provider: 'openai' | 'anthropic' | 'google';
+    model: string;
+}
+
+export const verifyModelConfig = onCall(
+    { secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' },
+    async (request) => {
+        try {
+            const { provider, model } = request.data as VerifyConfigOneRequest;
+            const auth = request.auth;
+
+            if (!auth) {
+                throw new HttpsError('unauthenticated', 'User must be authenticated');
+            }
+
+            console.log(`[Verify] Testing ${provider}/${model} for user ${auth.uid}`);
+
+            // 1. Get Keys (System Keys only for now)
+            const secrets = {
+                openai: openaiApiKey.value(),
+                anthropic: anthropicApiKey.value(),
+                google: googleApiKey.value(),
+            };
+
+            let apiKey = '';
+            if (provider === 'openai') apiKey = secrets.openai;
+            else if (provider === 'anthropic') apiKey = secrets.anthropic;
+            else if (provider === 'google') apiKey = secrets.google;
+
+            if (!apiKey) {
+                return { success: false, error: `No system API key configured for ${provider}` };
+            }
+
+            // 2. Simple Ping
+            console.log(`[Verify] Pinging ${provider} with model ${model}...`);
+            const startTime = Date.now();
+            let success = false;
+            let message = '';
+
+            if (provider === 'openai') {
+                const openai = new OpenAI({ apiKey });
+                await openai.chat.completions.create({
+                    model: model,
+                    messages: [{ role: 'user', content: 'Ping' }],
+                    max_tokens: 5,
+                });
+                success = true;
+                message = 'OpenAI Connection Verified';
+            } else if (provider === 'anthropic') {
+                const anthropic = new Anthropic({ apiKey });
+                await anthropic.messages.create({
+                    model: model,
+                    max_tokens: 5,
+                    messages: [{ role: 'user', content: 'Ping' }],
+                });
+                success = true;
+                message = 'Anthropic Connection Verified';
+            } else if (provider === 'google') {
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const gModel = genAI.getGenerativeModel({ model: model });
+                await gModel.generateContent('Ping');
+                success = true;
+                message = 'Google Connection Verified';
+            }
+
+            const latency = Date.now() - startTime;
+            console.log(`[Verify] ${provider} success in ${latency}ms`);
+
+            return { success, message, latency };
+
+        } catch (error: any) {
+            console.error('Verification failed:', error);
+            // Return the raw error message to help debugging
+            return {
+                success: false,
+                error: error.message || 'Verification Failed',
+                details: JSON.stringify(error),
             };
         }
     }

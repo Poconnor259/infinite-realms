@@ -29,7 +29,7 @@ const CharacterCreationMap: Record<string, any> = {
     classic: ClassicCharacterCreation,
     outworlder: OutworlderCharacterCreation,
     tactical: TacticalCharacterCreation,
-    shadowMonarch: TacticalCharacterCreation,
+    praxis: TacticalCharacterCreation,
 };
 
 export default function CreateCampaignScreen() {

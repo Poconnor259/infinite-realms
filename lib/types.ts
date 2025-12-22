@@ -100,11 +100,29 @@ export interface ProgressionConfig {
 
 export interface FormFieldDefinition {
     id: string;
-    type: 'text' | 'select' | 'number' | 'statPicker';
+    type: 'text' | 'textarea' | 'select' | 'multiselect' | 'number' | 'slider' | 'checkbox' | 'image' | 'statPicker';
     label: string;
     required: boolean;
-    options?: { value: string; label: string }[];  // For select
+    options?: { value: string; label: string }[];  // For select/multiselect
     placeholder?: string;
+
+    // Validation
+    validation?: {
+        minLength?: number;
+        maxLength?: number;
+        min?: number;      // For number/slider
+        max?: number;
+        pattern?: string;  // Regex for text validation
+    };
+
+    // UX Enhancements
+    helpText?: string;         // Shown below field
+    dependsOn?: {              // Conditional display
+        field: string;
+        value: any;
+    };
+    defaultValue?: any;
+    aiGeneratable?: boolean;   // Show AI generate button (for text/textarea)
 }
 
 export interface HUDConfig {
@@ -362,6 +380,10 @@ export interface User {
         openai?: string;
         anthropic?: string;
         google?: string;
+    };
+    preferredModels?: {
+        brain?: string;
+        voice?: string;
     };
     isAnonymous?: boolean;
     createdAt: number;

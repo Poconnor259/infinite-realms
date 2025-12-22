@@ -368,6 +368,11 @@ export const updateApiKey = httpsCallable<{ provider: ApiProvider; key: string }
     'updateApiKey'
 );
 
+export const verifyModelConfig = httpsCallable<
+    { provider: ApiProvider; model: string },
+    { success: boolean; message?: string; latency?: number; error?: string; details?: string }
+>(functions, 'verifyModelConfig');
+
 
 // ==================== FIRESTORE HELPERS ====================
 

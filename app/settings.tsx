@@ -17,7 +17,9 @@ import { Logo } from '../components/ui/Logo';
 import { spacing, borderRadius, typography } from '../lib/theme';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore } from '../lib/store';
-import { signOut } from '../lib/firebase';
+import { signOut, db } from '../lib/firebase';
+import { doc, updateDoc } from 'firebase/firestore';
+import { AVAILABLE_MODELS } from '../lib/types';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 
 // Helper types
@@ -331,6 +333,91 @@ export default function SettingsScreen() {
                             <View style={styles.byokContent}>
                                 {user?.tier === 'legend' ? (
                                     <>
+                                        {/* Model Preferences */}
+                                        <View style={{ marginBottom: spacing.md }}>
+                                            <Text style={[styles.keyLabel, { marginBottom: spacing.sm }]}>Preferred Models</Text>
+
+                                            {/* Brain Model */}
+                                            <View style={{ marginBottom: spacing.sm }}>
+                                                <Text style={styles.keyStatus}>Brain (Logic)</Text>
+                                                <View style={styles.modelSelector}>
+                                                    {AVAILABLE_MODELS.filter(m => ['openai', 'google'].includes(m.provider)).map(model => (
+                                                        <TouchableOpacity
+                                                            key={model.id}
+                                                            style={[
+                                                                styles.modelOption,
+                                                                (user?.preferredModels?.brain === model.id) && styles.modelOptionSelected
+                                                            ]}
+                                                            onPress={async () => {
+                                                                if (user?.id) {
+                                                                    await updateDoc(doc(db, 'users', user.id), {
+                                                                        'preferredModels.brain': model.id
+                                                                    });
+                                                                    // Update local store optimistically
+                                                                    useUserStore.setState({
+                                                                        user: {
+                                                                            ...user,
+                                                                            preferredModels: {
+                                                                                ...user.preferredModels,
+                                                                                brain: model.id
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Text style={[
+                                                                styles.modelOptionText,
+                                                                (user?.preferredModels?.brain === model.id) && styles.modelOptionTextSelected
+                                                            ]}>
+                                                                {model.name}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            </View>
+
+                                            {/* Voice Model */}
+                                            <View>
+                                                <Text style={styles.keyStatus}>Voice (Narrative)</Text>
+                                                <View style={styles.modelSelector}>
+                                                    {AVAILABLE_MODELS.filter(m => ['anthropic', 'google'].includes(m.provider)).map(model => (
+                                                        <TouchableOpacity
+                                                            key={model.id}
+                                                            style={[
+                                                                styles.modelOption,
+                                                                (user?.preferredModels?.voice === model.id) && styles.modelOptionSelected
+                                                            ]}
+                                                            onPress={async () => {
+                                                                if (user?.id) {
+                                                                    await updateDoc(doc(db, 'users', user.id), {
+                                                                        'preferredModels.voice': model.id
+                                                                    });
+                                                                    useUserStore.setState({
+                                                                        user: {
+                                                                            ...user,
+                                                                            preferredModels: {
+                                                                                ...user.preferredModels,
+                                                                                voice: model.id
+                                                                            }
+                                                                        }
+                                                                    });
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Text style={[
+                                                                styles.modelOptionText,
+                                                                (user?.preferredModels?.voice === model.id) && styles.modelOptionTextSelected
+                                                            ]}>
+                                                                {model.name}
+                                                            </Text>
+                                                        </TouchableOpacity>
+                                                    ))}
+                                                </View>
+                                            </View>
+                                        </View>
+                                        <View style={{ height: 1, backgroundColor: colors.border.default, marginVertical: spacing.sm }} />
+
                                         {/* OpenAI Key */}
                                         <View style={styles.keyRow}>
                                             <View style={styles.keyInfo}>
@@ -707,5 +794,32 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.md,
         color: colors.text.muted,
         textAlign: 'center',
+    },
+    modelSelector: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 8,
+        marginTop: 4,
+    },
+    modelOption: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+        backgroundColor: colors.background.primary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    modelOptionSelected: {
+        backgroundColor: colors.primary[600],
+        borderColor: colors.primary[600],
+    },
+    modelOptionText: {
+        fontSize: 12,
+        color: colors.text.primary,
+    },
+    modelOptionTextSelected: {
+        fontSize: 12,
+        color: '#FFFFFF',
+        fontWeight: 'bold',
     },
 });
