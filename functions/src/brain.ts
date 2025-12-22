@@ -26,6 +26,12 @@ interface BrainOutput {
         narrativeCue?: string; // Simple fallback narrative
         diceRolls: DiceRoll[];
         systemMessages: string[];
+        requiresUserInput?: boolean; // True = pause for player clarification
+        pendingChoice?: {
+            prompt: string; // What to ask the player
+            options?: string[]; // Suggested choices (only if user preference allows)
+            choiceType: 'action' | 'target' | 'dialogue' | 'direction' | 'item' | 'decision';
+        };
     };
     usage?: {
         promptTokens: number;
@@ -67,6 +73,12 @@ const BrainResponseSchema = z.object({
     })).describe('Any dice rolls made'),
     systemMessages: z.array(z.string()).describe('Game system notifications for the player'),
     narrativeCue: z.string().optional().describe('Simple narrative fallback if Claude is unavailable'),
+    requiresUserInput: z.boolean().optional().describe('True if player clarification is needed before proceeding'),
+    pendingChoice: z.object({
+        prompt: z.string().describe('Question to ask the player'),
+        options: z.array(z.string()).optional().describe('Suggested choices (only if user preference allows)'),
+        choiceType: z.enum(['action', 'target', 'dialogue', 'direction', 'item', 'decision']).describe('Category of choice'),
+    }).optional().describe('Player choice data when requiresUserInput is true'),
 });
 
 // ==================== MAIN BRAIN FUNCTION ====================

@@ -70,6 +70,12 @@ interface GameResponse {
     }>;
     systemMessages?: string[];
     reviewerApplied?: boolean;
+    requiresUserInput?: boolean;
+    pendingChoice?: {
+        prompt: string;
+        options?: string[];
+        choiceType: string;
+    };
     error?: string;
 }
 
@@ -550,6 +556,8 @@ export const processGameAction = onCall(
                 diceRolls: brainResult.data.diceRolls,
                 systemMessages: brainResult.data.systemMessages,
                 reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
+                requiresUserInput: brainResult.data.requiresUserInput,
+                pendingChoice: brainResult.data.pendingChoice,
             };
 
         } catch (error) {
