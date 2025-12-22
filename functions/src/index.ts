@@ -1,5 +1,4 @@
 import { onCall, HttpsError } from 'firebase-functions/v2/https';
-import { defineSecret } from 'firebase-functions/params';
 import * as admin from 'firebase-admin';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -8,20 +7,14 @@ import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
 
 
-
 // Initialize Firebase Admin
 admin.initializeApp();
 
 // Get Firestore instance
 const db = admin.firestore();
 
-// Define secrets (fallback if Firestore doesn't have keys)
-const openaiApiKey = defineSecret('OPENAI_API_KEY');
-const anthropicApiKey = defineSecret('ANTHROPIC_API_KEY');
-const googleApiKey = defineSecret('GOOGLE_API_KEY');
-
 // ==================== API KEY HELPER ====================
-// Get API keys from Firestore first, fallback to Secret Manager
+// Get API keys from Firestore (single source of truth)
 async function getApiKeys(): Promise<{ openai: string; anthropic: string; google: string }> {
     const providers = ['openai', 'anthropic', 'google'] as const;
     const keys: any = {};
@@ -32,20 +25,11 @@ async function getApiKeys(): Promise<{ openai: string; anthropic: string; google
             if (keyDoc.exists && keyDoc.data()?.key) {
                 keys[provider] = keyDoc.data()!.key;
             } else {
-                // Fallback to Secret Manager
-                switch (provider) {
-                    case 'openai': keys[provider] = openaiApiKey.value(); break;
-                    case 'anthropic': keys[provider] = anthropicApiKey.value(); break;
-                    case 'google': keys[provider] = googleApiKey.value(); break;
-                }
+                keys[provider] = '';
             }
         } catch (error) {
-            console.warn(`[API Keys] Error reading ${provider} from Firestore, using Secret Manager`);
-            switch (provider) {
-                case 'openai': keys[provider] = openaiApiKey.value(); break;
-                case 'anthropic': keys[provider] = anthropicApiKey.value(); break;
-                case 'google': keys[provider] = googleApiKey.value(); break;
-            }
+            console.warn(`[API Keys] Error reading ${provider} from Firestore:`, error);
+            keys[provider] = '';
         }
     }
 
@@ -198,13 +182,9 @@ function resolvePricing(modelId: string): { prompt: number; completion: number }
 }
 
 export const getAvailableModels = onCall(
-    { secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' },
+    { cors: true, invoker: 'public' },
     async (request) => {
-        const secrets = {
-            openai: openaiApiKey.value(),
-            anthropic: anthropicApiKey.value(),
-            google: googleApiKey.value(),
-        };
+        const secrets = await getApiKeys();
 
         const [openaiModels, anthropicModels, googleModels] = await Promise.all([
             fetchOpenAIModels(secrets.openai),
@@ -265,7 +245,7 @@ export const getAvailableModels = onCall(
 // ==================== MAIN GAME ENDPOINT ====================
 
 export const processGameAction = onCall(
-    { secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' },
+    { cors: true, invoker: 'public' },
     async (request): Promise<GameResponse> => {
         const data = request.data as GameRequest;
         const auth = request.auth;
@@ -344,11 +324,7 @@ export const processGameAction = onCall(
             }
 
             // 3. Resolve Keys and Models
-            const secrets = {
-                openai: openaiApiKey.value(),
-                anthropic: anthropicApiKey.value(),
-                google: googleApiKey.value(),
-            };
+            const secrets = await getApiKeys();
 
             // If Legend, we must NOT use system secrets as fallback?
             // User requested: "when they upgrade to legend they lost access to the global API keys"
@@ -547,7 +523,7 @@ interface GenerateTextResponse {
 }
 
 export const generateText = onCall(
-    { secrets: [openaiApiKey], cors: true, invoker: 'public' },
+    { cors: true, invoker: 'public' },
     async (request): Promise<GenerateTextResponse> => {
         try {
             const { prompt, maxLength = 150 } = request.data as GenerateTextRequest;
@@ -562,7 +538,8 @@ export const generateText = onCall(
             }
 
             // Get API key
-            const openaiKey = openaiApiKey.value();
+            const keys = await getApiKeys();
+            const openaiKey = keys.openai;
             console.log(`[GenerateText] API key exists: ${!!openaiKey}, length: ${openaiKey?.length || 0}`);
 
             if (!openaiKey) {
@@ -651,7 +628,7 @@ interface VerifyConfigOneRequest {
 }
 
 export const verifyModelConfig = onCall(
-    { secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' },
+    { cors: true, invoker: 'public' },
     async (request) => {
         try {
             const { provider, model } = request.data as VerifyConfigOneRequest;
@@ -664,11 +641,7 @@ export const verifyModelConfig = onCall(
             console.log(`[Verify] Testing ${provider}/${model} for user ${auth.uid}`);
 
             // 1. Get Keys (System Keys only for now)
-            const secrets = {
-                openai: openaiApiKey.value(),
-                anthropic: anthropicApiKey.value(),
-                google: googleApiKey.value(),
-            };
+            const secrets = await getApiKeys();
 
             let apiKey = '';
             if (provider === 'openai') apiKey = secrets.openai;
@@ -953,7 +926,7 @@ export const updateGlobalConfig = onCall(
 // ==================== CAMPAIGN MANAGEMENT ====================
 
 export const createCampaign = onCall(
-    { secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' },
+    { cors: true, invoker: 'public' },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError('unauthenticated', 'User must be signed in');
@@ -983,11 +956,7 @@ export const createCampaign = onCall(
         const now = admin.firestore.FieldValue.serverTimestamp();
 
         // Resolve keys
-        const secrets = {
-            openai: openaiApiKey.value(),
-            anthropic: anthropicApiKey.value(),
-            google: googleApiKey.value(),
-        };
+        const secrets = await getApiKeys();
 
         // Fetch AI Settings to know which model to use for Voice
         let aiSettings = { brainModel: 'gpt-4o-mini', voiceModel: 'claude-3-5-sonnet' };
@@ -1439,7 +1408,7 @@ type ApiProvider = keyof typeof SECRET_NAMES;
 
 // Get the status of configured API keys (masked hints only - never full keys)
 export const getApiKeyStatus = onCall(
-    { secrets: [openaiApiKey, anthropicApiKey, googleApiKey], cors: true, invoker: 'public' },
+    { cors: true, invoker: 'public' },
     async (request) => {
         // Admin check
         const auth = request.auth;
