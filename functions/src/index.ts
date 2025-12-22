@@ -5,7 +5,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
-import { initPromptHelper, seedAIPrompts } from './promptHelper';
+import { initPromptHelper, seedAIPrompts, getStateReviewerSettings } from './promptHelper';
+import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 
 
 // Initialize Firebase Admin
@@ -68,6 +69,7 @@ interface GameResponse {
         purpose?: string;
     }>;
     systemMessages?: string[];
+    reviewerApplied?: boolean;
     error?: string;
 }
 
@@ -413,7 +415,54 @@ export const processGameAction = onCall(
                 console.error('[Voice] Generation failed:', voiceResult.error);
             }
 
-            // 6. Record Token Usage
+            // 6. State Consistency Review (optional - runs based on frequency setting)
+            let reviewerResult: any = null;
+            let finalState = brainResult.data.stateUpdates || currentState;
+
+            try {
+                // Get turn number from chat history (each user+assistant pair = 1 turn)
+                const turnNumber = Math.floor(chatHistory.length / 2) + 1;
+
+                // Get reviewer settings to determine which model to use
+                const reviewerSettings = await getStateReviewerSettings();
+
+                if (reviewerSettings.enabled && voiceResult.narrative) {
+                    // Resolve API key for reviewer model
+                    const reviewerModelId = reviewerSettings.model;
+                    const reviewerConfig = resolveModelConfig(reviewerModelId, effectiveByokKeys, secrets);
+
+                    if (reviewerConfig.key) {
+                        console.log(`[StateReviewer] Turn ${turnNumber}, using ${reviewerConfig.provider}/${reviewerConfig.model}`);
+
+                        reviewerResult = await reviewStateConsistency({
+                            narrative: voiceResult.narrative,
+                            currentState: finalState,
+                            worldModule: engineType,
+                            apiKey: reviewerConfig.key,
+                            provider: reviewerConfig.provider,
+                            model: reviewerConfig.model,
+                            turnNumber,
+                        });
+
+                        if (reviewerResult.success && !reviewerResult.skipped && reviewerResult.corrections) {
+                            console.log('[StateReviewer] Applying corrections:', reviewerResult.corrections);
+                            console.log('[StateReviewer] Reasoning:', reviewerResult.reasoning);
+                            finalState = applyCorrections(finalState, reviewerResult.corrections);
+                        } else if (reviewerResult.skipped) {
+                            console.log(`[StateReviewer] Skipped: ${reviewerResult.skipReason}`);
+                        } else if (!reviewerResult.success) {
+                            console.error('[StateReviewer] Error:', reviewerResult.error);
+                        }
+                    } else {
+                        console.warn('[StateReviewer] No API key available for model:', reviewerModelId);
+                    }
+                }
+            } catch (reviewerError: any) {
+                console.error('[StateReviewer] Exception:', reviewerError.message);
+                // Don't fail the whole request if reviewer fails
+            }
+
+            // 7. Record Token Usage
             if (auth?.uid) {
                 const updates: any = {};
 
@@ -439,8 +488,8 @@ export const processGameAction = onCall(
                 }
 
                 // Track total turns & legacy totals
-                const totalPrompt = (brainResult.usage?.promptTokens || 0) + (voiceResult.usage?.promptTokens || 0);
-                const totalCompletion = (brainResult.usage?.completionTokens || 0) + (voiceResult.usage?.completionTokens || 0);
+                const totalPrompt = (brainResult.usage?.promptTokens || 0) + (voiceResult.usage?.promptTokens || 0) + (reviewerResult?.usage?.promptTokens || 0);
+                const totalCompletion = (brainResult.usage?.completionTokens || 0) + (voiceResult.usage?.completionTokens || 0) + (reviewerResult?.usage?.completionTokens || 0);
                 const totalTokens = totalPrompt + totalCompletion;
 
                 updates['turnsUsed'] = admin.firestore.FieldValue.increment(1);
@@ -489,7 +538,7 @@ export const processGameAction = onCall(
                     .collection('campaigns')
                     .doc(campaignId)
                     .update({
-                        moduleState: brainResult.data?.stateUpdates || currentState,
+                        moduleState: finalState,
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     });
             }
@@ -497,9 +546,10 @@ export const processGameAction = onCall(
             return {
                 success: true,
                 narrativeText: voiceResult.narrative || brainResult.data.narrativeCue,
-                stateUpdates: brainResult.data.stateUpdates,
+                stateUpdates: finalState,
                 diceRolls: brainResult.data.diceRolls,
                 systemMessages: brainResult.data.systemMessages,
+                reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
             };
 
         } catch (error) {
