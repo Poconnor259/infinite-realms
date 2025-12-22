@@ -95,6 +95,8 @@ export default function CampaignScreen() {
         processUserInput,
         loadCampaign,
         error,
+        pendingChoice,
+        setPendingChoice,
     } = useGameStore();
     const user = useUserStore((state) => state.user);
     const isUserLoading = useUserStore((state) => state.isLoading);
@@ -488,23 +490,23 @@ export default function CampaignScreen() {
                         )}
 
                         {/* Choice Display */}
-                        {!isLoading && useGameStore.getState().pendingChoice && (
+                        {!isLoading && pendingChoice && (
                             <View style={styles.choiceContainer}>
                                 <View style={styles.choicePrompt}>
                                     <Ionicons name="help-circle" size={20} color={colors.primary[400]} />
                                     <Text style={styles.choicePromptText}>
-                                        {useGameStore.getState().pendingChoice?.prompt}
+                                        {pendingChoice.prompt}
                                     </Text>
                                 </View>
-                                {useGameStore.getState().pendingChoice?.options && useGameStore.getState().pendingChoice!.options!.length > 0 ? (
+                                {pendingChoice.options && pendingChoice.options.length > 0 ? (
                                     <View style={styles.choiceButtons}>
-                                        {useGameStore.getState().pendingChoice!.options!.map((option, index) => (
+                                        {pendingChoice.options.map((option, index) => (
                                             <TouchableOpacity
                                                 key={index}
                                                 style={styles.choiceButton}
                                                 onPress={() => {
                                                     handleSend(option);
-                                                    useGameStore.getState().setPendingChoice(null);
+                                                    setPendingChoice(null);
                                                 }}
                                             >
                                                 <Text style={styles.choiceButtonText}>• {option}</Text>

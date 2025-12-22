@@ -59,20 +59,20 @@ interface DiceRoll {
 // ==================== JSON SCHEMA FOR RESPONSE ====================
 
 const BrainResponseSchema = z.object({
-    stateUpdates: z.record(z.unknown()).describe('Updated game state fields'),
+    stateUpdates: z.record(z.unknown()).optional().default({}).describe('Updated game state fields'),
     narrativeCues: z.array(z.object({
         type: z.enum(['action', 'dialogue', 'description', 'combat', 'discovery']),
         content: z.string(),
         emotion: z.enum(['neutral', 'tense', 'triumphant', 'mysterious', 'danger']).optional(),
-    })).describe('Cues for the narrator to expand into prose'),
+    })).optional().default([]).describe('Cues for the narrator to expand into prose'),
     diceRolls: z.array(z.object({
         type: z.string().describe('Dice type, e.g., "d20" or "2d6"'),
         result: z.number().describe('Raw dice result'),
         modifier: z.number().optional().describe('Modifier added to roll'),
         total: z.number().describe('Final total after modifiers'),
         purpose: z.string().optional().describe('What the roll was for'),
-    })).describe('Any dice rolls made'),
-    systemMessages: z.array(z.string()).describe('Game system notifications for the player'),
+    })).optional().default([]).describe('Any dice rolls made'),
+    systemMessages: z.array(z.string()).optional().default([]).describe('Game system notifications for the player'),
     narrativeCue: z.string().optional().describe('Simple narrative fallback if Claude is unavailable'),
     requiresUserInput: z.boolean().optional().describe('True if player clarification is needed before proceeding'),
     pendingChoice: z.object({

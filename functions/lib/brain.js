@@ -12,20 +12,20 @@ const zod_1 = require("zod");
 const promptHelper_1 = require("./promptHelper");
 // ==================== JSON SCHEMA FOR RESPONSE ====================
 const BrainResponseSchema = zod_1.z.object({
-    stateUpdates: zod_1.z.record(zod_1.z.unknown()).describe('Updated game state fields'),
+    stateUpdates: zod_1.z.record(zod_1.z.unknown()).optional().default({}).describe('Updated game state fields'),
     narrativeCues: zod_1.z.array(zod_1.z.object({
         type: zod_1.z.enum(['action', 'dialogue', 'description', 'combat', 'discovery']),
         content: zod_1.z.string(),
         emotion: zod_1.z.enum(['neutral', 'tense', 'triumphant', 'mysterious', 'danger']).optional(),
-    })).describe('Cues for the narrator to expand into prose'),
+    })).optional().default([]).describe('Cues for the narrator to expand into prose'),
     diceRolls: zod_1.z.array(zod_1.z.object({
         type: zod_1.z.string().describe('Dice type, e.g., "d20" or "2d6"'),
         result: zod_1.z.number().describe('Raw dice result'),
         modifier: zod_1.z.number().optional().describe('Modifier added to roll'),
         total: zod_1.z.number().describe('Final total after modifiers'),
         purpose: zod_1.z.string().optional().describe('What the roll was for'),
-    })).describe('Any dice rolls made'),
-    systemMessages: zod_1.z.array(zod_1.z.string()).describe('Game system notifications for the player'),
+    })).optional().default([]).describe('Any dice rolls made'),
+    systemMessages: zod_1.z.array(zod_1.z.string()).optional().default([]).describe('Game system notifications for the player'),
     narrativeCue: zod_1.z.string().optional().describe('Simple narrative fallback if Claude is unavailable'),
     requiresUserInput: zod_1.z.boolean().optional().describe('True if player clarification is needed before proceeding'),
     pendingChoice: zod_1.z.object({
