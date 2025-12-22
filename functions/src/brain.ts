@@ -137,9 +137,9 @@ ${knowledgeSection}
 ${customRulesSection}
 CRITICAL INSTRUCTIONS:
 1. You are ONLY the logic engine. You process game mechanics, not story.
-2. You MUST respond with valid JSON matching the schema.
+2. You MUST respond with valid JSON. Include a "stateUpdates" object with any changed game state fields.
 3. Calculate all dice rolls using proper randomization simulation.
-4. Update only the state fields that changed.
+4. Update only the state fields that changed in the stateUpdates object.
 5. Provide narrative cues for the storyteller, not full prose.
 6. Include any system messages (level ups, achievements, warnings).
 7. If reference materials or custom rules are provided, use them for world-consistent responses.
@@ -158,11 +158,6 @@ Respond with JSON only. No markdown, no explanation.`;
             description: "Game logic engine output",
             type: SchemaType.OBJECT,
             properties: {
-                stateUpdates: {
-                    type: SchemaType.OBJECT,
-                    description: "Updated fields in the game state (only what changed)",
-                    nullable: true,
-                },
                 narrativeCues: {
                     type: SchemaType.ARRAY,
                     description: "List of narrative cues for the storyteller",
@@ -205,7 +200,7 @@ Respond with JSON only. No markdown, no explanation.`;
                 },
                 narrativeCue: { type: SchemaType.STRING, description: "Fallback narrative summary", nullable: true }
             },
-            required: ['stateUpdates', 'narrativeCues', 'diceRolls', 'systemMessages']
+            required: ['narrativeCues', 'diceRolls', 'systemMessages']
         };
 
         if (provider === 'google') {

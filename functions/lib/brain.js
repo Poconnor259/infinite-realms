@@ -167,10 +167,15 @@ Respond with JSON only. No markdown, no explanation.`;
                 },
             });
             // Convert history to Gemini format
-            const history = chatHistory.map(msg => ({
+            let history = chatHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }],
             }));
+            // CRITICAL FIX: Google AI requires first message to be from 'user'
+            // Remove any leading 'model' messages
+            while (history.length > 0 && history[0].role === 'model') {
+                history = history.slice(1);
+            }
             // Construct the final user prompt
             const userPrompt = `PLAYER ACTION: ${userInput}
             
