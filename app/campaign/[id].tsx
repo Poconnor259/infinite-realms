@@ -487,6 +487,38 @@ export default function CampaignScreen() {
                             </View>
                         )}
 
+                        {/* Choice Display */}
+                        {!isLoading && useGameStore.getState().pendingChoice && (
+                            <View style={styles.choiceContainer}>
+                                <View style={styles.choicePrompt}>
+                                    <Ionicons name="help-circle" size={20} color={colors.primary[400]} />
+                                    <Text style={styles.choicePromptText}>
+                                        {useGameStore.getState().pendingChoice?.prompt}
+                                    </Text>
+                                </View>
+                                {useGameStore.getState().pendingChoice?.options && useGameStore.getState().pendingChoice!.options!.length > 0 ? (
+                                    <View style={styles.choiceButtons}>
+                                        {useGameStore.getState().pendingChoice!.options!.map((option, index) => (
+                                            <TouchableOpacity
+                                                key={index}
+                                                style={styles.choiceButton}
+                                                onPress={() => {
+                                                    handleSend(option);
+                                                    useGameStore.getState().setPendingChoice(null);
+                                                }}
+                                            >
+                                                <Text style={styles.choiceButtonText}>• {option}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                ) : (
+                                    <Text style={styles.choiceFreeformHint}>
+                                        Type your response below
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+
                         {/* Chat Input */}
                         <ChatInput
                             onSend={handleSend}
@@ -798,5 +830,47 @@ const createStyles = (colors: any) => StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 5,
+    },
+    choiceContainer: {
+        backgroundColor: colors.background.secondary,
+        marginHorizontal: spacing.md,
+        marginBottom: spacing.sm,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.primary[600] + '40',
+    },
+    choicePrompt: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        gap: spacing.sm,
+        marginBottom: spacing.sm,
+    },
+    choicePromptText: {
+        flex: 1,
+        color: colors.text.primary,
+        fontSize: typography.fontSize.md,
+        fontWeight: '600' as const,
+    },
+    choiceButtons: {
+        gap: spacing.sm,
+    },
+    choiceButton: {
+        backgroundColor: colors.primary[700],
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.primary[500],
+    },
+    choiceButtonText: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.md,
+    },
+    choiceFreeformHint: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
+        fontStyle: 'italic' as const,
+        textAlign: 'center' as const,
     },
 });

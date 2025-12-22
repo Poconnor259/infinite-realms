@@ -58,6 +58,11 @@ interface GameState {
     messages: Message[];
     isLoading: boolean;
     error: string | null;
+    pendingChoice: {
+        prompt: string;
+        options?: string[];
+        choiceType: string;
+    } | null;
 
     // Actions
     setCurrentCampaign: (campaign: Campaign | null) => void;
@@ -67,6 +72,7 @@ interface GameState {
     setError: (error: string | null) => void;
     updateModuleState: (updates: Partial<ModuleState>) => void;
     clearMessages: () => void;
+    setPendingChoice: (choice: { prompt: string; options?: string[]; choiceType: string } | null) => void;
 
     // Game logic
     processUserInput: (input: string) => Promise<void>;
@@ -78,6 +84,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     messages: [],
     isLoading: false,
     error: null,
+    pendingChoice: null,
 
     setCurrentCampaign: (campaign) => {
         set({ currentCampaign: campaign });
@@ -117,6 +124,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     },
 
     clearMessages: () => set({ messages: [] }),
+
+    setPendingChoice: (choice) => set({ pendingChoice: choice }),
 
     processUserInput: async (input: string) => {
         const state = get();
@@ -210,6 +219,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     messages: [...newMessages, narratorMessage],
                     currentCampaign: updatedCampaign,
                     isLoading: false,
+                    pendingChoice: result.data.requiresUserInput && result.data.pendingChoice
+                        ? result.data.pendingChoice
+                        : null,
                 };
             });
 
