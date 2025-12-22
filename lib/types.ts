@@ -436,6 +436,7 @@ export interface ModelDefinition {
     id: string;
     name: string;
     provider: 'openai' | 'anthropic' | 'google';
+    contextWindow?: number; // Context window size in tokens
     defaultPricing?: {
         prompt: number; // Cost per 1M tokens
         completion: number;

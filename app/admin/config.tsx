@@ -334,7 +334,19 @@ export default function AdminConfigScreen() {
                                         setBrainDropdownOpen(false);
                                     }}
                                 >
-                                    <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                            <View style={[styles.providerBadge, { backgroundColor: model.provider === 'openai' ? '#10a37f20' : model.provider === 'anthropic' ? '#d9775720' : '#4285f420' }]}>
+                                                <Text style={[styles.providerBadgeText, { color: model.provider === 'openai' ? '#10a37f' : model.provider === 'anthropic' ? '#d97757' : '#4285f4' }]}>
+                                                    {model.provider === 'openai' ? 'OpenAI' : model.provider === 'anthropic' ? 'Anthropic' : 'Google'}
+                                                </Text>
+                                            </View>
+                                            {model.contextWindow && (
+                                                <Text style={styles.modelMetaText}>{(model.contextWindow / 1000).toFixed(0)}K context</Text>
+                                            )}
+                                        </View>
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -366,7 +378,19 @@ export default function AdminConfigScreen() {
                                         setVoiceDropdownOpen(false);
                                     }}
                                 >
-                                    <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                                            <View style={[styles.providerBadge, { backgroundColor: model.provider === 'openai' ? '#10a37f20' : model.provider === 'anthropic' ? '#d9775720' : '#4285f420' }]}>
+                                                <Text style={[styles.providerBadgeText, { color: model.provider === 'openai' ? '#10a37f' : model.provider === 'anthropic' ? '#d97757' : '#4285f4' }]}>
+                                                    {model.provider === 'openai' ? 'OpenAI' : model.provider === 'anthropic' ? 'Anthropic' : 'Google'}
+                                                </Text>
+                                            </View>
+                                            {model.contextWindow && (
+                                                <Text style={styles.modelMetaText}>{(model.contextWindow / 1000).toFixed(0)}K context</Text>
+                                            )}
+                                        </View>
+                                    </View>
                                 </TouchableOpacity>
                             ))}
                         </View>
@@ -831,5 +855,18 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: '#000',
         fontWeight: 'bold',
         fontSize: typography.fontSize.sm,
+    },
+    providerBadge: {
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 2,
+        borderRadius: borderRadius.sm,
+    },
+    providerBadgeText: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: '600',
+    },
+    modelMetaText: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
     },
 });
