@@ -13,7 +13,11 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, index }: MessageBubbleProps) {
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
-    const isBlueBox = message.content.includes('『') || message.content.includes('[DAILY QUEST]');
+
+    // Ensure content is always a string to prevent React error #31
+    const content = typeof message.content === 'string' ? message.content : String(message.content ?? '');
+
+    const isBlueBox = content.includes('『') || content.includes('[DAILY QUEST]');
     const alternatingColors = useSettingsStore((state) => state.alternatingColors);
 
     const { colors, isDark } = useThemeColors();
@@ -90,7 +94,7 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
                 </View>
             )}
             <View style={[styles.bubble, getBubbleStyle()]}>
-                {formatContent(message.content)}
+                {formatContent(content)}
             </View>
         </View>
     );

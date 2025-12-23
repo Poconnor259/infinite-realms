@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { getPrompt } from './promptHelper';
+import { getPrompt, getStateReportPrompt } from './promptHelper';
 
 // ==================== TYPES ====================
 
@@ -21,6 +21,39 @@ interface VoiceInput {
 interface VoiceOutput {
     success: boolean;
     narrative?: string;
+    stateReport?: {
+        resources?: {
+            health?: { current?: number; max?: number };
+            nanites?: { current?: number; max?: number };
+            mana?: { current?: number; max?: number };
+            stamina?: { current?: number; max?: number };
+            focus?: { current?: number; max?: number };
+            spirit?: { current?: number; max?: number };
+        };
+        inventory?: {
+            added?: string[];
+            removed?: string[];
+        };
+        abilities?: {
+            added?: string[];
+            removed?: string[];
+        };
+        party?: {
+            joined?: string[];
+            left?: string[];
+        };
+        key_npcs?: {
+            met?: string[];
+            info?: Record<string, string>;
+        };
+        quests?: {
+            started?: string[];
+            completed?: string[];
+            failed?: string[];
+        };
+        gold?: number;
+        experience?: number;
+    };
     usage?: {
         promptTokens: number;
         completionTokens: number;
@@ -124,7 +157,11 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             }
         }
 
-        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.';
+        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
+
+        // Append state report instructions from Firestore (editable via admin)
+        const stateReportPrompt = await getStateReportPrompt();
+        cueText += stateReportPrompt;
 
         let narrative: string | null = null;
         let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
@@ -140,7 +177,17 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             });
 
             // Convert history to Gemini format
-            const history = chatHistory.map(msg => ({
+            // Filter to only user/assistant messages and ensure first message is 'user'
+            const filteredHistory = chatHistory.filter(msg =>
+                msg.role === 'user' || msg.role === 'assistant' || msg.role === 'narrator'
+            );
+
+            // Gemini requires first message to be 'user' role
+            // Find first user message index and start from there
+            const firstUserIdx = filteredHistory.findIndex(msg => msg.role === 'user');
+            const validHistory = firstUserIdx >= 0 ? filteredHistory.slice(firstUserIdx) : [];
+
+            const history = validHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }],
             }));
@@ -242,9 +289,31 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             };
         }
 
+        // Parse state report from narrative (hidden from player)
+        let stateReport: VoiceOutput['stateReport'] = undefined;
+        let cleanNarrative = narrative;
+
+        const reportMatch = narrative.match(/---STATE_REPORT---\s*([\s\S]*?)\s*---END_REPORT---/);
+        if (reportMatch) {
+            // Extract the JSON and remove from narrative
+            const reportJson = reportMatch[1].trim();
+            cleanNarrative = narrative.replace(/---STATE_REPORT---[\s\S]*?---END_REPORT---/, '').trim();
+
+            try {
+                stateReport = JSON.parse(reportJson);
+                console.log('[Voice] Parsed state report:', stateReport);
+            } catch (parseError) {
+                console.warn('[Voice] Failed to parse state report:', reportJson);
+                // Continue without state report - not critical
+            }
+        } else {
+            console.log('[Voice] No state report found in response');
+        }
+
         return {
             success: true,
-            narrative,
+            narrative: cleanNarrative,
+            stateReport,
             usage
         };
 

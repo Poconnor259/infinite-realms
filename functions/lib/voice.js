@@ -80,7 +80,10 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 cueText += `- ${key}: ${JSON.stringify(value)}\n`;
             }
         }
-        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.';
+        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
+        // Append state report instructions from Firestore (editable via admin)
+        const stateReportPrompt = await (0, promptHelper_1.getStateReportPrompt)();
+        cueText += stateReportPrompt;
         let narrative = null;
         let usage;
         console.log(`[Voice] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length})`);
@@ -92,7 +95,13 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 systemInstruction: systemPrompt,
             });
             // Convert history to Gemini format
-            const history = chatHistory.map(msg => ({
+            // Filter to only user/assistant messages and ensure first message is 'user'
+            const filteredHistory = chatHistory.filter(msg => msg.role === 'user' || msg.role === 'assistant' || msg.role === 'narrator');
+            // Gemini requires first message to be 'user' role
+            // Find first user message index and start from there
+            const firstUserIdx = filteredHistory.findIndex(msg => msg.role === 'user');
+            const validHistory = firstUserIdx >= 0 ? filteredHistory.slice(firstUserIdx) : [];
+            const history = validHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }],
             }));
@@ -178,9 +187,30 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 error: 'No text content in Voice response',
             };
         }
+        // Parse state report from narrative (hidden from player)
+        let stateReport = undefined;
+        let cleanNarrative = narrative;
+        const reportMatch = narrative.match(/---STATE_REPORT---\s*([\s\S]*?)\s*---END_REPORT---/);
+        if (reportMatch) {
+            // Extract the JSON and remove from narrative
+            const reportJson = reportMatch[1].trim();
+            cleanNarrative = narrative.replace(/---STATE_REPORT---[\s\S]*?---END_REPORT---/, '').trim();
+            try {
+                stateReport = JSON.parse(reportJson);
+                console.log('[Voice] Parsed state report:', stateReport);
+            }
+            catch (parseError) {
+                console.warn('[Voice] Failed to parse state report:', reportJson);
+                // Continue without state report - not critical
+            }
+        }
+        else {
+            console.log('[Voice] No state report found in response');
+        }
         return {
             success: true,
-            narrative,
+            narrative: cleanNarrative,
+            stateReport,
             usage
         };
     }

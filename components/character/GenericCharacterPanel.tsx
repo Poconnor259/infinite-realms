@@ -113,12 +113,24 @@ export function GenericCharacterPanel({ character, worldType }: GenericCharacter
                 <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Resources</Text>
                     {gameEngine.resources.map((resourceDef) => {
-                        const resourceData = character.resources?.[resourceDef.id] || character[resourceDef.id];
+                        // Map resource IDs to legacy character property names
+                        const legacyMapping: Record<string, string> = {
+                            'health': 'hp',
+                            'stamina': 'spirit',
+                        };
+                        const legacyKey = legacyMapping[resourceDef.id] || resourceDef.id;
+
+                        // Try multiple paths to find resource data
+                        const resourceData =
+                            character.resources?.[resourceDef.id] ||
+                            character[resourceDef.id] ||
+                            character[legacyKey];
+
                         if (!resourceData) return null;
 
-                        const current = resourceData.current || 0;
-                        const max = resourceData.max || 100;
-                        const percentage = (current / max) * 100;
+                        const current = resourceData.current ?? resourceData ?? 0;
+                        const max = resourceData.max ?? 100;
+                        const percentage = max > 0 ? (current / max) * 100 : 0;
 
                         return (
                             <View key={resourceDef.id} style={styles.resourceContainer}>
@@ -135,7 +147,7 @@ export function GenericCharacterPanel({ character, worldType }: GenericCharacter
                                     />
                                 </View>
                                 <Text style={styles.resourceText}>
-                                    {current} / {max}
+                                    {typeof current === 'object' ? current.current : current} / {max}
                                 </Text>
                             </View>
                         );

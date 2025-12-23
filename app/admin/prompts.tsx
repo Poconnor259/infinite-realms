@@ -15,6 +15,7 @@ interface AIPrompts {
     brainPrompt: string;
     voicePrompt: string;
     stateReviewerPrompt: string;
+    stateReportPrompt: string;
     stateReviewerEnabled: boolean;
     stateReviewerModel: string;
     stateReviewerFrequency: number;
@@ -60,6 +61,7 @@ export default function AdminPromptsScreen() {
         brainPrompt: '',
         voicePrompt: '',
         stateReviewerPrompt: '',
+        stateReportPrompt: '',
         stateReviewerEnabled: true,
         stateReviewerModel: 'gpt-4o-mini',
         stateReviewerFrequency: 1,
@@ -105,6 +107,7 @@ export default function AdminPromptsScreen() {
                     brainPrompt: data.brainPrompt || '',
                     voicePrompt: data.voicePrompt || '',
                     stateReviewerPrompt: data.stateReviewerPrompt || '',
+                    stateReportPrompt: data.stateReportPrompt || '',
                     stateReviewerEnabled: data.stateReviewerEnabled ?? true,
                     stateReviewerModel: data.stateReviewerModel || 'gpt-4o-mini',
                     stateReviewerFrequency: data.stateReviewerFrequency ?? 1,
@@ -367,12 +370,37 @@ export default function AdminPromptsScreen() {
                     />
                 </View>
 
-                {/* State Reviewer Section */}
+                {/* State Report Prompt Section (Global Only) - PRIMARY */}
+                {selectedScope === 'global' && (
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <View style={styles.sectionTitleRow}>
+                                <Ionicons name="document-text" size={20} color="#06b6d4" />
+                                <Text style={styles.sectionTitle}>State Report (Voice AI)</Text>
+                            </View>
+                        </View>
+                        <Text style={styles.sectionDescription}>
+                            Instructions appended to Voice AI to generate structured state reports (inventory, resources).
+                            The report is parsed server-side and is NOT shown to the player.
+                        </Text>
+                        <TextInput
+                            style={styles.promptInput}
+                            value={globalPrompts.stateReportPrompt}
+                            onChangeText={(text) => setGlobalPrompts(prev => ({ ...prev, stateReportPrompt: text }))}
+                            multiline
+                            textAlignVertical="top"
+                            placeholder="Enter state report instructions..."
+                            placeholderTextColor={colors.text.muted}
+                        />
+                    </View>
+                )}
+
+                {/* State Reviewer Section - BACKUP */}
                 <View style={styles.section}>
                     <View style={styles.sectionHeader}>
                         <View style={styles.sectionTitleRow}>
                             <Ionicons name="sync" size={20} color="#f59e0b" />
-                            <Text style={styles.sectionTitle}>State Reviewer</Text>
+                            <Text style={styles.sectionTitle}>State Reviewer (Backup)</Text>
                         </View>
                         {selectedScope === 'global' && (
                             <View style={styles.overrideToggle}>
@@ -396,7 +424,7 @@ export default function AdminPromptsScreen() {
                         )}
                     </View>
                     <Text style={styles.sectionDescription}>
-                        Reviews narrative to maintain state consistency (inventory, HP, etc.)
+                        Optional backup: Reviews narrative to catch any state changes missed by Voice AI.
                     </Text>
 
                     {selectedScope === 'global' && (

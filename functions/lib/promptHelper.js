@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.initPromptHelper = initPromptHelper;
 exports.getPrompt = getPrompt;
 exports.getStateReviewerSettings = getStateReviewerSettings;
+exports.getStateReportPrompt = getStateReportPrompt;
 exports.seedAIPrompts = seedAIPrompts;
 const admin = __importStar(require("firebase-admin"));
 // ==================== DEFAULT PROMPTS ====================
@@ -132,6 +133,36 @@ Return a JSON object with only the fields that changed:
   },
   "reasoning": "Brief explanation of what changed"
 }`;
+const DEFAULT_STATE_REPORT_PROMPT = `IMPORTANT: After your narrative, append a STATE REPORT section. This is used to track game state and is NOT shown to the player.
+
+Format:
+---STATE_REPORT---
+{
+  "resources": {
+    "health": {"current": X, "max": Y},
+    "nanites": {"current": X, "max": Y},
+    "mana": {"current": X, "max": Y},
+    "stamina": {"current": X, "max": Y}
+  },
+  "inventory": {
+    "added": ["item1", "item2"],
+    "removed": ["item3"]
+  },
+  "abilities": {
+    "added": ["ability1"],
+    "removed": []
+  },
+  "gold": 100,
+  "experience": 50
+}
+---END_REPORT---
+
+RULES:
+- ONLY include fields that CHANGED during this turn
+- If nothing changed, use empty object: {}
+- For "added" inventory: items PICKED UP, CRAFTED, RECEIVED, or PURCHASED
+- For "removed" inventory: items USED, DROPPED, SOLD, or DESTROYED
+- For resources: report the NEW values after changes (not the delta)`;
 // World-specific brain prompts
 const WORLD_BRAIN_PROMPTS = {
     classic: `You are the LOGIC ENGINE for a D&D 5th Edition RPG.
@@ -296,6 +327,26 @@ function getDefaultPrompt(type, worldId) {
         return DEFAULT_STATE_REVIEWER_PROMPT;
     }
 }
+/**
+ * Get state report prompt from Firestore
+ * This is the instruction appended to Voice AI to generate state reports
+ */
+async function getStateReportPrompt() {
+    if (!db) {
+        return DEFAULT_STATE_REPORT_PROMPT;
+    }
+    try {
+        const globalDoc = await db.collection('aiPrompts').doc('global').get();
+        if (globalDoc.exists) {
+            const data = globalDoc.data();
+            return data.stateReportPrompt || DEFAULT_STATE_REPORT_PROMPT;
+        }
+    }
+    catch (error) {
+        console.error('[PromptHelper] Error fetching state report prompt:', error);
+    }
+    return DEFAULT_STATE_REPORT_PROMPT;
+}
 // ==================== SEED FUNCTION ====================
 /**
  * Seed the aiPrompts collection with initial data
@@ -308,6 +359,7 @@ async function seedAIPrompts(firestore) {
         brainPrompt: DEFAULT_BRAIN_PROMPT,
         voicePrompt: DEFAULT_VOICE_PROMPT,
         stateReviewerPrompt: DEFAULT_STATE_REVIEWER_PROMPT,
+        stateReportPrompt: DEFAULT_STATE_REPORT_PROMPT,
         stateReviewerEnabled: true,
         stateReviewerModel: 'gpt-4o-mini',
         stateReviewerFrequency: 1,

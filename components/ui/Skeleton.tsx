@@ -1,6 +1,9 @@
 import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, type ViewStyle, type DimensionValue } from 'react-native';
+import { Animated, StyleSheet, View, Platform, type ViewStyle, type DimensionValue } from 'react-native';
 import { colors, borderRadius, spacing } from '../../lib/theme';
+
+// useNativeDriver is not supported on web
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface SkeletonProps {
     width?: DimensionValue;
@@ -26,12 +29,12 @@ export function Skeleton({
                 Animated.timing(shimmerAnim, {
                     toValue: 1,
                     duration: 1000,
-                    useNativeDriver: true,
+                    useNativeDriver: USE_NATIVE_DRIVER,
                 }),
                 Animated.timing(shimmerAnim, {
                     toValue: 0,
                     duration: 1000,
-                    useNativeDriver: true,
+                    useNativeDriver: USE_NATIVE_DRIVER,
                 }),
             ])
         );

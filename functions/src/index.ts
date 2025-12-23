@@ -426,7 +426,142 @@ export const processGameAction = onCall(
 
             // 6. State Consistency Review (optional - runs based on frequency setting)
             let reviewerResult: any = null;
-            let finalState = brainResult.data.stateUpdates || currentState;
+            // MERGE stateUpdates into currentState to preserve character data
+            let finalState = {
+                ...currentState,
+                ...(brainResult.data.stateUpdates || {})
+            };
+
+            // 6a. Apply Voice stateReport if available (more reliable than third AI parsing)
+            if (voiceResult.stateReport) {
+                console.log('[Voice StateReport] Applying:', voiceResult.stateReport);
+
+                // Apply resource changes
+                if (voiceResult.stateReport.resources) {
+                    for (const [key, value] of Object.entries(voiceResult.stateReport.resources)) {
+                        if (value && typeof value === 'object') {
+                            const currentResource = (finalState[key] as any) || { current: 100, max: 100 };
+                            finalState[key] = {
+                                current: value.current ?? currentResource.current,
+                                max: value.max ?? currentResource.max
+                            };
+                        }
+                    }
+                }
+
+                // Apply inventory changes
+                if (voiceResult.stateReport.inventory) {
+                    const currentInventory = (finalState.inventory as string[]) || [];
+                    let updatedInventory = [...currentInventory];
+
+                    if (voiceResult.stateReport.inventory.added) {
+                        updatedInventory.push(...voiceResult.stateReport.inventory.added);
+                    }
+                    if (voiceResult.stateReport.inventory.removed) {
+                        updatedInventory = updatedInventory.filter(
+                            item => !voiceResult.stateReport!.inventory!.removed!.includes(item)
+                        );
+                    }
+                    finalState.inventory = updatedInventory;
+                }
+
+                // Apply ability changes
+                if (voiceResult.stateReport.abilities) {
+                    const currentAbilities = (finalState.abilities as string[]) || [];
+                    let updatedAbilities = [...currentAbilities];
+
+                    if (voiceResult.stateReport.abilities.added) {
+                        updatedAbilities.push(...voiceResult.stateReport.abilities.added);
+                    }
+                    if (voiceResult.stateReport.abilities.removed) {
+                        updatedAbilities = updatedAbilities.filter(
+                            ability => !voiceResult.stateReport!.abilities!.removed!.includes(ability)
+                        );
+                    }
+                    finalState.abilities = updatedAbilities;
+                }
+
+                // Apply party changes
+                if (voiceResult.stateReport.party) {
+                    const currentParty = (finalState.partyMembers as string[]) || [];
+                    let updatedParty = [...currentParty];
+
+                    if (voiceResult.stateReport.party.joined) {
+                        updatedParty.push(...voiceResult.stateReport.party.joined);
+                    }
+                    if (voiceResult.stateReport.party.left) {
+                        updatedParty = updatedParty.filter(
+                            member => !voiceResult.stateReport!.party!.left!.includes(member)
+                        );
+                    }
+                    finalState.partyMembers = updatedParty;
+                }
+
+                // Apply key NPCs changes
+                if (voiceResult.stateReport.key_npcs) {
+                    const currentNpcs = (finalState.keyNpcs as Record<string, any>) || {};
+
+                    // Add newly met NPCs
+                    if (voiceResult.stateReport.key_npcs.met) {
+                        for (const npc of voiceResult.stateReport.key_npcs.met) {
+                            if (!currentNpcs[npc]) {
+                                currentNpcs[npc] = { met: true };
+                            }
+                        }
+                    }
+                    // Update NPC info
+                    if (voiceResult.stateReport.key_npcs.info) {
+                        for (const [npc, info] of Object.entries(voiceResult.stateReport.key_npcs.info)) {
+                            currentNpcs[npc] = {
+                                ...(currentNpcs[npc] || {}),
+                                info,
+                                lastUpdated: new Date().toISOString()
+                            };
+                        }
+                    }
+                    finalState.keyNpcs = currentNpcs;
+                }
+
+                // Apply quest changes
+                if (voiceResult.stateReport.quests) {
+                    const currentQuests = (finalState.quests as Record<string, any>) || {};
+
+                    if (voiceResult.stateReport.quests.started) {
+                        for (const quest of voiceResult.stateReport.quests.started) {
+                            currentQuests[quest] = { status: 'active', startedAt: new Date().toISOString() };
+                        }
+                    }
+                    if (voiceResult.stateReport.quests.completed) {
+                        for (const quest of voiceResult.stateReport.quests.completed) {
+                            if (currentQuests[quest]) {
+                                currentQuests[quest].status = 'completed';
+                                currentQuests[quest].completedAt = new Date().toISOString();
+                            } else {
+                                currentQuests[quest] = { status: 'completed', completedAt: new Date().toISOString() };
+                            }
+                        }
+                    }
+                    if (voiceResult.stateReport.quests.failed) {
+                        for (const quest of voiceResult.stateReport.quests.failed) {
+                            if (currentQuests[quest]) {
+                                currentQuests[quest].status = 'failed';
+                                currentQuests[quest].failedAt = new Date().toISOString();
+                            } else {
+                                currentQuests[quest] = { status: 'failed', failedAt: new Date().toISOString() };
+                            }
+                        }
+                    }
+                    finalState.quests = currentQuests;
+                }
+
+                // Apply gold/experience
+                if (voiceResult.stateReport.gold !== undefined) {
+                    finalState.gold = voiceResult.stateReport.gold;
+                }
+                if (voiceResult.stateReport.experience !== undefined) {
+                    finalState.experience = voiceResult.stateReport.experience;
+                }
+            }
 
             try {
                 // Get turn number from chat history (each user+assistant pair = 1 turn)

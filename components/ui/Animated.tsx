@@ -3,11 +3,15 @@ import {
     Animated,
     Pressable,
     StyleSheet,
+    Platform,
     type ViewStyle,
     type StyleProp,
     type PressableProps,
 } from 'react-native';
 import { lightHaptic } from '../../lib/haptics';
+
+// useNativeDriver is not supported on web
+const USE_NATIVE_DRIVER = Platform.OS !== 'web';
 
 interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
     style?: StyleProp<ViewStyle>;
@@ -34,7 +38,7 @@ export function AnimatedPressable({
     const handlePressIn = (e: any) => {
         Animated.spring(scale, {
             toValue: scaleValue,
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
             speed: 50,
             bounciness: 4,
         }).start();
@@ -47,7 +51,7 @@ export function AnimatedPressable({
     const handlePressOut = (e: any) => {
         Animated.spring(scale, {
             toValue: 1,
-            useNativeDriver: true,
+            useNativeDriver: USE_NATIVE_DRIVER,
             speed: 50,
             bounciness: 4,
         }).start();
@@ -93,13 +97,13 @@ export function FadeInView({
                 toValue: 1,
                 duration,
                 delay,
-                useNativeDriver: true,
+                useNativeDriver: USE_NATIVE_DRIVER,
             }),
             Animated.timing(translateY, {
                 toValue: 0,
                 duration,
                 delay,
-                useNativeDriver: true,
+                useNativeDriver: USE_NATIVE_DRIVER,
             }),
         ]).start();
     }, [fadeAnim, translateY, delay, duration]);
@@ -167,12 +171,12 @@ export function PulseView({
                     Animated.timing(pulseAnim, {
                         toValue: 1.05,
                         duration: 800,
-                        useNativeDriver: true,
+                        useNativeDriver: USE_NATIVE_DRIVER,
                     }),
                     Animated.timing(pulseAnim, {
                         toValue: 1,
                         duration: 800,
-                        useNativeDriver: true,
+                        useNativeDriver: USE_NATIVE_DRIVER,
                     }),
                 ])
             );

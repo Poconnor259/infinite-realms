@@ -24,6 +24,7 @@ import { HPBar } from '../../components/hud/HPBar';
 import { StatRow, ResourceBar } from '../../components/hud/StatCard';
 import { CharacterPanel } from '../../components/character/CharacterPanel';
 import { Logo } from '../../components/ui/Logo';
+import { normalizeCharacter } from '../../lib/normalizeCharacter';
 import type { Message, WorldModuleType, ClassicModuleState, OutworlderModuleState, TacticalModuleState } from '../../lib/types';
 
 const getWorldInfo = (colors: any): Record<string, { name: string; icon: string; color: string }> => {
@@ -128,11 +129,9 @@ export default function CampaignScreen() {
     useEffect(() => {
         if (!id || isUserLoading || !user) return;
 
-        // If we don't have a campaign, or it's the wrong one, load it
-        if (!currentCampaign || currentCampaign.id !== id) {
-            loadCampaign(id);
-        }
-    }, [id, currentCampaign, loadCampaign, isUserLoading, user]);
+        // Load campaign when id changes (but not when campaign object changes)
+        loadCampaign(id);
+    }, [id, isUserLoading, user, loadCampaign]);
 
     const [hudExpanded, setHudExpanded] = useState(true);
     const hudAnimation = useRef(new Animated.Value(1)).current;
@@ -232,128 +231,13 @@ export default function CampaignScreen() {
         icon: '🌍',
         color: colors.text.muted
     };
-    const character = currentCampaign.character;
+    const rawCharacter = currentCampaign.character || (currentCampaign.moduleState as any)?.character;
+    const character = normalizeCharacter(rawCharacter, currentCampaign.worldModule);
     const moduleState = currentCampaign.moduleState;
-
-    // Render module-specific HUD
-    const renderModuleHud = () => {
-        switch (moduleState.type as any) {
-            case 'classic':
-                const classicState = moduleState as ClassicModuleState;
-                return (
-                    <View style={styles.moduleHud}>
-                        <View style={styles.hudRow}>
-                            <View style={styles.hudStat}>
-                                <Text style={styles.hudLabel}>AC</Text>
-                                <Text style={styles.hudValue}>{classicState.character?.ac ?? 10}</Text>
-                            </View>
-                            <View style={styles.hudStat}>
-                                <Text style={styles.hudLabel}>Gold</Text>
-                                <Text style={[styles.hudValue, { color: colors.gold.main }]}>
-                                    {classicState.character?.gold ?? 0}
-                                </Text>
-                            </View>
-                            <View style={styles.hudStat}>
-                                <Text style={styles.hudLabel}>Prof</Text>
-                                <Text style={styles.hudValue}>+{classicState.character?.proficiencyBonus ?? 2}</Text>
-                            </View>
-                        </View>
-                    </View>
-                );
-
-            case 'outworlder':
-                const outworlderState = moduleState as OutworlderModuleState;
-                return (
-                    <View style={styles.moduleHud}>
-                        <View style={styles.hudRow}>
-                            <View style={[styles.rankBadge, { borderColor: worldInfo.color }]}>
-                                <Text style={[styles.rankText, { color: worldInfo.color }]}>
-                                    {outworlderState.character?.rank ?? 'Iron'}
-                                </Text>
-                            </View>
-                            <View style={styles.essences}>
-                                {(outworlderState.character?.essences || []).map((essence, i) => (
-                                    <View key={i} style={styles.essenceBadge}>
-                                        <Text style={styles.essenceText}>{essence}</Text>
-                                    </View>
-                                ))}
-                            </View>
-                        </View>
-                        {outworlderState.character?.mana && (
-                            <ResourceBar
-                                label="Mana"
-                                current={outworlderState.character.mana.current}
-                                max={outworlderState.character.mana.max}
-                                color="#3b82f6"
-                                icon="💧"
-                            />
-                        )}
-                        {outworlderState.character?.spirit && (
-                            <ResourceBar
-                                label="Spirit"
-                                current={outworlderState.character.spirit.current}
-                                max={outworlderState.character.spirit.max}
-                                color="#a855f7"
-                                icon="✨"
-                            />
-                        )}
-                    </View>
-                );
-
-            case 'tactical':
-            case 'shadowMonarch':
-                const tacticalState = moduleState as TacticalModuleState;
-                return (
-                    <View style={styles.moduleHud}>
-                        <View style={styles.hudRow}>
-                            <View style={styles.jobBadge}>
-                                <Text style={styles.jobText}>{tacticalState.character?.job ?? 'Recruit'}</Text>
-                            </View>
-                            {tacticalState.character?.title && (
-                                <View style={styles.titleBadge}>
-                                    <Text style={styles.titleText}>{tacticalState.character.title}</Text>
-                                </View>
-                            )}
-                        </View>
-                        {tacticalState.character?.mana && (
-                            <ResourceBar
-                                label="Tactical Energy"
-                                current={tacticalState.character.mana.current}
-                                max={tacticalState.character.mana.max}
-                                color="#3b82f6"
-                                icon="⚡"
-                            />
-                        )}
-                        {tacticalState.character?.fatigue && (
-                            <ResourceBar
-                                label="Fatigue Status"
-                                current={tacticalState.character.fatigue.current}
-                                max={tacticalState.character.fatigue.max}
-                                color="#f59e0b"
-                                icon="🔋"
-                            />
-                        )}
-                        <View style={styles.tacticalSquadPreview}>
-                            <Text style={styles.tacticalSquadLabel}>
-                                👥 Tactical Squad: {tacticalState.character?.tacticalSquad?.length ?? 0}
-                            </Text>
-                        </View>
-                    </View>
-                );
-
-            default:
-                return null;
-        }
-    };
 
     const renderMessage = ({ item, index }: { item: Message; index: number }) => (
         <MessageBubble message={item} index={index} />
     );
-
-    const hudHeight = hudAnimation.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, 200],
-    });
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -429,30 +313,6 @@ export default function CampaignScreen() {
                                 </TouchableOpacity>
                             </View>
                         )}
-
-                        {/* Collapsible HUD */}
-                        <Animated.View style={[styles.hudContainer, { maxHeight: hudHeight, opacity: hudAnimation }]}>
-                            <View style={styles.hpSection}>
-                                <HPBar
-                                    current={character.hp.current}
-                                    max={character.hp.max}
-                                    size="md"
-                                />
-                            </View>
-                            {renderModuleHud()}
-                        </Animated.View>
-
-                        {/* HUD Toggle */}
-                        <TouchableOpacity
-                            style={styles.hudToggle}
-                            onPress={toggleHud}
-                        >
-                            <Ionicons
-                                name={hudExpanded ? 'chevron-up' : 'chevron-down'}
-                                size={20}
-                                color={colors.text.muted}
-                            />
-                        </TouchableOpacity>
 
                         {/* Chat Messages */}
                         <FlatList
@@ -542,7 +402,7 @@ export default function CampaignScreen() {
                 </View>
                 )}
             </View>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
