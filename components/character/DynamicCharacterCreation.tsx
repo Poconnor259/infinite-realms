@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Switch, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Switch, Image, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable } from '../ui/Animated';
+import { CharacterImport } from './CharacterImport';
+import { ESSENCES, getRarityColor, type Essence } from '../../lib/essences';
 import { generateText } from '../../lib/firebase';
 import type { GameEngine, ModuleCharacter, FormFieldDefinition } from '../../lib/types';
 
@@ -23,6 +25,15 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
     const [generatingField, setGeneratingField] = useState<string | null>(null);
     const [isCreating, setIsCreating] = useState(false);
     const [errors, setErrors] = useState<Record<string, string>>({});
+    const [showImport, setShowImport] = useState(false);
+
+    // Essence selection state (for Outworlder)
+    const [essenceMode, setEssenceMode] = useState<'random' | 'choose'>('random');
+    const [selectedEssence, setSelectedEssence] = useState<Essence | null>(null);
+    const [showEssenceDropdown, setShowEssenceDropdown] = useState(false);
+
+    // Check if this is an Outworlder-type world
+    const isOutworlder = engine.id === 'outworlder' || engine.name?.toLowerCase().includes('outworlder');
 
     // Initialize stats with default values
     useEffect(() => {
@@ -50,7 +61,7 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
             });
             setFormData(initialData);
         }
-    }, [engine]);
+    }, [engine.id]); // Only re-run if engine ID changes, not the whole object
 
     const handleStatChange = (statId: string, delta: number) => {
         const stat = engine.stats?.find(s => s.id === statId);
@@ -135,6 +146,26 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
             character[key] = formData[key];
         });
 
+        // Add essence data for Outworlder
+        if (isOutworlder) {
+            if (essenceMode === 'choose' && selectedEssence) {
+                // Player chose a specific essence - skip AI prompt
+                character.essences = [selectedEssence.name];
+                character.essenceSelection = 'chosen';
+                character.rank = 'Iron';
+                // Add mana/spirit for Outworlder
+                character.mana = { current: 100, max: 100 };
+                character.spirit = { current: 100, max: 100 };
+            } else {
+                // Random mode - let AI present options during gameplay
+                character.essenceSelection = 'random';
+                character.essences = [];
+                character.rank = 'Iron';
+                character.mana = { current: 100, max: 100 };
+                character.spirit = { current: 100, max: 100 };
+            }
+        }
+
         onComplete(character);
     }
 
@@ -175,22 +206,163 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
         }
     };
 
+    const handleImport = (data: any) => {
+        // Apply imported stats
+        if (data.stats && engine.stats) {
+            const importedStats: Record<string, number> = {};
+            engine.stats.forEach(stat => {
+                // Try to match stat by ID or name
+                const value = data.stats[stat.id] || data.stats[stat.name.toLowerCase()] || stat.default;
+                importedStats[stat.id] = value;
+            });
+            setStats(importedStats);
+        }
+
+        // Apply imported form data
+        if (engine.creationFields) {
+            const importedFormData: Record<string, any> = { ...formData };
+            engine.creationFields.forEach(field => {
+                if (data[field.id] !== undefined) {
+                    importedFormData[field.id] = data[field.id];
+                }
+            });
+            setFormData(importedFormData);
+        }
+
+        // Handle imported essences for Outworlder
+        if (isOutworlder && data.essences && Array.isArray(data.essences) && data.essences.length > 0) {
+            // Find matching essence from our list
+            const firstEssenceName = data.essences[0];
+            const matchedEssence = ESSENCES.find(e =>
+                e.name.toLowerCase() === firstEssenceName.toLowerCase()
+            );
+
+            if (matchedEssence) {
+                setSelectedEssence(matchedEssence);
+            } else {
+                // Create a custom essence entry for imported essences not in our list
+                setSelectedEssence({
+                    name: firstEssenceName,
+                    rarity: 'Uncommon',
+                    category: 'Concept'
+                });
+            }
+            // Switch to choose mode since we have a specific essence
+            setEssenceMode('choose');
+        }
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: colors.background.primary }]}>
             <ScrollView style={styles.scrollView} contentContainerStyle={styles.content}>
                 {/* Header */}
                 <View style={styles.header}>
-                    <TouchableOpacity onPress={onBack} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                    <View style={styles.headerLeft}>
+                        <TouchableOpacity onPress={onBack} style={styles.backButton}>
+                            <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                        </TouchableOpacity>
+                        <Text style={[styles.title, { color: colors.text.primary }]}>
+                            Create {characterName}
+                        </Text>
+                    </View>
+                    <TouchableOpacity
+                        onPress={() => setShowImport(true)}
+                        style={[styles.importButton, { backgroundColor: colors.primary[900] + '40', borderColor: colors.primary[400] }]}
+                    >
+                        <Ionicons name="cloud-upload" size={18} color={colors.primary[400]} />
+                        <Text style={[styles.importButtonText, { color: colors.primary[400] }]}>Import</Text>
                     </TouchableOpacity>
-                    <Text style={[styles.title, { color: colors.text.primary }]}>
-                        Create {characterName}
-                    </Text>
                 </View>
 
                 <Text style={[styles.subtitle, { color: colors.text.secondary }]}>
                     {engine.name} Character
                 </Text>
+
+                {/* Essence Selection (Outworlder only) */}
+                {isOutworlder && (
+                    <View style={styles.section}>
+                        <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Starting Essence</Text>
+
+                        {/* Mode Toggle */}
+                        <View style={styles.essenceModeRow}>
+                            <TouchableOpacity
+                                style={[
+                                    styles.essenceModeButton,
+                                    essenceMode === 'random' && { backgroundColor: colors.primary[500] },
+                                    essenceMode !== 'random' && { backgroundColor: colors.background.secondary, borderColor: colors.border.default, borderWidth: 1 }
+                                ]}
+                                onPress={() => { setEssenceMode('random'); setSelectedEssence(null); }}
+                            >
+                                <Ionicons
+                                    name="shuffle"
+                                    size={18}
+                                    color={essenceMode === 'random' ? '#fff' : colors.text.secondary}
+                                />
+                                <Text style={[
+                                    styles.essenceModeText,
+                                    { color: essenceMode === 'random' ? '#fff' : colors.text.primary }
+                                ]}>
+                                    Discover In-Game
+                                </Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={[
+                                    styles.essenceModeButton,
+                                    essenceMode === 'choose' && { backgroundColor: colors.primary[500] },
+                                    essenceMode !== 'choose' && { backgroundColor: colors.background.secondary, borderColor: colors.border.default, borderWidth: 1 }
+                                ]}
+                                onPress={() => setEssenceMode('choose')}
+                            >
+                                <Ionicons
+                                    name="list"
+                                    size={18}
+                                    color={essenceMode === 'choose' ? '#fff' : colors.text.secondary}
+                                />
+                                <Text style={[
+                                    styles.essenceModeText,
+                                    { color: essenceMode === 'choose' ? '#fff' : colors.text.primary }
+                                ]}>
+                                    Choose Essence
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <Text style={[styles.essenceHint, { color: colors.text.muted }]}>
+                            {essenceMode === 'random'
+                                ? 'You will choose from options presented during gameplay'
+                                : 'Select your starting essence from the full list'}
+                        </Text>
+
+                        {/* Essence Dropdown (when Choose mode) */}
+                        {essenceMode === 'choose' && (
+                            <TouchableOpacity
+                                style={[
+                                    styles.essenceDropdown,
+                                    {
+                                        backgroundColor: colors.background.secondary,
+                                        borderColor: selectedEssence ? getRarityColor(selectedEssence.rarity) : colors.border.default
+                                    }
+                                ]}
+                                onPress={() => setShowEssenceDropdown(true)}
+                            >
+                                {selectedEssence ? (
+                                    <View style={styles.selectedEssence}>
+                                        <Text style={[styles.essenceName, { color: colors.text.primary }]}>
+                                            {selectedEssence.name}
+                                        </Text>
+                                        <Text style={[styles.essenceRarity, { color: getRarityColor(selectedEssence.rarity) }]}>
+                                            {selectedEssence.rarity}
+                                        </Text>
+                                    </View>
+                                ) : (
+                                    <Text style={{ color: colors.text.muted }}>Tap to select essence...</Text>
+                                )}
+                                <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
 
                 {/* Dynamic Form Fields */}
                 {engine.creationFields && engine.creationFields.length > 0 && (
@@ -524,6 +696,94 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                     </AnimatedPressable>
                 </View>
             </ScrollView>
+
+            {/* Import Modal */}
+            <Modal
+                visible={showImport}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowImport(false)}
+            >
+                <CharacterImport
+                    worldType={engine.id || 'outworlder'}
+                    onImport={handleImport}
+                    onClose={() => setShowImport(false)}
+                />
+            </Modal>
+
+            {/* Essence Picker Modal */}
+            <Modal
+                visible={showEssenceDropdown}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowEssenceDropdown(false)}
+            >
+                <View style={[styles.essenceModalContainer, { backgroundColor: colors.background.primary }]}>
+                    <View style={styles.essenceModalHeader}>
+                        <Text style={[styles.essenceModalTitle, { color: colors.text.primary }]}>
+                            Select Essence
+                        </Text>
+                        <TouchableOpacity onPress={() => setShowEssenceDropdown(false)}>
+                            <Ionicons name="close" size={24} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                    </View>
+
+                    <TextInput
+                        style={[styles.essenceSearch, {
+                            backgroundColor: colors.background.secondary,
+                            color: colors.text.primary,
+                            borderColor: colors.border.default
+                        }]}
+                        placeholder="Search essences..."
+                        placeholderTextColor={colors.text.muted}
+                        value={formData._essenceSearch || ''}
+                        onChangeText={(text) => setFormData(prev => ({ ...prev, _essenceSearch: text }))}
+                    />
+
+                    <ScrollView>
+                        {['Common', 'Uncommon', 'Rare', 'Epic', 'Legendary'].map(rarity => {
+                            const rarityEssences = ESSENCES.filter(e =>
+                                e.rarity === rarity &&
+                                (!formData._essenceSearch || e.name.toLowerCase().includes((formData._essenceSearch || '').toLowerCase()))
+                            );
+                            if (rarityEssences.length === 0) return null;
+
+                            return (
+                                <View key={rarity}>
+                                    <Text style={[styles.essenceGroupTitle, { color: getRarityColor(rarity as any) }]}>
+                                        {rarity}
+                                    </Text>
+                                    {rarityEssences.map(essence => (
+                                        <TouchableOpacity
+                                            key={essence.name}
+                                            style={[
+                                                styles.essenceItem,
+                                                { backgroundColor: colors.background.secondary },
+                                                selectedEssence?.name === essence.name && {
+                                                    borderWidth: 2,
+                                                    borderColor: getRarityColor(essence.rarity)
+                                                }
+                                            ]}
+                                            onPress={() => {
+                                                setSelectedEssence(essence);
+                                                setShowEssenceDropdown(false);
+                                                setFormData(prev => ({ ...prev, _essenceSearch: '' }));
+                                            }}
+                                        >
+                                            <Text style={[styles.essenceItemName, { color: colors.text.primary }]}>
+                                                {essence.name}
+                                            </Text>
+                                            <Text style={[styles.essenceItemRarity, { color: getRarityColor(essence.rarity) }]}>
+                                                {essence.category}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            );
+                        })}
+                    </ScrollView>
+                </View>
+            </Modal>
         </View>
     );
 }
@@ -541,7 +801,13 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         marginBottom: spacing.md,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
     },
     backButton: {
         marginRight: spacing.md,
@@ -553,6 +819,19 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: typography.fontSize.md,
         marginBottom: spacing.xl,
+    },
+    importButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+    },
+    importButtonText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
     },
     section: {
         marginBottom: spacing.xl,
@@ -723,5 +1002,93 @@ const styles = StyleSheet.create({
     errorText: {
         fontSize: typography.fontSize.xs,
         marginTop: spacing.xs,
+    },
+    // Essence selection styles
+    essenceModeRow: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginBottom: spacing.sm,
+    },
+    essenceModeButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.md,
+        borderRadius: borderRadius.md,
+    },
+    essenceModeText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    essenceHint: {
+        fontSize: typography.fontSize.sm,
+        marginBottom: spacing.md,
+        textAlign: 'center',
+    },
+    essenceDropdown: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+    },
+    selectedEssence: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    essenceName: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+    },
+    essenceRarity: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '500',
+    },
+    essenceModalContainer: {
+        flex: 1,
+        padding: spacing.lg,
+    },
+    essenceModalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.md,
+    },
+    essenceModalTitle: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: 'bold',
+    },
+    essenceSearch: {
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        marginBottom: spacing.md,
+        fontSize: typography.fontSize.md,
+    },
+    essenceGroupTitle: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+        marginTop: spacing.md,
+        marginBottom: spacing.sm,
+        paddingHorizontal: spacing.sm,
+    },
+    essenceItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.xs,
+    },
+    essenceItemName: {
+        fontSize: typography.fontSize.md,
+    },
+    essenceItemRarity: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: '500',
     },
 });

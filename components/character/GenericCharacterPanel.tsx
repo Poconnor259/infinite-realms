@@ -44,6 +44,26 @@ export function GenericCharacterPanel({ character, worldType }: GenericCharacter
         }
     };
 
+    // Helper function to safely render any value (prevents React error #418)
+    const safeRenderValue = (value: any): string => {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            return String(value);
+        }
+        if (Array.isArray(value)) {
+            return value.map(v => safeRenderValue(v)).join(', ');
+        }
+        if (typeof value === 'object') {
+            // For objects, try to extract meaningful info
+            if (value.current !== undefined && value.max !== undefined) {
+                return `${value.current}/${value.max}`;
+            }
+            if (value.name) return String(value.name);
+            return JSON.stringify(value);
+        }
+        return String(value);
+    };
+
     // Early return if character data is not available
     if (!character) {
         return (
@@ -99,12 +119,12 @@ export function GenericCharacterPanel({ character, worldType }: GenericCharacter
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Character Header */}
             <View style={styles.header}>
-                <Text style={styles.characterName}>{character.name}</Text>
+                <Text style={styles.characterName}>{safeRenderValue(character.name)}</Text>
                 <Text style={styles.characterSubtitle}>
                     {gameEngine.progression?.type === 'level' && `Level ${character.level || 1}`}
-                    {gameEngine.progression?.type === 'rank' && (character.rank || 'Iron')}
-                    {character.class && ` ${character.class}`}
-                    {character.race && ` ${character.race}`}
+                    {gameEngine.progression?.type === 'rank' && safeRenderValue(character.rank || 'Iron')}
+                    {character.class && ` ${safeRenderValue(character.class)}`}
+                    {character.race && ` ${safeRenderValue(character.race)}`}
                 </Text>
             </View>
 
@@ -204,9 +224,9 @@ export function GenericCharacterPanel({ character, worldType }: GenericCharacter
                     <Text style={styles.sectionTitle}>Abilities</Text>
                     {character.abilities.map((ability: any, idx: number) => (
                         <View key={idx} style={styles.abilityItem}>
-                            <Text style={styles.abilityName}>{ability.name}</Text>
+                            <Text style={styles.abilityName}>{safeRenderValue(ability.name || ability)}</Text>
                             {ability.type && (
-                                <Text style={styles.abilityType}>{ability.type}</Text>
+                                <Text style={styles.abilityType}>{safeRenderValue(ability.type)}</Text>
                             )}
                         </View>
                     ))}

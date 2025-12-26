@@ -690,6 +690,14 @@ export default function AdminConfigScreen() {
                             style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
                         />
                     </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <Text style={styles.configLabel}>Show AI Debug (Admin)</Text>
+                        <Switch
+                            value={config?.systemSettings?.showAdminDebug ?? false}
+                            onValueChange={() => toggleSystemSetting('showAdminDebug')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
                 </View>
             </View>
 

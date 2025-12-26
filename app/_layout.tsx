@@ -47,6 +47,9 @@ export default function RootLayout() {
                 // Sync tier to turns store
                 setTier(userTier);
 
+                // Sync turns used from Firestore
+                useTurnsStore.getState().syncFromFirestore(firebaseUser.uid);
+
                 // Update store
                 useUserStore.getState().setUser({
                     id: firebaseUser.uid,

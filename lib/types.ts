@@ -21,6 +21,11 @@ export interface Message {
         stateChanges?: StateChange[];
         diceRolls?: DiceRoll[];
         alertType?: 'info' | 'success' | 'warning' | 'danger' | 'blueBox';
+        debug?: {
+            brainResponse?: any;
+            stateReport?: any;
+            reviewerResult?: any;
+        };
     };
 }
 
@@ -497,6 +502,13 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
 
     // Google Gemini Models
     {
+        id: 'gemini-3-flash-preview',
+        name: 'Gemini 3.0 Flash (Preview)',
+        provider: 'google',
+        contextWindow: 2000000, // 2M+ context window
+        defaultPricing: { prompt: 0.20, completion: 0.80 }
+    },
+    {
         id: 'gemini-2.0-flash-exp',
         name: 'Gemini 2.0 Flash (Exp)',
         provider: 'google',
@@ -531,6 +543,7 @@ export interface GlobalConfig {
         maintenanceMode: boolean;
         newRegistrationsOpen: boolean;
         debugLogging: boolean;
+        showAdminDebug: boolean; // Show AI state reports in campaign for admins
     };
 }
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -8,7 +8,8 @@ import {
     Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { spacing, borderRadius, typography } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 
 interface ChatInputProps {
     onSend: (text: string) => void;
@@ -18,6 +19,8 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' }: ChatInputProps) {
     const [text, setText] = useState('');
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
 
     const handleSend = () => {
         if (text.trim() && !disabled) {
@@ -85,7 +88,7 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
                     <Ionicons
                         name="send"
                         size={20}
-                        color={text.trim() && !disabled ? colors.text.primary : colors.text.muted}
+                        color={text.trim() && !disabled ? '#fff' : colors.text.muted}
                     />
                 </TouchableOpacity>
             </View>
@@ -93,7 +96,7 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         borderTopWidth: 1,
         borderTopColor: colors.border.default,
@@ -131,7 +134,7 @@ const styles = StyleSheet.create({
     },
     inputContainer: {
         flex: 1,
-        backgroundColor: colors.background.tertiary,
+        backgroundColor: colors.background.primary,
         borderRadius: borderRadius.lg,
         borderWidth: 1,
         borderColor: colors.border.default,
@@ -147,7 +150,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 22,
-        backgroundColor: colors.primary[600],
+        backgroundColor: colors.primary[500],
         justifyContent: 'center',
         alignItems: 'center',
     },

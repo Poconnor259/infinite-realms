@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TextInput, ScrollView, Modal } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable } from '../ui/Animated';
+import { CharacterImport } from './CharacterImport';
 import type { ClassicCharacter } from '../../lib/types';
 
 interface ClassicCharacterCreationProps {
@@ -66,6 +68,7 @@ export function ClassicCharacterCreation({ characterName, onComplete, onBack }: 
         CHA: 10,
     });
     const [remainingPoints, setRemainingPoints] = useState(15);
+    const [showImport, setShowImport] = useState(false);
 
     const handleAdjustStat = (stat: keyof typeof stats, delta: number) => {
         if (delta > 0 && remainingPoints <= 0) return;
@@ -117,6 +120,33 @@ export function ClassicCharacterCreation({ characterName, onComplete, onBack }: 
         onComplete(character);
     };
 
+    const handleImport = (data: any) => {
+        // Apply imported data
+        if (data.stats) {
+            const importedStats = {
+                STR: data.stats.strength || data.stats.STR || 10,
+                DEX: data.stats.dexterity || data.stats.DEX || 10,
+                CON: data.stats.constitution || data.stats.CON || 10,
+                INT: data.stats.intelligence || data.stats.INT || 10,
+                WIS: data.stats.wisdom || data.stats.WIS || 10,
+                CHA: data.stats.charisma || data.stats.CHA || 10,
+            };
+            setStats(importedStats);
+
+            // Calculate remaining points
+            const totalUsed = Object.values(importedStats).reduce((sum, val) => sum + val, 0) - 60;
+            setRemainingPoints(15 - totalUsed);
+        }
+
+        if (data.race && RACES.includes(data.race)) {
+            setSelectedRace(data.race);
+        }
+
+        if (data.class && CLASSES.includes(data.class)) {
+            setSelectedClass(data.class);
+        }
+    };
+
     const statList = [
         { key: 'STR' as const, name: 'Strength' },
         { key: 'DEX' as const, name: 'Dexterity' },
@@ -127,159 +157,186 @@ export function ClassicCharacterCreation({ characterName, onComplete, onBack }: 
     ];
 
     return (
-        <ScrollView style={[styles.container, { backgroundColor: colors.background.primary }]}>
-            <View style={styles.content}>
-                <Text style={[styles.title, { color: colors.text.primary }]}>Create Your Character</Text>
-                <Text style={[styles.subtitle, { color: colors.text.secondary }]}>{characterName}</Text>
-
-                {/* Race Selection */}
-                <View style={styles.section}>
-                    <Text style={[styles.label, { color: colors.text.primary }]}>Race</Text>
-                    <View style={styles.optionsGrid}>
-                        {RACES.map((race) => (
-                            <AnimatedPressable
-                                key={race}
-                                style={[
-                                    styles.option,
-                                    {
-                                        backgroundColor: selectedRace === race
-                                            ? colors.primary[500]
-                                            : colors.background.secondary,
-                                        borderColor: colors.border.default,
-                                    }
-                                ]}
-                                onPress={() => setSelectedRace(race)}
-                            >
-                                <Text style={[
-                                    styles.optionText,
-                                    { color: selectedRace === race ? '#fff' : colors.text.primary }
-                                ]}>
-                                    {race}
-                                </Text>
-                            </AnimatedPressable>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Class Selection */}
-                <View style={styles.section}>
-                    <Text style={[styles.label, { color: colors.text.primary }]}>Class</Text>
-                    <View style={styles.optionsGrid}>
-                        {CLASSES.map((cls) => (
-                            <AnimatedPressable
-                                key={cls}
-                                style={[
-                                    styles.option,
-                                    {
-                                        backgroundColor: selectedClass === cls
-                                            ? colors.primary[500]
-                                            : colors.background.secondary,
-                                        borderColor: colors.border.default,
-                                    }
-                                ]}
-                                onPress={() => setSelectedClass(cls)}
-                            >
-                                <Text style={[
-                                    styles.optionText,
-                                    { color: selectedClass === cls ? '#fff' : colors.text.primary }
-                                ]}>
-                                    {cls}
-                                </Text>
-                            </AnimatedPressable>
-                        ))}
-                    </View>
-                </View>
-
-                {/* Starting Stats */}
-                <View style={styles.section}>
-                    <View style={styles.sectionHeader}>
-                        <Text style={[styles.label, { color: colors.text.primary }]}>Starting Stats</Text>
-                        <Text style={[styles.pointsIndicator, { color: remainingPoints > 0 ? colors.primary[500] : colors.text.muted }]}>
-                            Points: {remainingPoints}
-                        </Text>
+        <>
+            <ScrollView style={[styles.container, { backgroundColor: colors.background.primary }]}>
+                <View style={styles.content}>
+                    <View style={styles.headerRow}>
+                        <View>
+                            <Text style={[styles.title, { color: colors.text.primary }]}>Create Your Character</Text>
+                            <Text style={[styles.subtitle, { color: colors.text.secondary }]}>{characterName}</Text>
+                        </View>
+                        <AnimatedPressable
+                            style={[styles.importButton, { backgroundColor: colors.primary[900] + '40', borderColor: colors.primary[400] }]}
+                            onPress={() => setShowImport(true)}
+                        >
+                            <Ionicons name="cloud-upload" size={18} color={colors.primary[400]} />
+                            <Text style={[styles.importButtonText, { color: colors.primary[400] }]}>Import</Text>
+                        </AnimatedPressable>
                     </View>
 
-                    <View style={[styles.statsGrid, { backgroundColor: colors.background.secondary }]}>
-                        {statList.map((stat) => (
-                            <View key={stat.key} style={styles.statItem}>
-                                <Text style={[styles.statName, { color: colors.text.secondary }]}>
-                                    {stat.name}
-                                </Text>
-                                <View style={styles.statControls}>
-                                    <AnimatedPressable
-                                        style={[
-                                            styles.controlButton,
-                                            stats[stat.key] <= 8 && styles.controlButtonDisabled,
-                                            { backgroundColor: colors.background.tertiary }
-                                        ]}
-                                        onPress={() => handleAdjustStat(stat.key, -1)}
-                                        disabled={stats[stat.key] <= 8}
-                                    >
-                                        <Text style={[styles.controlText, { color: colors.text.primary }]}>-</Text>
-                                    </AnimatedPressable>
-
-                                    <View style={styles.statValueContainer}>
-                                        <Text style={[styles.statValue, { color: colors.text.primary }]}>
-                                            {stats[stat.key]}
-                                        </Text>
-                                        <Text style={[styles.statModifier, { color: colors.text.muted }]}>
-                                            ({Math.floor((stats[stat.key] - 10) / 2) >= 0 ? '+' : ''}{Math.floor((stats[stat.key] - 10) / 2)})
-                                        </Text>
-                                    </View>
-
-                                    <AnimatedPressable
-                                        style={[
-                                            styles.controlButton,
-                                            remainingPoints <= 0 && styles.controlButtonDisabled,
-                                            { backgroundColor: colors.background.tertiary }
-                                        ]}
-                                        onPress={() => handleAdjustStat(stat.key, 1)}
-                                        disabled={remainingPoints <= 0}
-                                    >
-                                        <Text style={[styles.controlText, { color: colors.text.primary }]}>+</Text>
-                                    </AnimatedPressable>
-                                </View>
-                            </View>
-                        ))}
+                    {/* Race Selection */}
+                    <View style={styles.section}>
+                        <Text style={[styles.label, { color: colors.text.primary }]}>Race</Text>
+                        <View style={styles.optionsGrid}>
+                            {RACES.map((race) => (
+                                <AnimatedPressable
+                                    key={race}
+                                    style={[
+                                        styles.option,
+                                        {
+                                            backgroundColor: selectedRace === race
+                                                ? colors.primary[500]
+                                                : colors.background.secondary,
+                                            borderColor: colors.border.default,
+                                        }
+                                    ]}
+                                    onPress={() => setSelectedRace(race)}
+                                >
+                                    <Text style={[
+                                        styles.optionText,
+                                        { color: selectedRace === race ? '#fff' : colors.text.primary }
+                                    ]}>
+                                        {race}
+                                    </Text>
+                                </AnimatedPressable>
+                            ))}
+                        </View>
                     </View>
-                </View>
 
-                {/* Starting Equipment Preview */}
-                <View style={styles.section}>
-                    <Text style={[styles.label, { color: colors.text.primary }]}>Starting Equipment</Text>
-                    <View style={[styles.equipmentPreview, { backgroundColor: colors.background.secondary }]}>
-                        {CLASS_EQUIPMENT[selectedClass].map((item, idx) => (
-                            <Text key={idx} style={[styles.equipmentItem, { color: colors.text.secondary }]}>
-                                • {item.name} {item.quantity && item.quantity > 1 ? `(×${item.quantity})` : ''}
+                    {/* Class Selection */}
+                    <View style={styles.section}>
+                        <Text style={[styles.label, { color: colors.text.primary }]}>Class</Text>
+                        <View style={styles.optionsGrid}>
+                            {CLASSES.map((cls) => (
+                                <AnimatedPressable
+                                    key={cls}
+                                    style={[
+                                        styles.option,
+                                        {
+                                            backgroundColor: selectedClass === cls
+                                                ? colors.primary[500]
+                                                : colors.background.secondary,
+                                            borderColor: colors.border.default,
+                                        }
+                                    ]}
+                                    onPress={() => setSelectedClass(cls)}
+                                >
+                                    <Text style={[
+                                        styles.optionText,
+                                        { color: selectedClass === cls ? '#fff' : colors.text.primary }
+                                    ]}>
+                                        {cls}
+                                    </Text>
+                                </AnimatedPressable>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Starting Stats */}
+                    <View style={styles.section}>
+                        <View style={styles.sectionHeader}>
+                            <Text style={[styles.label, { color: colors.text.primary }]}>Starting Stats</Text>
+                            <Text style={[styles.pointsIndicator, { color: remainingPoints > 0 ? colors.primary[500] : colors.text.muted }]}>
+                                Points: {remainingPoints}
                             </Text>
-                        ))}
+                        </View>
+
+                        <View style={[styles.statsGrid, { backgroundColor: colors.background.secondary }]}>
+                            {statList.map((stat) => (
+                                <View key={stat.key} style={styles.statItem}>
+                                    <Text style={[styles.statName, { color: colors.text.secondary }]}>
+                                        {stat.name}
+                                    </Text>
+                                    <View style={styles.statControls}>
+                                        <AnimatedPressable
+                                            style={[
+                                                styles.controlButton,
+                                                stats[stat.key] <= 8 && styles.controlButtonDisabled,
+                                                { backgroundColor: colors.background.tertiary }
+                                            ]}
+                                            onPress={() => handleAdjustStat(stat.key, -1)}
+                                            disabled={stats[stat.key] <= 8}
+                                        >
+                                            <Text style={[styles.controlText, { color: colors.text.primary }]}>-</Text>
+                                        </AnimatedPressable>
+
+                                        <View style={styles.statValueContainer}>
+                                            <Text style={[styles.statValue, { color: colors.text.primary }]}>
+                                                {stats[stat.key]}
+                                            </Text>
+                                            <Text style={[styles.statModifier, { color: colors.text.muted }]}>
+                                                ({Math.floor((stats[stat.key] - 10) / 2) >= 0 ? '+' : ''}{Math.floor((stats[stat.key] - 10) / 2)})
+                                            </Text>
+                                        </View>
+
+                                        <AnimatedPressable
+                                            style={[
+                                                styles.controlButton,
+                                                remainingPoints <= 0 && styles.controlButtonDisabled,
+                                                { backgroundColor: colors.background.tertiary }
+                                            ]}
+                                            onPress={() => handleAdjustStat(stat.key, 1)}
+                                            disabled={remainingPoints <= 0}
+                                        >
+                                            <Text style={[styles.controlText, { color: colors.text.primary }]}>+</Text>
+                                        </AnimatedPressable>
+                                    </View>
+                                </View>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Starting Equipment Preview */}
+                    <View style={styles.section}>
+                        <Text style={[styles.label, { color: colors.text.primary }]}>Starting Equipment</Text>
+                        <View style={[styles.equipmentPreview, { backgroundColor: colors.background.secondary }]}>
+                            {CLASS_EQUIPMENT[selectedClass].map((item, idx) => (
+                                <Text key={idx} style={[styles.equipmentItem, { color: colors.text.secondary }]}>
+                                    • {item.name} {item.quantity && item.quantity > 1 ? `(×${item.quantity})` : ''}
+                                </Text>
+                            ))}
+                        </View>
+                    </View>
+
+                    {/* Buttons */}
+                    <View style={styles.buttons}>
+                        <AnimatedPressable
+                            style={[styles.button, styles.backButton, { backgroundColor: colors.background.secondary }]}
+                            onPress={onBack}
+                        >
+                            <Text style={[styles.buttonText, { color: colors.text.primary }]}>Back</Text>
+                        </AnimatedPressable>
+                        <AnimatedPressable
+                            style={[
+                                styles.button,
+                                styles.createButton,
+                                { backgroundColor: remainingPoints === 0 ? colors.primary[500] : colors.background.tertiary },
+                                remainingPoints > 0 && { opacity: 0.7 }
+                            ]}
+                            onPress={handleCreate}
+                        >
+                            <Text style={[styles.buttonText, { color: remainingPoints === 0 ? '#fff' : colors.text.muted }]}>
+                                {remainingPoints === 0 ? 'Begin Adventure' : `Allocate ${remainingPoints} More`}
+                            </Text>
+                        </AnimatedPressable>
                     </View>
                 </View>
+            </ScrollView>
 
-                {/* Buttons */}
-                <View style={styles.buttons}>
-                    <AnimatedPressable
-                        style={[styles.button, styles.backButton, { backgroundColor: colors.background.secondary }]}
-                        onPress={onBack}
-                    >
-                        <Text style={[styles.buttonText, { color: colors.text.primary }]}>Back</Text>
-                    </AnimatedPressable>
-                    <AnimatedPressable
-                        style={[
-                            styles.button,
-                            styles.createButton,
-                            { backgroundColor: remainingPoints === 0 ? colors.primary[500] : colors.background.tertiary },
-                            remainingPoints > 0 && { opacity: 0.7 }
-                        ]}
-                        onPress={handleCreate}
-                    >
-                        <Text style={[styles.buttonText, { color: remainingPoints === 0 ? '#fff' : colors.text.muted }]}>
-                            {remainingPoints === 0 ? 'Begin Adventure' : `Allocate ${remainingPoints} More`}
-                        </Text>
-                    </AnimatedPressable>
-                </View>
-            </View>
-        </ScrollView>
+            {/* Import Modal */}
+            <Modal
+                visible={showImport}
+                animationType="slide"
+                presentationStyle="pageSheet"
+                onRequestClose={() => setShowImport(false)}
+            >
+                <CharacterImport
+                    worldType="classic"
+                    onImport={handleImport}
+                    onClose={() => setShowImport(false)}
+                />
+            </Modal>
+        </>
     );
 }
 
@@ -298,6 +355,25 @@ const styles = StyleSheet.create({
     subtitle: {
         fontSize: typography.fontSize.lg,
         marginBottom: spacing.xl,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: spacing.md,
+    },
+    importButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+    },
+    importButtonText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
     },
     section: {
         marginBottom: spacing.xl,

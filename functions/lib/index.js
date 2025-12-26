@@ -36,7 +36,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.seedPrompts = exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.verifyModelConfig = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
+exports.deleteCampaignSave = exports.loadCampaignSave = exports.getCampaignSaves = exports.saveCampaignState = exports.seedPrompts = exports.updateApiKey = exports.getApiKeyStatus = exports.getKnowledgeForModule = exports.deleteKnowledgeDocument = exports.updateKnowledgeDocument = exports.getKnowledgeDocuments = exports.addKnowledgeDocument = exports.adminUpdateUser = exports.getAdminDashboardData = exports.exportUserData = exports.deleteCampaign = exports.createCampaign = exports.updateGlobalConfig = exports.getGlobalConfig = exports.getModelPricing = exports.updateModelPricing = exports.refreshModelPricing = exports.verifyModelConfig = exports.generateText = exports.processGameAction = exports.getAvailableModels = void 0;
 const https_1 = require("firebase-functions/v2/https");
 const admin = __importStar(require("firebase-admin"));
 const openai_1 = __importDefault(require("openai"));
@@ -390,15 +390,26 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
             ...currentState,
             ...(brainResult.data.stateUpdates || {})
         };
+        // Deep merge character object to preserve existing character data
+        if (currentState.character && brainResult.data.stateUpdates?.character) {
+            finalState.character = {
+                ...currentState.character,
+                ...brainResult.data.stateUpdates.character
+            };
+        }
         // 6a. Apply Voice stateReport if available (more reliable than third AI parsing)
         if (voiceResult.stateReport) {
             console.log('[Voice StateReport] Applying:', voiceResult.stateReport);
             // Apply resource changes
             if (voiceResult.stateReport.resources) {
+                // Ensure character object exists (preserve existing data)
+                if (!finalState.character) {
+                    finalState.character = {};
+                }
                 for (const [key, value] of Object.entries(voiceResult.stateReport.resources)) {
                     if (value && typeof value === 'object') {
-                        const currentResource = finalState[key] || { current: 100, max: 100 };
-                        finalState[key] = {
+                        const currentResource = finalState.character[key] || { current: 100, max: 100 };
+                        finalState.character[key] = {
                             current: value.current ?? currentResource.current,
                             max: value.max ?? currentResource.max
                         };
@@ -407,7 +418,11 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
             }
             // Apply inventory changes
             if (voiceResult.stateReport.inventory) {
-                const currentInventory = finalState.inventory || [];
+                // Ensure character object exists
+                if (!finalState.character) {
+                    finalState.character = {};
+                }
+                const currentInventory = finalState.character.inventory || [];
                 let updatedInventory = [...currentInventory];
                 if (voiceResult.stateReport.inventory.added) {
                     updatedInventory.push(...voiceResult.stateReport.inventory.added);
@@ -415,11 +430,15 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
                 if (voiceResult.stateReport.inventory.removed) {
                     updatedInventory = updatedInventory.filter(item => !voiceResult.stateReport.inventory.removed.includes(item));
                 }
-                finalState.inventory = updatedInventory;
+                finalState.character.inventory = updatedInventory;
             }
             // Apply ability changes
             if (voiceResult.stateReport.abilities) {
-                const currentAbilities = finalState.abilities || [];
+                // Ensure character object exists
+                if (!finalState.character) {
+                    finalState.character = {};
+                }
+                const currentAbilities = finalState.character.abilities || [];
                 let updatedAbilities = [...currentAbilities];
                 if (voiceResult.stateReport.abilities.added) {
                     updatedAbilities.push(...voiceResult.stateReport.abilities.added);
@@ -427,7 +446,7 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
                 if (voiceResult.stateReport.abilities.removed) {
                     updatedAbilities = updatedAbilities.filter(ability => !voiceResult.stateReport.abilities.removed.includes(ability));
                 }
-                finalState.abilities = updatedAbilities;
+                finalState.character.abilities = updatedAbilities;
             }
             // Apply party changes
             if (voiceResult.stateReport.party) {
@@ -622,6 +641,12 @@ exports.processGameAction = (0, https_1.onCall)({ cors: true, invoker: 'public' 
             reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
             requiresUserInput: brainResult.data.requiresUserInput,
             pendingChoice: brainResult.data.pendingChoice,
+            // Admin debug data
+            debug: {
+                brainResponse: brainResult.data,
+                stateReport: voiceResult.stateReport || null,
+                reviewerResult: reviewerResult || null,
+            },
         };
     }
     catch (error) {
@@ -824,7 +849,7 @@ exports.refreshModelPricing = (0, https_1.onCall)(async (request) => {
 // Update model pricing manually
 exports.updateModelPricing = (0, https_1.onCall)(async (request) => {
     try {
-        const { gpt4oMini, claude } = request.data;
+        const pricingData = request.data;
         const auth = request.auth;
         if (!auth) {
             throw new https_1.HttpsError('unauthenticated', 'User must be authenticated');
@@ -835,28 +860,25 @@ exports.updateModelPricing = (0, https_1.onCall)(async (request) => {
         if (!isAdmin) {
             throw new https_1.HttpsError('permission-denied', 'Admin access required');
         }
-        // Validate pricing values
-        if (gpt4oMini) {
-            if (gpt4oMini.prompt < 0 || gpt4oMini.completion < 0) {
-                throw new https_1.HttpsError('invalid-argument', 'Pricing must be positive');
+        // Validate pricing values for all models
+        for (const [modelId, pricing] of Object.entries(pricingData)) {
+            // Skip metadata fields
+            if (modelId === 'lastUpdated' || modelId === 'updatedBy')
+                continue;
+            if (pricing && typeof pricing === 'object') {
+                if (pricing.prompt < 0 || pricing.completion < 0) {
+                    throw new https_1.HttpsError('invalid-argument', `Pricing for ${modelId} must be positive`);
+                }
             }
         }
-        if (claude) {
-            if (claude.prompt < 0 || claude.completion < 0) {
-                throw new https_1.HttpsError('invalid-argument', 'Pricing must be positive');
-            }
-        }
-        console.log(`[UpdatePricing] Updating pricing for admin ${auth.uid}`);
+        console.log(`[UpdatePricing] Updating pricing for admin ${auth.uid}`, Object.keys(pricingData));
         // Get current pricing
         const currentDoc = await db.collection('config').doc('modelPricing').get();
-        const current = currentDoc.data() || {
-            gpt4oMini: { prompt: 0.15, completion: 0.60 },
-            claude: { prompt: 3.00, completion: 15.00 },
-        };
-        // Update with new values
+        const current = currentDoc.data() || {};
+        // Merge new pricing with current (preserves existing entries)
         const updated = {
-            gpt4oMini: gpt4oMini || current.gpt4oMini,
-            claude: claude || current.claude,
+            ...current,
+            ...pricingData,
             lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
             updatedBy: auth.uid,
         };
@@ -988,13 +1010,40 @@ exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, 
     const voiceKnowledgeDocs = await (0, exports.getKnowledgeForModule)(engineType, 'voice', 2);
     // Generate initial narrative
     let initialNarrative = worldData?.initialNarrative || '';
+    // Check if character already has essences (for skipping essence selection prompt)
+    const hasPreselectedEssence = initialCharacter?.essenceSelection === 'chosen' ||
+        initialCharacter?.essenceSelection === 'imported' ||
+        (initialCharacter?.essences && Array.isArray(initialCharacter.essences) && initialCharacter.essences.length > 0);
+    console.log('[CreateCampaign] Essence check:', {
+        hasPreselectedEssence,
+        essenceSelection: initialCharacter?.essenceSelection,
+        essences: initialCharacter?.essences
+    });
     // Only use AI generation if explicitly enabled for this world and we have a key
     if (voiceConfig.key && worldData?.generateIntro) {
         try {
+            // Build narrative cue - add essence override if essences are pre-selected
+            let narrativeContent = `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`;
+            // Add essence override instruction if essences are pre-selected
+            if (hasPreselectedEssence && engineType === 'outworlder') {
+                const essenceName = initialCharacter?.essences?.[0] || 'unknown';
+                narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the ${essenceName} essence during their dimensional transit. 
+                    
+CRITICAL: Do NOT present essence selection options (A, B, C, D). The character ALREADY has the ${essenceName} essence. Skip the COMPENSATION PACKAGE — ESSENCE SELECTION sequence entirely. 
+
+Start their adventure with them already awakened and their essence active. Describe their awakening and first moments in this new world, acknowledging their ${essenceName} essence is already part of them.`;
+            }
+            // If essences are pre-selected, modify customRules to exclude essence selection
+            let effectiveCustomRules = worldData?.customRules;
+            if (hasPreselectedEssence && effectiveCustomRules) {
+                effectiveCustomRules = effectiveCustomRules + `
+
+🚨 CRITICAL OVERRIDE: Character already has essence selected (${initialCharacter?.essences?.join(', ')}). DO NOT run essence selection. Skip to adventure start.`;
+            }
             const voiceResult = await (0, voice_1.generateNarrative)({
                 narrativeCues: [{
                         type: 'description',
-                        content: `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`,
+                        content: narrativeContent,
                         emotion: 'mysterious',
                     }],
                 worldModule: engineType,
@@ -1005,7 +1054,7 @@ exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, 
                 provider: voiceConfig.provider,
                 model: voiceConfig.model,
                 knowledgeDocuments: voiceKnowledgeDocs,
-                customRules: worldData?.customRules,
+                customRules: effectiveCustomRules,
             });
             if (voiceResult.success && voiceResult.narrative) {
                 initialNarrative = voiceResult.narrative;
@@ -1022,7 +1071,15 @@ exports.createCampaign = (0, https_1.onCall)({ cors: true, invoker: 'public' }, 
                 initialNarrative = `*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*`;
                 break;
             case 'outworlder':
-                initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
+                // Check if character already has essences selected
+                if (initialCharacter?.essenceSelection === 'chosen' || initialCharacter?.essenceSelection === 'imported') {
+                    const essenceName = initialCharacter?.essences?.[0] || 'unknown';
+                    initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*\n\n*The ${essenceName} essence thrums within you—a gift from your awakening. Its power is still raw, unfamiliar, but undeniably yours.*\n\n*A strange voice echoes in your mind: "Welcome, Outworlder. Your journey begins now."*`;
+                }
+                else {
+                    // Random mode - will present essence options during gameplay
+                    initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
+                }
                 break;
             case 'tactical':
                 initialNarrative = `*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Operative.*`;
@@ -1426,4 +1483,10 @@ exports.seedPrompts = (0, https_1.onCall)({ cors: true, invoker: 'public' }, asy
         throw new https_1.HttpsError('internal', `Failed to seed prompts: ${error.message}`);
     }
 });
+// Export campaign save/load functions
+var campaignSaves_1 = require("./campaignSaves");
+Object.defineProperty(exports, "saveCampaignState", { enumerable: true, get: function () { return campaignSaves_1.saveCampaignState; } });
+Object.defineProperty(exports, "getCampaignSaves", { enumerable: true, get: function () { return campaignSaves_1.getCampaignSaves; } });
+Object.defineProperty(exports, "loadCampaignSave", { enumerable: true, get: function () { return campaignSaves_1.loadCampaignSave; } });
+Object.defineProperty(exports, "deleteCampaignSave", { enumerable: true, get: function () { return campaignSaves_1.deleteCampaignSave; } });
 //# sourceMappingURL=index.js.map

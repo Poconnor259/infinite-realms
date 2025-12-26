@@ -13,6 +13,9 @@ export function UnifiedCharacterPanel({ character, worldType }: UnifiedCharacter
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
+    // Debug logging
+    console.log('[UnifiedCharacterPanel] Rendering character:', character);
+
     // Early return if no character
     if (!character || !character.name) {
         return (
@@ -23,24 +26,30 @@ export function UnifiedCharacterPanel({ character, worldType }: UnifiedCharacter
         );
     }
 
+    // Defensive coercion to prevent React error #418
+    const safeName = String(character.name || 'Unknown');
+    const safeRank = character.rank ? String(character.rank) : null;
+    const safeLevel = typeof character.level === 'number' ? character.level : 0;
+    const safeClass = character.class ? String(character.class) : null;
+
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Character Header */}
             <View style={styles.header}>
-                <Text style={styles.characterName}>{character.name}</Text>
+                <Text style={styles.characterName}>{safeName}</Text>
                 <View style={styles.headerMeta}>
-                    {character.rank && (
-                        <View style={[styles.rankBadge, { backgroundColor: getRankColor(character.rank) + '20' }]}>
-                            <Text style={[styles.rankText, { color: getRankColor(character.rank) }]}>
-                                {character.rank}
+                    {safeRank && (
+                        <View style={[styles.rankBadge, { backgroundColor: getRankColor(safeRank) + '20' }]}>
+                            <Text style={[styles.rankText, { color: getRankColor(safeRank) }]}>
+                                {safeRank}
                             </Text>
                         </View>
                     )}
-                    {character.level > 0 && (
-                        <Text style={styles.levelText}>Level {character.level}</Text>
+                    {safeLevel > 0 && (
+                        <Text style={styles.levelText}>Level {safeLevel}</Text>
                     )}
-                    {character.class && (
-                        <Text style={styles.classText}>{character.class}</Text>
+                    {safeClass && (
+                        <Text style={styles.classText}>{safeClass}</Text>
                     )}
                 </View>
             </View>
@@ -101,14 +110,20 @@ function ResourceBar({ resource, colors }: { resource: NormalizedResource; color
     const percentage = resource.max > 0 ? (resource.current / resource.max) * 100 : 0;
     const barColor = resource.color || colors.primary[400];
 
+    // Defensive coercion
+    const safeName = String(resource.name || 'Resource');
+    const safeCurrent = typeof resource.current === 'number' ? resource.current : 0;
+    const safeMax = typeof resource.max === 'number' ? resource.max : 100;
+    const safeIcon = resource.icon ? String(resource.icon) : '';
+
     return (
         <View style={subStyles.resourceContainer}>
             <View style={subStyles.resourceHeader}>
                 <Text style={[subStyles.resourceName, { color: colors.text.secondary }]}>
-                    {resource.icon && `${resource.icon} `}{resource.name}
+                    {safeIcon && `${safeIcon} `}{safeName}
                 </Text>
                 <Text style={[subStyles.resourceValue, { color: colors.text.muted }]}>
-                    {resource.current} / {resource.max}
+                    {safeCurrent} / {safeMax}
                 </Text>
             </View>
             <View style={[subStyles.resourceBarBg, { backgroundColor: colors.background.tertiary }]}>
@@ -124,33 +139,43 @@ function ResourceBar({ resource, colors }: { resource: NormalizedResource; color
 }
 
 function StatBox({ stat, colors }: { stat: NormalizedStat; colors: any }) {
+    // Defensive coercion
+    const safeName = String(stat.name || 'Stat');
+    const safeAbbr = stat.abbreviation ? String(stat.abbreviation) : safeName.slice(0, 3).toUpperCase();
+    const safeValue = typeof stat.value === 'number' ? stat.value : 0;
+    const safeIcon = stat.icon ? String(stat.icon) : null;
+
     return (
         <View style={[subStyles.statBox, { backgroundColor: colors.background.tertiary }]}>
             <Text style={[subStyles.statLabel, { color: colors.text.muted }]}>
-                {stat.abbreviation || stat.name.slice(0, 3).toUpperCase()}
+                {safeAbbr}
             </Text>
             <Text style={[subStyles.statValue, { color: colors.text.primary }]}>
-                {stat.value}
+                {safeValue}
             </Text>
-            {stat.icon && (
-                <Text style={subStyles.statIcon}>{stat.icon}</Text>
+            {safeIcon && (
+                <Text style={subStyles.statIcon}>{safeIcon}</Text>
             )}
         </View>
     );
 }
 
 function InventoryItem({ item, colors }: { item: NormalizedItem; colors: any }) {
+    // Defensive coercion
+    const safeName = String(item.name || 'Item');
+    const safeQuantity = typeof item.quantity === 'number' ? item.quantity : 1;
+
     return (
         <View style={[subStyles.inventoryItem, { backgroundColor: colors.background.tertiary }]}>
             <View style={subStyles.inventoryLeft}>
                 {item.equipped && <Text style={subStyles.equippedIcon}>⚡</Text>}
                 <Text style={[subStyles.itemName, { color: colors.text.primary }]}>
-                    {item.name}
+                    {safeName}
                 </Text>
             </View>
-            {(item.quantity && item.quantity > 1) && (
+            {safeQuantity > 1 && (
                 <Text style={[subStyles.itemQuantity, { color: colors.text.muted }]}>
-                    ×{item.quantity}
+                    ×{safeQuantity}
                 </Text>
             )}
         </View>
@@ -158,28 +183,33 @@ function InventoryItem({ item, colors }: { item: NormalizedItem; colors: any }) 
 }
 
 function AbilityItem({ ability, colors }: { ability: NormalizedAbility; colors: any }) {
-    const isOnCooldown = (ability.currentCooldown || 0) > 0;
+    // Defensive coercion
+    const safeName = String(ability.name || 'Ability');
+    const safeRank = ability.rank ? String(ability.rank) : null;
+    const safeType = ability.type ? String(ability.type) : null;
+    const safeCooldown = typeof ability.currentCooldown === 'number' ? ability.currentCooldown : 0;
+    const isOnCooldown = safeCooldown > 0;
 
     return (
         <View style={[subStyles.abilityItem, { backgroundColor: colors.background.tertiary }]}>
             <View style={subStyles.abilityHeader}>
                 <Text style={[subStyles.abilityName, { color: colors.text.primary }]}>
-                    {ability.name}
+                    {safeName}
                 </Text>
-                {ability.rank && (
-                    <Text style={[subStyles.abilityRank, { color: getRankColor(ability.rank) }]}>
-                        {ability.rank}
+                {safeRank && (
+                    <Text style={[subStyles.abilityRank, { color: getRankColor(safeRank) }]}>
+                        {safeRank}
                     </Text>
                 )}
             </View>
-            {ability.type && (
+            {safeType && (
                 <Text style={[subStyles.abilityType, { color: colors.text.muted }]}>
-                    {ability.type}
+                    {safeType}
                 </Text>
             )}
             {isOnCooldown && (
                 <Text style={[subStyles.abilityCooldown, { color: colors.status.warning }]}>
-                    Cooldown: {ability.currentCooldown}
+                    Cooldown: {safeCooldown}
                 </Text>
             )}
         </View>

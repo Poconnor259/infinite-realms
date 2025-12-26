@@ -38,14 +38,33 @@ export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPan
         }
     };
 
+    // Helper function to safely render any value (prevents React error #418)
+    const safeRenderValue = (value: any): string => {
+        if (value === null || value === undefined) return '';
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            return String(value);
+        }
+        if (Array.isArray(value)) {
+            return value.map(v => safeRenderValue(v)).join(', ');
+        }
+        if (typeof value === 'object') {
+            if (value.current !== undefined && value.max !== undefined) {
+                return `${value.current}/${value.max}`;
+            }
+            if (value.name) return String(value.name);
+            return JSON.stringify(value);
+        }
+        return String(value);
+    };
+
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
             {/* Character Header */}
             <View style={styles.header}>
-                <Text style={styles.characterName}>{character.name}</Text>
+                <Text style={styles.characterName}>{safeRenderValue(character.name)}</Text>
                 <View style={[styles.rankBadge, { backgroundColor: getRankColor(character.rank) + '20' }]}>
                     <Text style={[styles.rankText, { color: getRankColor(character.rank) }]}>
-                        {character.rank} Rank
+                        {safeRenderValue(character.rank)} Rank
                     </Text>
                 </View>
                 <Text style={styles.characterSubtitle}>Level {character.level}</Text>
@@ -139,13 +158,13 @@ export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPan
                 {(character.abilities || []).map((ability, idx) => (
                     <View key={idx} style={styles.abilityItem}>
                         <View style={styles.abilityHeader}>
-                            <Text style={styles.abilityName}>{ability.name}</Text>
+                            <Text style={styles.abilityName}>{safeRenderValue(ability.name || ability)}</Text>
                             <Text style={[styles.abilityRank, { color: getRankColor(ability.rank) }]}>
-                                {ability.rank}
+                                {safeRenderValue(ability.rank)}
                             </Text>
                         </View>
-                        <Text style={styles.abilityEssence}>From: {ability.essence}</Text>
-                        <Text style={styles.abilityType}>{ability.type}</Text>
+                        <Text style={styles.abilityEssence}>From: {safeRenderValue(ability.essence)}</Text>
+                        <Text style={styles.abilityType}>{safeRenderValue(ability.type)}</Text>
                         {ability.currentCooldown > 0 && (
                             <Text style={styles.abilityCooldown}>
                                 Cooldown: {ability.currentCooldown}

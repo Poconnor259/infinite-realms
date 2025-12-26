@@ -36,7 +36,7 @@ export const darkColors = {
         primary: '#f8fafc',    // Pure white for headers
         secondary: '#cbd5e1',  // Light gray for body
         muted: '#94a3b8',      // Muted text
-        inverse: '#0f0a1e',    // Dark text on light bg
+        inverse: '#ffffff',    // White text on colored backgrounds (user bubbles)
     },
 
     // Status colors

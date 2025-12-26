@@ -114,9 +114,47 @@ ${customRules}
         // Get brain prompt from Firestore
         const brainPrompt = await getPrompt('brain', worldModule);
 
+        // Check if character already has essences (for Outworlder)
+        // Character data can be in multiple places depending on how state is structured
+        let essenceOverrideSection = '';
+        const directCharacter = currentState?.character as any;
+        const moduleCharacter = (currentState as any)?.moduleState?.character as any;
+        const character = directCharacter || moduleCharacter;
+
+        console.log('[Brain] Essence check - worldModule:', worldModule);
+        console.log('[Brain] Essence check - character found:', !!character);
+        console.log('[Brain] Essence check - essences:', character?.essences);
+        console.log('[Brain] Essence check - essenceSelection:', character?.essenceSelection);
+
+        if (character?.essences && Array.isArray(character.essences) && character.essences.length > 0) {
+            const essenceSelection = character?.essenceSelection;
+            console.log('[Brain] Character has essences, selection mode:', essenceSelection);
+
+            // Skip essence prompt if essences were pre-selected (chosen or imported)
+            // OR if essences exist but no selection mode (legacy/imported data)
+            if (essenceSelection === 'chosen' || essenceSelection === 'imported' || !essenceSelection) {
+                essenceOverrideSection = `
+
+🚨 CRITICAL OVERRIDE - ESSENCE ALREADY SELECTED 🚨
+The character has already selected their foundational essence during character creation.
+- Selected Essences: ${character.essences.join(', ')}
+- Rank: ${character.rank || 'Iron'}
+
+DO NOT present essence selection options (A, B, C, D).
+DO NOT run the "COMPENSATION PACKAGE — ESSENCE SELECTION" sequence.
+DO NOT ask the player to choose an essence - they already have one.
+The character is ALREADY awakened with the ${character.essences[0]} essence.
+Skip directly to their adventure beginning with their essence already active.
+Acknowledge their essence in narrative but do not offer selection.
+`;
+                console.log('[Brain] Essence override section added');
+            }
+        }
+
         const systemPrompt = `${brainPrompt}
 ${knowledgeSection}
 ${customRulesSection}
+${essenceOverrideSection}
 CRITICAL INSTRUCTIONS:
 1. You are ONLY the logic engine. You process game mechanics, not story.
 2. You MUST respond with valid JSON. Include a "stateUpdates" object with any changed game state fields.

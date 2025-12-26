@@ -284,6 +284,11 @@ export interface ProcessInputResponse {
     diceRolls?: Array<any>;
     systemMessages?: string[];
     error?: string;
+    debug?: {
+        brainResponse?: any;
+        stateReport?: any;
+        reviewerResult?: any;
+    };
 }
 
 export interface CreateCampaignRequest {
@@ -594,3 +599,10 @@ export async function deleteGameEngine(engineId: string): Promise<void> {
     const ref = doc(db, 'gameEngines', engineId);
     await deleteDoc(ref);
 }
+
+// ==================== CAMPAIGN SAVES ====================
+
+export const saveCampaignStateFn = httpsCallable<{ campaignId: string; saveName: string }, { success: boolean; saveId: string }>(functions, 'saveCampaignState');
+export const getCampaignSavesFn = httpsCallable<{ campaignId: string }, { success: boolean; saves: any[]; count: number }>(functions, 'getCampaignSaves');
+export const loadCampaignSaveFn = httpsCallable<{ campaignId: string; saveId: string }, { success: boolean; moduleState: any }>(functions, 'loadCampaignSave');
+export const deleteCampaignSaveFn = httpsCallable<{ campaignId: string; saveId: string }, { success: boolean }>(functions, 'deleteCampaignSave');

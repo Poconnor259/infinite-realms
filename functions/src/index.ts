@@ -77,6 +77,11 @@ interface GameResponse {
         choiceType: string;
     };
     error?: string;
+    debug?: {
+        brainResponse: any;
+        stateReport: any;
+        reviewerResult: any;
+    };
 }
 
 // ==================== HELPER ====================
@@ -432,16 +437,29 @@ export const processGameAction = onCall(
                 ...(brainResult.data.stateUpdates || {})
             };
 
+            // Deep merge character object to preserve existing character data
+            if ((currentState as any).character && (brainResult.data.stateUpdates as any)?.character) {
+                finalState.character = {
+                    ...(currentState as any).character,
+                    ...(brainResult.data.stateUpdates as any).character
+                };
+            }
+
             // 6a. Apply Voice stateReport if available (more reliable than third AI parsing)
             if (voiceResult.stateReport) {
                 console.log('[Voice StateReport] Applying:', voiceResult.stateReport);
 
                 // Apply resource changes
                 if (voiceResult.stateReport.resources) {
+                    // Ensure character object exists (preserve existing data)
+                    if (!(finalState as any).character) {
+                        (finalState as any).character = {};
+                    }
+
                     for (const [key, value] of Object.entries(voiceResult.stateReport.resources)) {
                         if (value && typeof value === 'object') {
-                            const currentResource = (finalState[key] as any) || { current: 100, max: 100 };
-                            finalState[key] = {
+                            const currentResource = ((finalState as any).character[key] as any) || { current: 100, max: 100 };
+                            (finalState as any).character[key] = {
                                 current: value.current ?? currentResource.current,
                                 max: value.max ?? currentResource.max
                             };
@@ -451,7 +469,12 @@ export const processGameAction = onCall(
 
                 // Apply inventory changes
                 if (voiceResult.stateReport.inventory) {
-                    const currentInventory = (finalState.inventory as string[]) || [];
+                    // Ensure character object exists
+                    if (!(finalState as any).character) {
+                        (finalState as any).character = {};
+                    }
+
+                    const currentInventory = ((finalState as any).character.inventory as string[]) || [];
                     let updatedInventory = [...currentInventory];
 
                     if (voiceResult.stateReport.inventory.added) {
@@ -462,12 +485,17 @@ export const processGameAction = onCall(
                             item => !voiceResult.stateReport!.inventory!.removed!.includes(item)
                         );
                     }
-                    finalState.inventory = updatedInventory;
+                    (finalState as any).character.inventory = updatedInventory;
                 }
 
                 // Apply ability changes
                 if (voiceResult.stateReport.abilities) {
-                    const currentAbilities = (finalState.abilities as string[]) || [];
+                    // Ensure character object exists
+                    if (!(finalState as any).character) {
+                        (finalState as any).character = {};
+                    }
+
+                    const currentAbilities = ((finalState as any).character.abilities as string[]) || [];
                     let updatedAbilities = [...currentAbilities];
 
                     if (voiceResult.stateReport.abilities.added) {
@@ -478,12 +506,12 @@ export const processGameAction = onCall(
                             ability => !voiceResult.stateReport!.abilities!.removed!.includes(ability)
                         );
                     }
-                    finalState.abilities = updatedAbilities;
+                    (finalState as any).character.abilities = updatedAbilities;
                 }
 
                 // Apply party changes
                 if (voiceResult.stateReport.party) {
-                    const currentParty = (finalState.partyMembers as string[]) || [];
+                    const currentParty = ((finalState as any).partyMembers as string[]) || [];
                     let updatedParty = [...currentParty];
 
                     if (voiceResult.stateReport.party.joined) {
@@ -696,6 +724,12 @@ export const processGameAction = onCall(
                 reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
                 requiresUserInput: brainResult.data.requiresUserInput,
                 pendingChoice: brainResult.data.pendingChoice,
+                // Admin debug data
+                debug: {
+                    brainResponse: brainResult.data,
+                    stateReport: voiceResult.stateReport || null,
+                    reviewerResult: reviewerResult || null,
+                },
             };
 
         } catch (error) {
@@ -972,7 +1006,7 @@ export const refreshModelPricing = onCall(
 export const updateModelPricing = onCall(
     async (request) => {
         try {
-            const { gpt4oMini, claude } = request.data as { gpt4oMini?: ModelPricing; claude?: ModelPricing };
+            const pricingData = request.data as Record<string, { prompt: number; completion: number }>;
             const auth = request.auth;
 
             if (!auth) {
@@ -987,31 +1021,28 @@ export const updateModelPricing = onCall(
                 throw new HttpsError('permission-denied', 'Admin access required');
             }
 
-            // Validate pricing values
-            if (gpt4oMini) {
-                if (gpt4oMini.prompt < 0 || gpt4oMini.completion < 0) {
-                    throw new HttpsError('invalid-argument', 'Pricing must be positive');
-                }
-            }
-            if (claude) {
-                if (claude.prompt < 0 || claude.completion < 0) {
-                    throw new HttpsError('invalid-argument', 'Pricing must be positive');
+            // Validate pricing values for all models
+            for (const [modelId, pricing] of Object.entries(pricingData)) {
+                // Skip metadata fields
+                if (modelId === 'lastUpdated' || modelId === 'updatedBy') continue;
+
+                if (pricing && typeof pricing === 'object') {
+                    if (pricing.prompt < 0 || pricing.completion < 0) {
+                        throw new HttpsError('invalid-argument', `Pricing for ${modelId} must be positive`);
+                    }
                 }
             }
 
-            console.log(`[UpdatePricing] Updating pricing for admin ${auth.uid}`);
+            console.log(`[UpdatePricing] Updating pricing for admin ${auth.uid}`, Object.keys(pricingData));
 
             // Get current pricing
             const currentDoc = await db.collection('config').doc('modelPricing').get();
-            const current = currentDoc.data() as ModelPricingData || {
-                gpt4oMini: { prompt: 0.15, completion: 0.60 },
-                claude: { prompt: 3.00, completion: 15.00 },
-            };
+            const current = currentDoc.data() || {};
 
-            // Update with new values
-            const updated: ModelPricingData = {
-                gpt4oMini: gpt4oMini || current.gpt4oMini,
-                claude: claude || current.claude,
+            // Merge new pricing with current (preserves existing entries)
+            const updated = {
+                ...current,
+                ...pricingData,
                 lastUpdated: admin.firestore.FieldValue.serverTimestamp(),
                 updatedBy: auth.uid,
             };
@@ -1177,13 +1208,45 @@ export const createCampaign = onCall(
         // Generate initial narrative
         let initialNarrative = worldData?.initialNarrative || '';
 
+        // Check if character already has essences (for skipping essence selection prompt)
+        const hasPreselectedEssence = initialCharacter?.essenceSelection === 'chosen' ||
+            initialCharacter?.essenceSelection === 'imported' ||
+            (initialCharacter?.essences && Array.isArray(initialCharacter.essences) && initialCharacter.essences.length > 0);
+
+        console.log('[CreateCampaign] Essence check:', {
+            hasPreselectedEssence,
+            essenceSelection: initialCharacter?.essenceSelection,
+            essences: initialCharacter?.essences
+        });
+
         // Only use AI generation if explicitly enabled for this world and we have a key
         if (voiceConfig.key && worldData?.generateIntro) {
             try {
+                // Build narrative cue - add essence override if essences are pre-selected
+                let narrativeContent = `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`;
+
+                // Add essence override instruction if essences are pre-selected
+                if (hasPreselectedEssence && engineType === 'outworlder') {
+                    const essenceName = initialCharacter?.essences?.[0] || 'unknown';
+                    narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the ${essenceName} essence during their dimensional transit. 
+                    
+CRITICAL: Do NOT present essence selection options (A, B, C, D). The character ALREADY has the ${essenceName} essence. Skip the COMPENSATION PACKAGE — ESSENCE SELECTION sequence entirely. 
+
+Start their adventure with them already awakened and their essence active. Describe their awakening and first moments in this new world, acknowledging their ${essenceName} essence is already part of them.`;
+                }
+
+                // If essences are pre-selected, modify customRules to exclude essence selection
+                let effectiveCustomRules = worldData?.customRules;
+                if (hasPreselectedEssence && effectiveCustomRules) {
+                    effectiveCustomRules = effectiveCustomRules + `
+
+🚨 CRITICAL OVERRIDE: Character already has essence selected (${initialCharacter?.essences?.join(', ')}). DO NOT run essence selection. Skip to adventure start.`;
+                }
+
                 const voiceResult = await generateNarrative({
                     narrativeCues: [{
                         type: 'description' as const,
-                        content: `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`,
+                        content: narrativeContent,
                         emotion: 'mysterious' as const,
                     }],
                     worldModule: engineType,
@@ -1194,7 +1257,7 @@ export const createCampaign = onCall(
                     provider: voiceConfig.provider,
                     model: voiceConfig.model,
                     knowledgeDocuments: voiceKnowledgeDocs,
-                    customRules: worldData?.customRules,
+                    customRules: effectiveCustomRules,
                 });
                 if (voiceResult.success && voiceResult.narrative) {
                     initialNarrative = voiceResult.narrative;
@@ -1211,7 +1274,14 @@ export const createCampaign = onCall(
                     initialNarrative = `*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*`;
                     break;
                 case 'outworlder':
-                    initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
+                    // Check if character already has essences selected
+                    if (initialCharacter?.essenceSelection === 'chosen' || initialCharacter?.essenceSelection === 'imported') {
+                        const essenceName = initialCharacter?.essences?.[0] || 'unknown';
+                        initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*\n\n*The ${essenceName} essence thrums within you—a gift from your awakening. Its power is still raw, unfamiliar, but undeniably yours.*\n\n*A strange voice echoes in your mind: "Welcome, Outworlder. Your journey begins now."*`;
+                    } else {
+                        // Random mode - will present essence options during gameplay
+                        initialNarrative = `*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*`;
+                    }
                     break;
                 case 'tactical':
                     initialNarrative = `*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Operative.*`;
@@ -1721,3 +1791,6 @@ export const seedPrompts = onCall(
         }
     }
 );
+
+// Export campaign save/load functions
+export { saveCampaignState, getCampaignSaves, loadCampaignSave, deleteCampaignSave } from './campaignSaves';

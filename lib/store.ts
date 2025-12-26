@@ -200,6 +200,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 role: 'narrator',
                 content: narrative,
                 timestamp: Date.now(),
+                metadata: {
+                    debug: result.data.debug, // Attach debug data for admin viewing
+                },
             };
 
             // Update state
@@ -487,6 +490,7 @@ interface TurnsState {
     addBonusTurns: (amount: number) => void;
     setTier: (tier: SubscriptionTier) => void;
     checkAndResetMonthly: () => void;
+    syncFromFirestore: (userId: string) => Promise<void>;
 }
 
 const getMonthlyResetDate = (): number => {
@@ -608,6 +612,40 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
                     tier: get().tier,
                 });
                 storage.set('turnsData', data);
+            }
+        },
+
+        syncFromFirestore: async (userId: string) => {
+            try {
+                const { db } = await import('./firebase');
+                const { getDoc, doc } = await import('firebase/firestore');
+                const userDocRef = doc(db, 'users', userId);
+                const userDoc = await getDoc(userDocRef);
+
+                if (userDoc.exists()) {
+                    const userData = userDoc.data();
+                    const firestoreTurnsUsed = userData?.turnsUsed || 0;
+                    const tier = (userData?.tier as SubscriptionTier) || 'scout';
+
+                    // Update local state with Firestore data
+                    set({
+                        used: firestoreTurnsUsed,
+                        tier,
+                    });
+
+                    // Persist to MMKV
+                    const data = JSON.stringify({
+                        used: firestoreTurnsUsed,
+                        bonusTurns: get().bonusTurns,
+                        resetDate: get().resetDate,
+                        tier,
+                    });
+                    storage.set('turnsData', data);
+
+                    console.log('[TurnsStore] Synced from Firestore:', { used: firestoreTurnsUsed, tier });
+                }
+            } catch (error) {
+                console.error('[TurnsStore] Failed to sync from Firestore:', error);
             }
         },
     };

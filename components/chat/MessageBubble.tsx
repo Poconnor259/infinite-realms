@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
-import { useSettingsStore } from '../../lib/store';
+import { useSettingsStore, useUserStore } from '../../lib/store';
 import type { Message } from '../../lib/types';
 
 interface MessageBubbleProps {
@@ -13,6 +14,8 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, index }: MessageBubbleProps) {
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
+    const [debugExpanded, setDebugExpanded] = useState(false);
+    const user = useUserStore((state) => state.user);
 
     // Ensure content is always a string to prevent React error #31
     const content = typeof message.content === 'string' ? message.content : String(message.content ?? '');
@@ -96,6 +99,62 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
             <View style={[styles.bubble, getBubbleStyle()]}>
                 {formatContent(content)}
             </View>
+
+            {/* Debug Panel for Admin Users */}
+            {!isUser && !isSystem && message.metadata?.debug && user?.role === 'admin' && (
+                <View style={[styles.debugPanel, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                    <TouchableOpacity
+                        style={styles.debugHeader}
+                        onPress={() => setDebugExpanded(!debugExpanded)}
+                    >
+                        <Ionicons
+                            name={debugExpanded ? 'chevron-down' : 'chevron-forward'}
+                            size={16}
+                            color={colors.text.muted}
+                        />
+                        <Text style={[styles.debugTitle, { color: colors.text.muted }]}>
+                            🔍 AI Debug Data
+                        </Text>
+                    </TouchableOpacity>
+
+                    {debugExpanded && (
+                        <View style={styles.debugContent}>
+                            {message.metadata.debug.brainResponse && (
+                                <View style={styles.debugSection}>
+                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
+                                        Brain AI Response:
+                                    </Text>
+                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
+                                        {JSON.stringify(message.metadata.debug.brainResponse, null, 2)}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {message.metadata.debug.stateReport && (
+                                <View style={styles.debugSection}>
+                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
+                                        Voice AI State Report:
+                                    </Text>
+                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
+                                        {JSON.stringify(message.metadata.debug.stateReport, null, 2)}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {message.metadata.debug.reviewerResult && (
+                                <View style={styles.debugSection}>
+                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
+                                        State Reviewer Result:
+                                    </Text>
+                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
+                                        {JSON.stringify(message.metadata.debug.reviewerResult, null, 2)}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    )}
+                </View>
+            )}
         </View>
     );
 }
@@ -177,5 +236,38 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.status.info,
         fontSize: typography.fontSize.sm,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    debugPanel: {
+        marginTop: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        overflow: 'hidden',
+    },
+    debugHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.sm,
+        gap: spacing.xs,
+    },
+    debugTitle: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    debugContent: {
+        padding: spacing.sm,
+        gap: spacing.md,
+    },
+    debugSection: {
+        gap: spacing.xs,
+    },
+    debugSectionTitle: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    debugJson: {
+        fontSize: typography.fontSize.xs,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        padding: spacing.sm,
+        borderRadius: borderRadius.sm,
     },
 });
