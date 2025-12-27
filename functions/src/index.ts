@@ -343,6 +343,11 @@ export const processGameAction = onCall(
                     // Only Legend users can override models
                     if (userTier === 'legend') {
                         preferredModels = userData?.preferredModels || {};
+                    } else {
+                        // Hero/Visionary users can also choose voice models
+                        if (userTier === 'hero' || userTier === 'visionary') {
+                            preferredModels = userData?.preferredModels || {};
+                        }
                     }
                 }
             }
@@ -356,6 +361,43 @@ export const processGameAction = onCall(
                 // Scout/Hero users CANNOT use BYOK.
                 // We explicitly ignore any keys sent by the client.
                 effectiveByokKeys = undefined;
+            }
+
+            // 2.6 Calculate Turn Cost (for non-Legend users)
+            // Legend users bypass turn system (they use BYOK)
+            let turnCost = 0;
+            if (userTier !== 'legend') {
+                // Determine voice model (preferredModels.voice or aiSettings.voiceModel)
+                const selectedVoiceModel = preferredModels.voice || aiSettings.voiceModel;
+
+                // Calculate turn cost based on voice model
+                // Opus 4.5 = 20 turns, Sonnet 3.5 = 4 turns, Gemini Flash = 1 turn
+                if (selectedVoiceModel.includes('opus')) {
+                    turnCost = 20;
+                } else if (selectedVoiceModel.includes('sonnet')) {
+                    turnCost = 4;
+                } else if (selectedVoiceModel.includes('gemini') || selectedVoiceModel.includes('flash')) {
+                    turnCost = 1;
+                } else {
+                    // Default to 1 turn for unknown models
+                    turnCost = 1;
+                }
+
+                // Validate user has enough turns
+                if (auth?.uid) {
+                    const userDoc = await db.collection('users').doc(auth.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        const currentTurns = userData?.turns || 0;
+
+                        if (currentTurns < turnCost) {
+                            return {
+                                success: false,
+                                error: `Insufficient turns. This action costs ${turnCost} turns, but you only have ${currentTurns} turns remaining. Please upgrade your subscription or switch to a more economical model.`
+                            };
+                        }
+                    }
+                }
             }
 
             // 3. Resolve Keys and Models
@@ -716,6 +758,12 @@ export const processGameAction = onCall(
                 updates['tokensCompletion'] = admin.firestore.FieldValue.increment(totalCompletion);
                 updates['tokensTotal'] = admin.firestore.FieldValue.increment(totalTokens);
                 updates['lastActive'] = admin.firestore.FieldValue.serverTimestamp();
+
+                // Deduct turns for non-Legend users
+                if (userTier !== 'legend' && turnCost > 0) {
+                    updates['turns'] = admin.firestore.FieldValue.increment(-turnCost);
+                    console.log(`[ProcessGameAction] Deducting ${turnCost} turns from user ${auth.uid}`);
+                }
 
                 await db.collection('users').doc(auth.uid).update(updates).catch(e => console.error('Failed to update stats:', e));
 
