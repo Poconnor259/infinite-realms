@@ -16,6 +16,10 @@ interface VoiceInput {
     model: string;
     knowledgeDocuments?: string[]; // Reference documents for context
     customRules?: string; // Optional custom rules for the narration style
+    narratorWordLimitMin?: number; // Minimum word count (default: 150)
+    narratorWordLimitMax?: number; // Maximum word count (default: 250)
+    characterProfile?: any; // Current character state for context
+    isKeepAlive?: boolean; // If true, only refresh cache (1 token output)
 }
 
 interface VoiceOutput {
@@ -53,6 +57,10 @@ interface VoiceOutput {
         };
         gold?: number;
         experience?: number;
+        location_updates?: {
+            current_location?: string;
+            discovered?: string[];
+        };
     };
     usage?: {
         promptTokens: number;
@@ -74,45 +82,98 @@ interface DiceRoll {
     modifier?: number;
     total: number;
     purpose?: string;
+    label?: string; // Added for new dice roll format
+    sides?: number; // Added for new dice roll format
 }
 
 // ==================== MAIN VOICE FUNCTION ====================
 
-export async function generateNarrative(input: VoiceInput): Promise<VoiceOutput> {
-    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, provider, model, knowledgeDocuments, customRules } = input;
+export const generateNarrative = async (input: VoiceInput): Promise<VoiceOutput> => {
+    const {
+        narrativeCues,
+        worldModule,
+        chatHistory,
+        stateChanges,
+        diceRolls,
+        apiKey,
+        provider,
+        model,
+        knowledgeDocuments = [],
+        customRules,
+        narratorWordLimitMin = 150,
+        narratorWordLimitMax = 250,
+        isKeepAlive = false
+    } = input;
 
     try {
-        // Build knowledge base section if documents exist
-        let knowledgeSection = '';
-        if (knowledgeDocuments && knowledgeDocuments.length > 0) {
-            knowledgeSection = `
+        // ==================== PROMPT CONSTRUCTION ====================
 
-REFERENCE MATERIALS (Use for world context, tone, and lore):
----
-${knowledgeDocuments.join('\n\n---\n\n')}
----
+        // Load base prompt and state report schema from files/helper
+        const voicePrompt = await getPrompt('voice', worldModule);
+
+        // Construct Knowledge Section
+        let knowledgeSection = '';
+        if (knowledgeDocuments.length > 0) {
+            knowledgeSection = `
+KNOWLEDGE BASE (Reference only if relevant):
+${knowledgeDocuments.join('\n\n')}
 `;
         }
 
+        // Construct Custom Rules Section
         let customRulesSection = '';
         if (customRules) {
             customRulesSection = `
-
-WORLD-SPECIFIC STYLE RULES (PRIORITIZE THESE):
----
+WORLD RULES & STYLE:
 ${customRules}
----
 `;
         }
 
-        // Get voice prompt from Firestore
-        const voicePrompt = await getPrompt('voice', worldModule);
+        // Construct Resource Constraints
+        let resourceConstraints = '';
+        if (worldModule === 'classic') {
+            resourceConstraints = `
+CRITICAL RESOURCE RULES FOR CLASSIC:
+- The ONLY valid resources are: Health (hp), Mana, and Stamina.
+- DO NOT create, track, or mention: nanites, energy, spirit, or any other resources.
+`;
+        } else if (worldModule === 'tactical') {
+            resourceConstraints = `
+CRITICAL RESOURCE RULES FOR PRAXIS/TACTICAL:
+- The ONLY valid resources are: Health (hp), Nanites, and Energy.
+- DO NOT create, track, or mention: mana, spirit, stamina, or any other resources.
+`;
+        } else if (worldModule === 'outworlder') {
+            resourceConstraints = `
+CRITICAL RESOURCE RULES FOR OUTWORLDER:
+- The ONLY valid resources are: Health (hp), Mana, and Stamina.
+- DO NOT create, track, or mention: nanites, energy, spirit, or any other resources.
+- Technology essence does NOT grant nanites. It grants technological abilities and constructs.
+`;
+        }
+
+        // Build character context section
+        let characterContext = '';
+        if (input.characterProfile) {
+            const char = input.characterProfile;
+            const essences = char.essences && Array.isArray(char.essences) ? char.essences.join(', ') : 'None';
+            const rank = char.rank || 'Unknown';
+            characterContext = `
+CHARACTER CONTEXT:
+- Rank: ${rank}
+- Essences: ${essences}
+CRITICAL: You must ONLY grant abilities that correspond to the character's existing Essences (${essences}).
+- Do NOT grant abilities for 'Technology' or other essences unless the character possesses that specific essence.
+`;
+        }
 
         const systemPrompt = `${voicePrompt}
 ${knowledgeSection}
 ${customRulesSection}
+${resourceConstraints}
+${characterContext}
 CRITICAL LENGTH REQUIREMENT:
-**Your response MUST be between 150-250 words. This is NON-NEGOTIABLE.**
+**Your response MUST be between ${narratorWordLimitMin}-${narratorWordLimitMax} words. This is NON-NEGOTIABLE.**
 - Keep responses PUNCHY and FOCUSED.
 - One strong scene beat per response.
 - Don't over-describe—leave room for imagination.
@@ -130,43 +191,49 @@ STORYTELLING RULES:
 
 SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK. No sexual content or hate speech.`;
 
-        // Build the prompt from narrative cues
-        let cueText = 'The game engine has processed the following:\n\n';
+        // ==================== CUE CONSTRUCTION ====================
 
-        // Add dice rolls
-        if (diceRolls.length > 0) {
-            cueText += 'DICE ROLLS:\n';
-            for (const roll of diceRolls) {
-                const modStr = roll.modifier ? ` + ${roll.modifier}` : '';
-                cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}\n`;
+        let cueText = '';
+
+        // If Keep Alive, minimize input/output
+        if (isKeepAlive) {
+            cueText = 'PING_KEEP_ALIVE';
+        } else {
+            // Add dice rolls
+            if (diceRolls.length > 0) {
+                cueText += 'DICE ROLLS:\n';
+                for (const roll of diceRolls) {
+                    const modStr = roll.modifier ? ` + ${roll.modifier}` : '';
+                    cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}\n`;
+                }
+                cueText += '\n';
             }
-            cueText += '\n';
-        }
 
-        // Add narrative cues
-        cueText += 'NARRATIVE CUES:\n';
-        for (const cue of narrativeCues) {
-            cueText += `- [${cue.type.toUpperCase()}${cue.emotion ? ` / ${cue.emotion}` : ''}] ${cue.content}\n`;
-        }
-
-        // Add state changes
-        if (Object.keys(stateChanges).length > 0) {
-            cueText += '\nSTATE CHANGES:\n';
-            for (const [key, value] of Object.entries(stateChanges)) {
-                cueText += `- ${key}: ${JSON.stringify(value)}\n`;
+            // Add narrative cues
+            cueText += 'NARRATIVE CUES:\n';
+            for (const cue of narrativeCues) {
+                cueText += `- [${cue.type.toUpperCase()}${cue.emotion ? ` / ${cue.emotion}` : ''}] ${cue.content}\n`;
             }
+
+            // Add state changes
+            if (Object.keys(stateChanges).length > 0) {
+                cueText += '\nSTATE CHANGES:\n';
+                for (const [key, value] of Object.entries(stateChanges)) {
+                    cueText += `- ${key}: ${JSON.stringify(value)}\n`;
+                }
+            }
+
+            cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
+
+            // Append state report instructions from Firestore (editable via admin)
+            const stateReportPrompt = await getStateReportPrompt();
+            cueText += stateReportPrompt;
         }
-
-        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
-
-        // Append state report instructions from Firestore (editable via admin)
-        const stateReportPrompt = await getStateReportPrompt();
-        cueText += stateReportPrompt;
 
         let narrative: string | null = null;
         let usage: { promptTokens: number; completionTokens: number; totalTokens: number } | undefined;
 
-        console.log(`[Voice] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length})`);
+        console.log(`[Voice] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length}, KeepAlive: ${isKeepAlive})`);
 
         if (provider === 'google') {
             // ==================== GOOGLE GEMINI ====================
@@ -214,12 +281,14 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             // Build messages for Anthropic
             const messages: Anthropic.MessageParam[] = [];
 
-            // Add recent chat history
-            for (const msg of chatHistory) {
-                messages.push({
-                    role: msg.role === 'user' ? 'user' : 'assistant',
-                    content: msg.content,
-                });
+            if (!isKeepAlive) {
+                // Add recent chat history
+                for (const msg of chatHistory) {
+                    messages.push({
+                        role: msg.role === 'user' ? 'user' : 'assistant',
+                        content: msg.content,
+                    });
+                }
             }
 
             // Add current request
@@ -230,9 +299,17 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
 
             const response = await anthropic.messages.create({
                 model: model,
-                max_tokens: 1024,
-                system: systemPrompt,
+                max_tokens: isKeepAlive ? 1 : 1024,
+                system: [{
+                    type: 'text',
+                    text: systemPrompt,
+                    cache_control: { type: 'ephemeral' }
+                } as any],
                 messages,
+            }, {
+                headers: {
+                    'anthropic-beta': 'prompt-caching-2024-07-31'
+                }
             });
 
             // Extract text from response

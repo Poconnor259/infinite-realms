@@ -289,6 +289,23 @@ export default function AdminConfigScreen() {
         });
     };
 
+    const updateNarratorLimit = (key: 'narratorWordLimitMin' | 'narratorWordLimitMax', value: string) => {
+        if (!config) return;
+        const numValue = value === '' ? 0 : parseInt(value);
+        if (isNaN(numValue)) return;
+        console.log(`[Config] Update narrator limit ${key}: ${numValue}`);
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                systemSettings: {
+                    ...prev.systemSettings,
+                    [key]: numValue
+                }
+            };
+        });
+    };
+
     const brainModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
     const voiceModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
 
@@ -511,6 +528,51 @@ export default function AdminConfigScreen() {
                         disabled={savingAi}
                     >
                         {savingAi ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save AI Defaults</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Narrator Settings Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Narrator Settings</Text>
+                <View style={styles.card}>
+                    <Text style={[styles.fieldLabel, { marginBottom: spacing.sm }]}>
+                        Word Limit for AI Responses
+                    </Text>
+                    <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
+                        Controls how long the narrator's responses should be. Current: {config?.systemSettings?.narratorWordLimitMin || 150}-{config?.systemSettings?.narratorWordLimitMax || 250} words.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Min Words</Text>
+                            <TextInput
+                                style={styles.numberInput}
+                                value={String(config?.systemSettings?.narratorWordLimitMin || 150)}
+                                onChangeText={(text) => updateNarratorLimit('narratorWordLimitMin', text)}
+                                keyboardType="number-pad"
+                                placeholder="150"
+                                placeholderTextColor={colors.text.muted}
+                            />
+                        </View>
+                        <Text style={{ color: colors.text.secondary, fontSize: 20, marginTop: spacing.lg }}>—</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Max Words</Text>
+                            <TextInput
+                                style={styles.numberInput}
+                                value={String(config?.systemSettings?.narratorWordLimitMax || 250)}
+                                onChangeText={(text) => updateNarratorLimit('narratorWordLimitMax', text)}
+                                keyboardType="number-pad"
+                                placeholder="250"
+                                placeholderTextColor={colors.text.muted}
+                            />
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.saveButton, { marginTop: spacing.lg }]}
+                        onPress={saveGlobalConfig}
+                        disabled={savingConfig}
+                    >
+                        {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Narrator Settings</Text>}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -1040,5 +1102,30 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.primary,
         lineHeight: 20,
+    },
+    fieldLabel: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    helpText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+    },
+    inputLabel: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '500',
+        color: colors.text.secondary,
+        marginBottom: spacing.xs,
+    },
+    numberInput: {
+        backgroundColor: colors.background.tertiary,
+        color: colors.text.primary,
+        padding: spacing.md,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        fontSize: typography.fontSize.md,
+        textAlign: 'center',
     },
 });

@@ -25,6 +25,10 @@ export interface Message {
             brainResponse?: any;
             stateReport?: any;
             reviewerResult?: any;
+            models?: {
+                brain: string;
+                voice: string;
+            };
         };
     };
 }
@@ -223,11 +227,11 @@ export interface OutworlderCharacter extends Character {
     stats: {
         power: number;
         speed: number;
-        spirit: number;
+        stamina: number;
         recovery: number;
     };
     abilities: OutworlderAbility[];
-    spirit: {
+    stamina: {
         current: number;
         max: number;
     };
@@ -244,7 +248,7 @@ export interface OutworlderAbility {
     type: 'attack' | 'defense' | 'utility' | 'movement' | 'special';
     cooldown: number;
     currentCooldown: number;
-    cost: 'mana' | 'health' | 'spirit' | 'none';
+    cost: 'mana' | 'health' | 'stamina' | 'none';
     costAmount?: number;
     description: string;
 }
@@ -544,6 +548,8 @@ export interface GlobalConfig {
         newRegistrationsOpen: boolean;
         debugLogging: boolean;
         showAdminDebug: boolean; // Show AI state reports in campaign for admins
+        narratorWordLimitMin: number; // Minimum word count for narrator (default: 150)
+        narratorWordLimitMax: number; // Maximum word count for narrator (default: 250)
     };
 }
 

@@ -3,44 +3,80 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateNarrative = generateNarrative;
+exports.generateNarrative = void 0;
 exports.summarizeChatHistory = summarizeChatHistory;
 const sdk_1 = __importDefault(require("@anthropic-ai/sdk"));
 const openai_1 = __importDefault(require("openai"));
 const generative_ai_1 = require("@google/generative-ai");
 const promptHelper_1 = require("./promptHelper");
 // ==================== MAIN VOICE FUNCTION ====================
-async function generateNarrative(input) {
-    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, provider, model, knowledgeDocuments, customRules } = input;
+const generateNarrative = async (input) => {
+    const { narrativeCues, worldModule, chatHistory, stateChanges, diceRolls, apiKey, provider, model, knowledgeDocuments = [], customRules, narratorWordLimitMin = 150, narratorWordLimitMax = 250, isKeepAlive = false } = input;
     try {
-        // Build knowledge base section if documents exist
+        // ==================== PROMPT CONSTRUCTION ====================
+        // Load base prompt and state report schema from files/helper
+        const voicePrompt = await (0, promptHelper_1.getPrompt)('voice', worldModule);
+        // Construct Knowledge Section
         let knowledgeSection = '';
-        if (knowledgeDocuments && knowledgeDocuments.length > 0) {
+        if (knowledgeDocuments.length > 0) {
             knowledgeSection = `
-
-REFERENCE MATERIALS (Use for world context, tone, and lore):
----
-${knowledgeDocuments.join('\n\n---\n\n')}
----
+KNOWLEDGE BASE (Reference only if relevant):
+${knowledgeDocuments.join('\n\n')}
 `;
         }
+        // Construct Custom Rules Section
         let customRulesSection = '';
         if (customRules) {
             customRulesSection = `
-
-WORLD-SPECIFIC STYLE RULES (PRIORITIZE THESE):
----
+WORLD RULES & STYLE:
 ${customRules}
----
 `;
         }
-        // Get voice prompt from Firestore
-        const voicePrompt = await (0, promptHelper_1.getPrompt)('voice', worldModule);
+        // Construct Resource Constraints
+        let resourceConstraints = '';
+        if (worldModule === 'classic') {
+            resourceConstraints = `
+CRITICAL RESOURCE RULES FOR CLASSIC:
+- The ONLY valid resources are: Health (hp), Mana, and Stamina.
+- DO NOT create, track, or mention: nanites, energy, spirit, or any other resources.
+`;
+        }
+        else if (worldModule === 'tactical') {
+            resourceConstraints = `
+CRITICAL RESOURCE RULES FOR PRAXIS/TACTICAL:
+- The ONLY valid resources are: Health (hp), Nanites, and Energy.
+- DO NOT create, track, or mention: mana, spirit, stamina, or any other resources.
+`;
+        }
+        else if (worldModule === 'outworlder') {
+            resourceConstraints = `
+CRITICAL RESOURCE RULES FOR OUTWORLDER:
+- The ONLY valid resources are: Health (hp), Mana, and Stamina.
+- DO NOT create, track, or mention: nanites, energy, spirit, or any other resources.
+- Technology essence does NOT grant nanites. It grants technological abilities and constructs.
+`;
+        }
+        // Build character context section
+        let characterContext = '';
+        if (input.characterProfile) {
+            const char = input.characterProfile;
+            const essences = char.essences && Array.isArray(char.essences) ? char.essences.join(', ') : 'None';
+            const rank = char.rank || 'Unknown';
+            characterContext = `
+CHARACTER CONTEXT:
+- Rank: ${rank}
+- Essences: ${essences}
+CRITICAL: You must ONLY grant abilities that correspond to the character's existing Essences (${essences}).
+- Do NOT grant abilities for 'Technology' or other essences unless the character possesses that specific essence.
+`;
+        }
         const systemPrompt = `${voicePrompt}
 ${knowledgeSection}
 ${customRulesSection}
+${resourceConstraints}
+${characterContext}
 CRITICAL LENGTH REQUIREMENT:
-**Your response MUST be between 150-250 words. This is NON-NEGOTIABLE.**
+**Your response MUST be between ${narratorWordLimitMin}-${narratorWordLimitMax} words. This is NON-NEGOTIABLE.**
 - Keep responses PUNCHY and FOCUSED.
 - One strong scene beat per response.
 - Don't over-describe—leave room for imagination.
@@ -57,36 +93,42 @@ STORYTELLING RULES:
 7. If reference materials or custom rules are provided, use them for consistent world-building.
 
 SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK. No sexual content or hate speech.`;
-        // Build the prompt from narrative cues
-        let cueText = 'The game engine has processed the following:\n\n';
-        // Add dice rolls
-        if (diceRolls.length > 0) {
-            cueText += 'DICE ROLLS:\n';
-            for (const roll of diceRolls) {
-                const modStr = roll.modifier ? ` + ${roll.modifier}` : '';
-                cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}\n`;
+        // ==================== CUE CONSTRUCTION ====================
+        let cueText = '';
+        // If Keep Alive, minimize input/output
+        if (isKeepAlive) {
+            cueText = 'PING_KEEP_ALIVE';
+        }
+        else {
+            // Add dice rolls
+            if (diceRolls.length > 0) {
+                cueText += 'DICE ROLLS:\n';
+                for (const roll of diceRolls) {
+                    const modStr = roll.modifier ? ` + ${roll.modifier}` : '';
+                    cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}\n`;
+                }
+                cueText += '\n';
             }
-            cueText += '\n';
-        }
-        // Add narrative cues
-        cueText += 'NARRATIVE CUES:\n';
-        for (const cue of narrativeCues) {
-            cueText += `- [${cue.type.toUpperCase()}${cue.emotion ? ` / ${cue.emotion}` : ''}] ${cue.content}\n`;
-        }
-        // Add state changes
-        if (Object.keys(stateChanges).length > 0) {
-            cueText += '\nSTATE CHANGES:\n';
-            for (const [key, value] of Object.entries(stateChanges)) {
-                cueText += `- ${key}: ${JSON.stringify(value)}\n`;
+            // Add narrative cues
+            cueText += 'NARRATIVE CUES:\n';
+            for (const cue of narrativeCues) {
+                cueText += `- [${cue.type.toUpperCase()}${cue.emotion ? ` / ${cue.emotion}` : ''}] ${cue.content}\n`;
             }
+            // Add state changes
+            if (Object.keys(stateChanges).length > 0) {
+                cueText += '\nSTATE CHANGES:\n';
+                for (const [key, value] of Object.entries(stateChanges)) {
+                    cueText += `- ${key}: ${JSON.stringify(value)}\n`;
+                }
+            }
+            cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
+            // Append state report instructions from Firestore (editable via admin)
+            const stateReportPrompt = await (0, promptHelper_1.getStateReportPrompt)();
+            cueText += stateReportPrompt;
         }
-        cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
-        // Append state report instructions from Firestore (editable via admin)
-        const stateReportPrompt = await (0, promptHelper_1.getStateReportPrompt)();
-        cueText += stateReportPrompt;
         let narrative = null;
         let usage;
-        console.log(`[Voice] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length})`);
+        console.log(`[Voice] Using provider: ${provider} (Model: ${model}, Key length: ${apiKey.length}, KeepAlive: ${isKeepAlive})`);
         if (provider === 'google') {
             // ==================== GOOGLE GEMINI ====================
             const genAI = new generative_ai_1.GoogleGenerativeAI(apiKey);
@@ -123,12 +165,14 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             const anthropic = new sdk_1.default({ apiKey });
             // Build messages for Anthropic
             const messages = [];
-            // Add recent chat history
-            for (const msg of chatHistory) {
-                messages.push({
-                    role: msg.role === 'user' ? 'user' : 'assistant',
-                    content: msg.content,
-                });
+            if (!isKeepAlive) {
+                // Add recent chat history
+                for (const msg of chatHistory) {
+                    messages.push({
+                        role: msg.role === 'user' ? 'user' : 'assistant',
+                        content: msg.content,
+                    });
+                }
             }
             // Add current request
             messages.push({
@@ -137,9 +181,17 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             });
             const response = await anthropic.messages.create({
                 model: model,
-                max_tokens: 1024,
-                system: systemPrompt,
+                max_tokens: isKeepAlive ? 1 : 1024,
+                system: [{
+                        type: 'text',
+                        text: systemPrompt,
+                        cache_control: { type: 'ephemeral' }
+                    }],
                 messages,
+            }, {
+                headers: {
+                    'anthropic-beta': 'prompt-caching-2024-07-31'
+                }
             });
             // Extract text from response
             const textContent = response.content.find(block => block.type === 'text');
@@ -221,7 +273,8 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             error: error instanceof Error ? error.message : 'Voice generation failed',
         };
     }
-}
+};
+exports.generateNarrative = generateNarrative;
 // ==================== SUMMARY FUNCTION (Memory Management) ====================
 /**
  * Summarize a chunk of chat history to compress context

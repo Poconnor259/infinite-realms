@@ -30,6 +30,10 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
     // Essence selection state (for Outworlder)
     const [essenceMode, setEssenceMode] = useState<'random' | 'choose'>('random');
     const [selectedEssence, setSelectedEssence] = useState<Essence | null>(null);
+    const [importedEssences, setImportedEssences] = useState<string[]>([]); // Store all imported essences
+    const [importedConfluence, setImportedConfluence] = useState<string>(''); // Store confluence from import
+    const [importedAbilities, setImportedAbilities] = useState<any[]>([]); // Store abilities from import
+    const [importedRank, setImportedRank] = useState<string>(''); // Store rank from import
     const [showEssenceDropdown, setShowEssenceDropdown] = useState(false);
 
     // Check if this is an Outworlder-type world
@@ -148,26 +152,51 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
 
         // Add essence data for Outworlder
         if (isOutworlder) {
-            if (essenceMode === 'choose' && selectedEssence) {
-                // Player chose a specific essence - skip AI prompt
-                character.essences = [selectedEssence.name];
-                character.essenceSelection = 'chosen';
-                character.rank = 'Iron';
-                // Add mana/spirit for Outworlder
+            if (essenceMode === 'choose' && (importedEssences.length > 0 || selectedEssence)) {
+                // Check if we have imported essences (full array)
+                if (importedEssences.length > 0) {
+                    // Use all imported essences
+                    character.essences = importedEssences;
+                    character.essenceSelection = 'imported';
+                    // Include confluence if imported
+                    if (importedConfluence) {
+                        character.confluence = importedConfluence;
+                    }
+                    // Handle imported abilities
+                    if (importedAbilities.length > 0) {
+                        character.abilities = importedAbilities;
+                    }
+                } else if (selectedEssence) {
+                    // Player chose a specific essence via UI - skip AI prompt
+                    character.essences = [selectedEssence.name];
+                    character.essenceSelection = 'chosen';
+
+                    // Add intrinsic abilities based on essence choice
+                    if (!character.abilities) character.abilities = [];
+                    if (selectedEssence.name === 'Dimension') {
+                        character.abilities.push('Spatial Awareness (Dimension - Intrinsic)');
+                    } else if (selectedEssence.name === 'Technology') {
+                        character.abilities.push('Schematic Vision (Technology - Intrinsic)');
+                    }
+                }
+
+                // Use imported rank if available, otherwise default to Iron
+                character.rank = importedRank || 'Iron';
+                // Add mana/stamina for Outworlder
                 character.mana = { current: 100, max: 100 };
-                character.spirit = { current: 100, max: 100 };
+                character.stamina = { current: 100, max: 100 };
             } else {
                 // Random mode - let AI present options during gameplay
                 character.essenceSelection = 'random';
                 character.essences = [];
                 character.rank = 'Iron';
                 character.mana = { current: 100, max: 100 };
-                character.spirit = { current: 100, max: 100 };
+                character.stamina = { current: 100, max: 100 };
             }
         }
 
         onComplete(character);
-    }
+    };
 
     // AI Generation for text fields
     const handleAIGenerate = async (fieldId: string, fieldLabel: string) => {
@@ -231,7 +260,15 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
 
         // Handle imported essences for Outworlder
         if (isOutworlder && data.essences && Array.isArray(data.essences) && data.essences.length > 0) {
-            // Find matching essence from our list
+            // Store ALL imported essences
+            setImportedEssences(data.essences);
+
+            // Store confluence if present
+            if (data.confluence) {
+                setImportedConfluence(data.confluence);
+            }
+
+            // Find matching essence from our list for UI display (first essence)
             const firstEssenceName = data.essences[0];
             const matchedEssence = ESSENCES.find(e =>
                 e.name.toLowerCase() === firstEssenceName.toLowerCase()
@@ -247,8 +284,18 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                     category: 'Concept'
                 });
             }
-            // Switch to choose mode since we have a specific essence
+            // Switch to choose mode since we have specific essences
             setEssenceMode('choose');
+        }
+
+        // Handle imported abilities (Outworlder specific)
+        if (isOutworlder && data.abilities && Array.isArray(data.abilities)) {
+            setImportedAbilities(data.abilities);
+        }
+
+        // Handle imported rank
+        if (isOutworlder && data.rank) {
+            setImportedRank(data.rank);
         }
     };
 
