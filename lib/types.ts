@@ -402,6 +402,7 @@ export interface User {
     isAnonymous?: boolean;
     createdAt: number;
     role?: 'user' | 'admin';
+    turns?: number; // Remaining turn balance for weighted turn economy
     turnsUsed?: number;
 
     // Per-model token tracking (new)

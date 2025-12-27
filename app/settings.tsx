@@ -339,6 +339,177 @@ export default function SettingsScreen() {
                     </Section>
                 </FadeInView>
 
+                {/* AI Voice Model Section (Hero+ Only) */}
+                {user?.tier && ['hero', 'visionary', 'legend'].includes(user.tier) && (
+                    <FadeInView delay={175}>
+                        <Section title="AI Voice Model">
+                            <View style={styles.voiceModelContainer}>
+                                <Text style={styles.voiceModelDescription}>
+                                    Choose your narrative AI. Higher quality uses more turns.
+                                </Text>
+
+                                {/* Model Options */}
+                                <View style={styles.modelGrid}>
+                                    {/* Opus 4.5 */}
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.voiceModelCard,
+                                            user?.preferredModels?.voice === 'claude-opus-4.5' && styles.voiceModelCardSelected
+                                        ]}
+                                        onPress={async () => {
+                                            if (user?.id) {
+                                                await updateDoc(doc(db, 'users', user.id), {
+                                                    'preferredModels.voice': 'claude-opus-4.5'
+                                                });
+                                                useUserStore.setState({
+                                                    user: {
+                                                        ...user,
+                                                        preferredModels: {
+                                                            ...user.preferredModels,
+                                                            voice: 'claude-opus-4.5'
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <View style={styles.voiceModelHeader}>
+                                            <Ionicons
+                                                name="sparkles"
+                                                size={24}
+                                                color={user?.preferredModels?.voice === 'claude-opus-4.5' ? colors.primary[400] : colors.text.muted}
+                                            />
+                                            <Text style={[
+                                                styles.voiceModelName,
+                                                user?.preferredModels?.voice === 'claude-opus-4.5' && styles.voiceModelNameSelected
+                                            ]}>
+                                                Claude Opus 4.5
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.voiceModelTag}>Premium</Text>
+                                        <Text style={styles.voiceModelCost}>~20 turns/action</Text>
+                                        <Text style={styles.voiceModelDesc}>Immersive storytelling with rich detail</Text>
+                                    </TouchableOpacity>
+
+                                    {/* Sonnet 3.5 */}
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.voiceModelCard,
+                                            user?.preferredModels?.voice === 'claude-sonnet-3.5' && styles.voiceModelCardSelected
+                                        ]}
+                                        onPress={async () => {
+                                            if (user?.id) {
+                                                await updateDoc(doc(db, 'users', user.id), {
+                                                    'preferredModels.voice': 'claude-sonnet-3.5'
+                                                });
+                                                useUserStore.setState({
+                                                    user: {
+                                                        ...user,
+                                                        preferredModels: {
+                                                            ...user.preferredModels,
+                                                            voice: 'claude-sonnet-3.5'
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <View style={styles.voiceModelHeader}>
+                                            <Ionicons
+                                                name="flash"
+                                                size={24}
+                                                color={user?.preferredModels?.voice === 'claude-sonnet-3.5' ? colors.primary[400] : colors.text.muted}
+                                            />
+                                            <Text style={[
+                                                styles.voiceModelName,
+                                                user?.preferredModels?.voice === 'claude-sonnet-3.5' && styles.voiceModelNameSelected
+                                            ]}>
+                                                Claude Sonnet 3.5
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.voiceModelTag}>Balanced</Text>
+                                        <Text style={styles.voiceModelCost}>~4 turns/action</Text>
+                                        <Text style={styles.voiceModelDesc}>Great quality at moderate cost</Text>
+                                    </TouchableOpacity>
+
+                                    {/* Gemini Flash 3 */}
+                                    <TouchableOpacity
+                                        style={[
+                                            styles.voiceModelCard,
+                                            user?.preferredModels?.voice === 'gemini-3-flash' && styles.voiceModelCardSelected
+                                        ]}
+                                        onPress={async () => {
+                                            if (user?.id) {
+                                                await updateDoc(doc(db, 'users', user.id), {
+                                                    'preferredModels.voice': 'gemini-3-flash'
+                                                });
+                                                useUserStore.setState({
+                                                    user: {
+                                                        ...user,
+                                                        preferredModels: {
+                                                            ...user.preferredModels,
+                                                            voice: 'gemini-3-flash'
+                                                        }
+                                                    }
+                                                });
+                                            }
+                                        }}
+                                    >
+                                        <View style={styles.voiceModelHeader}>
+                                            <Ionicons
+                                                name="rocket"
+                                                size={24}
+                                                color={user?.preferredModels?.voice === 'gemini-3-flash' ? colors.primary[400] : colors.text.muted}
+                                            />
+                                            <Text style={[
+                                                styles.voiceModelName,
+                                                user?.preferredModels?.voice === 'gemini-3-flash' && styles.voiceModelNameSelected
+                                            ]}>
+                                                Gemini Flash 3
+                                            </Text>
+                                        </View>
+                                        <Text style={styles.voiceModelTag}>Economical</Text>
+                                        <Text style={styles.voiceModelCost}>~1 turn/action</Text>
+                                        <Text style={styles.voiceModelDesc}>Fast and efficient</Text>
+                                    </TouchableOpacity>
+                                </View>
+
+                                {/* Turn Estimate */}
+                                {user?.turns !== undefined && user?.preferredModels?.voice && (
+                                    <View style={styles.turnEstimate}>
+                                        <Ionicons name="information-circle-outline" size={16} color={colors.text.muted} />
+                                        <Text style={styles.turnEstimateText}>
+                                            {user.turns} turns remaining ≈ {
+                                                user.preferredModels.voice === 'claude-opus-4.5' ? Math.floor(user.turns / 20) :
+                                                    user.preferredModels.voice === 'claude-sonnet-3.5' ? Math.floor(user.turns / 4) :
+                                                        user.turns
+                                            } actions
+                                        </Text>
+                                    </View>
+                                )}
+                            </View>
+                        </Section>
+                    </FadeInView>
+                )}
+
+                {/* Scout Tier - Locked Voice Model */}
+                {user?.tier === 'scout' && (
+                    <FadeInView delay={175}>
+                        <Section title="AI Voice Model">
+                            <View style={styles.lockedContainer}>
+                                <Ionicons name="lock-closed" size={32} color={colors.text.muted} />
+                                <Text style={styles.lockedTitle}>Hero Tier Required</Text>
+                                <Text style={styles.lockedText}>
+                                    Upgrade to Hero to unlock premium AI models (Opus 4.5, Sonnet 3.5).
+                                </Text>
+                                <Text style={[styles.lockedText, { marginTop: spacing.sm }]}>
+                                    Currently using: Gemini Flash 3 (1 turn/action)
+                                </Text>
+                            </View>
+                        </Section>
+                    </FadeInView>
+                )}
+
                 {/* BYOK Section */}
                 <FadeInView delay={200}>
                     <Section title="Bring Your Own Key (BYOK)">
@@ -858,5 +1029,81 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: 12,
         color: '#FFFFFF',
         fontWeight: 'bold',
+    },
+    voiceModelContainer: {
+        padding: spacing.lg,
+    },
+    voiceModelDescription: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+        marginBottom: spacing.md,
+        textAlign: 'center',
+    },
+    modelGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.md,
+        justifyContent: 'center',
+    },
+    voiceModelCard: {
+        flex: 1,
+        minWidth: 140,
+        maxWidth: 180,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.lg,
+        padding: spacing.md,
+        borderWidth: 2,
+        borderColor: colors.border.default,
+    },
+    voiceModelCardSelected: {
+        borderColor: colors.primary[400],
+        backgroundColor: colors.primary[600] + '10',
+    },
+    voiceModelHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginBottom: spacing.xs,
+    },
+    voiceModelName: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        flex: 1,
+    },
+    voiceModelNameSelected: {
+        color: colors.primary[400],
+    },
+    voiceModelTag: {
+        fontSize: typography.fontSize.xs,
+        color: colors.gold.main,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        marginBottom: spacing.xs,
+    },
+    voiceModelCost: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        fontWeight: '600',
+        marginBottom: spacing.xs,
+    },
+    voiceModelDesc: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        lineHeight: 16,
+    },
+    turnEstimate: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        marginTop: spacing.md,
+        padding: spacing.sm,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
+    },
+    turnEstimateText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
     },
 });
