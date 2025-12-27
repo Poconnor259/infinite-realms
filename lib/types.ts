@@ -551,6 +551,9 @@ export interface GlobalConfig {
         showAdminDebug: boolean; // Show AI state reports in campaign for admins
         narratorWordLimitMin: number; // Minimum word count for narrator (default: 150)
         narratorWordLimitMax: number; // Maximum word count for narrator (default: 250)
+        enableContextCaching: boolean; // Enable Anthropic context caching (default: true)
+        enableHeartbeatSystem: boolean; // Enable cache keep-alive heartbeat (default: true)
+        heartbeatIdleTimeout: number; // Minutes before heartbeat stops (default: 15)
     };
 }
 

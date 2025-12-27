@@ -306,6 +306,23 @@ export default function AdminConfigScreen() {
         });
     };
 
+    const updateSystemSettingNumber = (key: string, value: string) => {
+        if (!config) return;
+        const numValue = value === '' ? 0 : parseInt(value);
+        if (isNaN(numValue)) return;
+        console.log(`[Config] Update system setting ${key}: ${numValue}`);
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                systemSettings: {
+                    ...prev.systemSettings,
+                    [key]: numValue
+                }
+            };
+        });
+    };
+
     const brainModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
     const voiceModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
 
@@ -758,6 +775,50 @@ export default function AdminConfigScreen() {
                             value={config?.systemSettings?.showAdminDebug ?? false}
                             onValueChange={() => toggleSystemSetting('showAdminDebug')}
                             style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+
+                    {/* Cache & Heartbeat Controls */}
+                    <View style={[styles.switchRow, { borderBottomWidth: 1, borderBottomColor: colors.border.default, paddingTop: spacing.md, marginTop: spacing.md }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Enable Context Caching</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Use Anthropic cache_control headers (90% cost savings)
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.systemSettings?.enableContextCaching ?? true}
+                            onValueChange={() => toggleSystemSetting('enableContextCaching')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 1, borderBottomColor: colors.border.default }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Enable Heartbeat System</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Keep cache alive with periodic pings (~$0.02/session)
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.systemSettings?.enableHeartbeatSystem ?? true}
+                            onValueChange={() => toggleSystemSetting('enableHeartbeatSystem')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Heartbeat Idle Timeout (Minutes)</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Stop heartbeat after this many minutes of inactivity
+                            </Text>
+                        </View>
+                        <TextInput
+                            style={[styles.input, { width: 80, textAlign: 'center' }]}
+                            value={String(config?.systemSettings?.heartbeatIdleTimeout ?? 15)}
+                            keyboardType="numeric"
+                            onChangeText={(v) => updateSystemSettingNumber('heartbeatIdleTimeout', v)}
+                            placeholder="15"
+                            placeholderTextColor={colors.text.muted}
                         />
                     </View>
                 </View>
