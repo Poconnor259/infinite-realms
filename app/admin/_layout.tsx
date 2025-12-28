@@ -27,6 +27,7 @@ export default function AdminLayout() {
     return (
         <Stack
             screenOptions={{
+                headerShown: false, // Hide default header - each screen implements its own
                 headerStyle: {
                     backgroundColor: colors.background.secondary,
                 },

@@ -92,12 +92,29 @@ function getProviderFromModel(model: string): 'openai' | 'anthropic' | 'google' 
     return 'openai';
 }
 
+const MODEL_ID_MAP: Record<string, { provider: 'openai' | 'anthropic' | 'google'; model: string }> = {
+    // UI IDs to actual Provider IDs
+    'claude-opus-4.5': { provider: 'anthropic', model: 'claude-opus-4-5-20251101' },
+    'claude-sonnet-3.5': { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+    'gemini-3-flash': { provider: 'google', model: 'gemini-1.5-flash' },
+
+    // Legacy mapping or direct pass-through fallbacks
+    'claude-3-opus': { provider: 'anthropic', model: 'claude-opus-4-5-20251101' },
+    'claude-3-5-sonnet': { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+    'gemini-1.5-flash': { provider: 'google', model: 'gemini-1.5-flash' },
+    'gpt-4o-mini': { provider: 'openai', model: 'gpt-4o-mini' },
+};
+
 function resolveModelConfig(
     selectedModel: string,
     byokKeys: GameRequest['byokKeys'],
     secrets: { openai: string; anthropic: string; google: string }
 ) {
-    const provider = getProviderFromModel(selectedModel);
+    // Normalize model ID if it exists in our map
+    const mapped = MODEL_ID_MAP[selectedModel];
+    const provider = mapped ? mapped.provider : getProviderFromModel(selectedModel);
+    const actualModel = mapped ? mapped.model : selectedModel;
+
     let key: string | undefined;
 
     // 1. Try BYOK
@@ -121,7 +138,7 @@ function resolveModelConfig(
         };
     }
 
-    return { provider, model: selectedModel, key };
+    return { provider, model: actualModel, key };
 }
 
 // ==================== CONFIG ENDPOINTS ====================

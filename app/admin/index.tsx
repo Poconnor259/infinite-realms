@@ -84,9 +84,12 @@ export default function AdminDashboard() {
 
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-            <FadeInView>
-                <Text style={styles.header}>Overview</Text>
-            </FadeInView>
+            <View style={styles.headerRow}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                </TouchableOpacity>
+                <Text style={styles.header}>Admin Dashboard</Text>
+            </View>
 
             <StaggeredList style={{ gap: spacing.md }}>
                 {cards.map((card, index) => (
@@ -114,7 +117,17 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.xl,
         fontWeight: 'bold',
         color: colors.text.primary,
-        marginBottom: spacing.lg,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.xl,
+        gap: spacing.md,
+    },
+    backButton: {
+        padding: spacing.sm,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
     },
     card: {
         flexDirection: 'row',
