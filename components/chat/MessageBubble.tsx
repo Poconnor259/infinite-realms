@@ -5,6 +5,7 @@ import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore } from '../../lib/store';
 import type { Message } from '../../lib/types';
+import { AVAILABLE_MODELS } from '../../lib/types';
 
 interface MessageBubbleProps {
     message: Message;
@@ -92,8 +93,18 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
             {!isUser && !isSystem && (
                 <View style={styles.roleIndicator}>
                     <Text style={styles.roleText}>
-                        {message.role === 'narrator' ? '📜 Narrator' : '🎭 Character'}
+                        {message.role === 'narrator'
+                            ? `📜 Narrator${message.metadata?.voiceModel ? ` - ${AVAILABLE_MODELS.find(m => m.id === message.metadata.voiceModel)?.name || message.metadata.voiceModel}` : ''}`
+                            : '🎭 Character'}
                     </Text>
+                    {message.role === 'narrator' && message.metadata?.turnCost !== undefined && (
+                        <View style={styles.usageFlag}>
+                            <Ionicons name="flash-outline" size={10} color={colors.text.muted} />
+                            <Text style={styles.usageFlagText}>
+                                {message.metadata.turnCost} turns
+                            </Text>
+                        </View>
+                    )}
                 </View>
             )}
             <View style={[styles.bubble, getBubbleStyle()]}>
@@ -168,11 +179,28 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'flex-end',
     },
     roleIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
         marginBottom: spacing.xs,
     },
     roleText: {
         color: colors.text.muted,
         fontSize: typography.fontSize.xs,
+    },
+    usageFlag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 2,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: 4,
+        marginLeft: spacing.sm,
+    },
+    usageFlagText: {
+        color: colors.text.muted,
+        fontSize: 10,
+        fontWeight: '500',
     },
     bubble: {
         maxWidth: '85%',

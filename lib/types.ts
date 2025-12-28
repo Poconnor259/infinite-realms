@@ -21,6 +21,8 @@ export interface Message {
         stateChanges?: StateChange[];
         diceRolls?: DiceRoll[];
         alertType?: 'info' | 'success' | 'warning' | 'danger' | 'blueBox';
+        voiceModel?: string;
+        turnCost?: number;
         debug?: {
             brainResponse?: any;
             stateReport?: any;

@@ -80,6 +80,8 @@ interface GameResponse {
         choiceType: string;
     };
     remainingTurns?: number;
+    turnCost?: number;
+    voiceModelId?: string;
     error?: string;
     debug?: {
         brainResponse: any;
@@ -820,7 +822,10 @@ export const processGameAction = onCall(
                     role: 'narrator',
                     content: voiceResult.narrative || brainResult.data.narrativeCue,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    // Simplified usage tracking on message for now
+                    metadata: {
+                        voiceModel: voiceModelId,
+                        turnCost: userTier !== 'legendary' ? turnCost : 0,
+                    }
                 });
 
                 await db.collection('users')
@@ -840,6 +845,8 @@ export const processGameAction = onCall(
                 diceRolls: brainResult.data.diceRolls,
                 systemMessages: brainResult.data.systemMessages,
                 remainingTurns: finalTurnsBalance,
+                turnCost: userTier !== 'legendary' ? turnCost : 0,
+                voiceModelId: voiceModelId,
                 reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
                 requiresUserInput: brainResult.data.requiresUserInput,
                 pendingChoice: brainResult.data.pendingChoice,

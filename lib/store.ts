@@ -201,6 +201,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 content: narrative,
                 timestamp: Date.now(),
                 metadata: {
+                    voiceModel: result.data.voiceModelId,
+                    turnCost: result.data.turnCost,
                     debug: result.data.debug, // Attach debug data for admin viewing
                 },
             };
