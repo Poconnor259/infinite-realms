@@ -3,7 +3,7 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { useUserStore } from '../lib/store';
+import { useUserStore, useConfigStore } from '../lib/store';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { spacing, borderRadius, typography, shadows } from '../lib/theme';
 import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
@@ -22,15 +22,16 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
     const { colors } = useThemeColors();
     const styles = createStyles(colors, mode);
     const [isExpanded, setIsExpanded] = useState(false);
+    const config = useConfigStore((state) => state.config);
 
     // Read the current model based on modelType
     const currentModel = modelType === 'brain'
-        ? (user?.preferredModels?.brain || 'gemini-3-flash')
-        : (user?.preferredModels?.voice || 'gemini-3-flash');
+        ? (user?.preferredModels?.brain || 'gemini-1.5-flash-002')
+        : (user?.preferredModels?.voice || 'gemini-1.5-flash-002');
 
-    const basicPermissions = subscriptionPermissions;
-    const basicCosts = modelCosts || {};
-    const basicMapping = tierMapping || {
+    const basicPermissions = subscriptionPermissions || config?.subscriptionPermissions;
+    const basicCosts = modelCosts || config?.modelCosts || {};
+    const basicMapping = tierMapping || config?.tierMapping || {
         premium: undefined,
         balanced: undefined,
         economical: undefined
@@ -72,10 +73,9 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
         const mappedModelId = basicMapping[tier.key];
 
         // 2. Look up static details (Name, Provider) from code constants
-        // This ensures we have a nice name like "GPT-4o Mini" even if config only has ID "gpt-4o-mini"
         const staticDetails = AVAILABLE_MODELS.find(m => m.id === mappedModelId);
 
-        // 3. Fallback Name if static lookup fails (e.g. new model added to config but not code yet)
+        // 3. Fallback Name if static lookup fails
         const displayId = mappedModelId || 'Unknown Model';
         const displayName = staticDetails?.name || displayId;
 
@@ -91,15 +91,10 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
         if (user?.tier === 'legendary' || user?.tier === 'legend') {
             isLocked = false;
         } else if (userPermissions?.allowedTiers) {
-            // New permission system: Check if this TIER (e.g. 'premium') is allowed
             isLocked = !userPermissions.allowedTiers.includes(tier.key);
         } else if (userPermissions?.allowedModels) {
-            // Legacy permission system: Check if this MODEL ID is allowed
             isLocked = !userPermissions.allowedModels.includes(mappedModelId);
         } else {
-            // Fallback: If no permissions loaded yet, lock everything except economical to be safe, 
-            // or if it's Scout, lock premium/balanced.
-            // Assuming Scout = Economical only.
             if (userTier === 'scout' && tier.key !== 'economical') isLocked = true;
         }
 
@@ -120,11 +115,8 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
         ? models
         : models.filter(m => m.id === currentModel);
 
-    // If current model isn't in the list (e.g. it's a custom BYOK model or old legacy ID not in current tiers),
-    // and we are collapsed, we might show nothing. 
-    // In that case, show the Economical option as a fallback or the "Selected" one if we can find it.
-    // For now, if visibleModels is empty in main mode, show all.
-    const finalVisibleModels = visibleModels.length > 0 ? visibleModels : models;
+    // Filter out if models are not loaded yet or ID mismatch
+    const finalVisibleModels = visibleModels.length > 0 ? visibleModels : [models.find(m => m.id === currentModel) || models[2]];
 
     const updateModel = async (modelId: string) => {
         if (user?.id) {
@@ -169,7 +161,6 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
         }
     };
 
-    // Description for the top of the section
     const getDescription = () => {
         if (modelType === 'brain') return "Controls game logic speed and cost. Admin only.";
         return "Select your narrator. Balance storytelling quality with speed and turn usage.";
@@ -189,7 +180,7 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
 
                     return (
                         <TouchableOpacity
-                            key={model.tierKey} // use tierKey as key since ID might change
+                            key={model.tierKey}
                             style={[
                                 styles.card,
                                 isSelected && !model.isLocked && styles.cardSelected,

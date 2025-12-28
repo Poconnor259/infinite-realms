@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Logo } from '../components/ui/Logo';
 import { spacing, borderRadius, typography } from '../lib/theme';
 import { useThemeColors } from '../lib/hooks/useTheme';
-import { useSettingsStore, useUserStore } from '../lib/store';
+import { useSettingsStore, useUserStore, useConfigStore } from '../lib/store';
 import { signOut, db } from '../lib/firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
@@ -62,18 +62,7 @@ export default function SettingsScreen() {
     const [showByokSection, setShowByokSection] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [keyInput, setKeyInput] = useState('');
-    const [config, setConfig] = useState<GlobalConfig | null>(null);
-
-    React.useEffect(() => {
-        // Use real-time listener for config to ensure instant updates from Admin changes
-        const unsubscribe = onSnapshot(doc(db, 'config', 'global'), (snapshot) => {
-            if (snapshot.exists()) {
-                setConfig(snapshot.data() as GlobalConfig);
-            }
-        });
-
-        return () => unsubscribe();
-    }, []);
+    const config = useConfigStore((state) => state.config);
 
     const handleUpgradePrompt = () => {
         router.push('/subscription');

@@ -678,3 +678,54 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
     };
 });
 
+// ==================== CONFIG STORE ====================
+
+interface ConfigState {
+    config: GlobalConfig | null;
+    isLoading: boolean;
+    error: string | null;
+
+    // Actions
+    setConfig: (config: GlobalConfig | null) => void;
+    syncConfig: () => () => void; // Returns unsubscribe function
+}
+
+export const useConfigStore = create<ConfigState>((set) => ({
+    config: null,
+    isLoading: true,
+    error: null,
+
+    setConfig: (config) => set({ config, isLoading: false }),
+
+    syncConfig: () => {
+        set({ isLoading: true });
+        // Dynamic import to avoid circular dependencies or early initialization issues
+        const sync = async () => {
+            try {
+                const { db } = await import('./firebase');
+                const { doc, onSnapshot } = await import('firebase/firestore');
+
+                const unsubscribe = onSnapshot(doc(db, 'config', 'global'), (snapshot) => {
+                    if (snapshot.exists()) {
+                        set({ config: snapshot.data() as GlobalConfig, isLoading: false, error: null });
+                    } else {
+                        set({ isLoading: false, error: 'Config document not found' });
+                    }
+                }, (err) => {
+                    console.error('[ConfigStore] Sync error:', err);
+                    set({ error: err.message, isLoading: false });
+                });
+
+                return unsubscribe;
+            } catch (err: any) {
+                console.error('[ConfigStore] Initialization error:', err);
+                set({ error: err.message, isLoading: false });
+                return () => { };
+            }
+        };
+
+        let unsub: () => void = () => { };
+        sync().then(u => unsub = u);
+        return () => unsub();
+    }
+}));

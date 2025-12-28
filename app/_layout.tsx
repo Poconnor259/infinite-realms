@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../lib/hooks/useTheme';
-import { useSettingsStore, useUserStore, useTurnsStore } from '../lib/store';
+import { useSettingsStore, useUserStore, useTurnsStore, useConfigStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser } from '../lib/firebase';
 
 import { useRouter, useSegments } from 'expo-router';
@@ -29,6 +29,9 @@ export default function RootLayout() {
     useEffect(() => {
         // Load user settings on app start
         loadSettings();
+
+        // Initialize global config sync
+        const unsubConfig = useConfigStore.getState().syncConfig();
 
         // Listen for auth changes
         const unsubscribe = onAuthChange(async (firebaseUser) => {
