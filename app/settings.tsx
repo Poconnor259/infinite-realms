@@ -21,6 +21,7 @@ import { signOut, db } from '../lib/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { AVAILABLE_MODELS } from '../lib/types';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
+import { VoiceModelSelector } from '../components/VoiceModelSelector';
 
 // Helper types
 interface SettingsSectionProps {
@@ -60,6 +61,10 @@ export default function SettingsScreen() {
     const [showByokSection, setShowByokSection] = useState(false);
     const [editingKey, setEditingKey] = useState<string | null>(null);
     const [keyInput, setKeyInput] = useState('');
+
+    const handleUpgradePrompt = () => {
+        router.push('/subscription');
+    };
 
     // Helper components defined inside to access dynamic styles
     const Section = ({ title, children }: SettingsSectionProps) => (
@@ -162,6 +167,12 @@ export default function SettingsScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
+                {/* AI Voice Model Section (Moved to top) */}
+                <FadeInView delay={50}>
+                    <Section title="AI Voice Model">
+                        <VoiceModelSelector user={user} mode="settings" onShowUpgrade={handleUpgradePrompt} />
+                    </Section>
+                </FadeInView>
                 {/* Account Section */}
                 <FadeInView delay={0}>
                     <Section title="Account">
@@ -222,12 +233,10 @@ export default function SettingsScreen() {
                         )}
                         <Row
                             label="Subscription"
-                            sublabel="Scout (Free)"
+                            sublabel={user?.tier ? (user.tier.charAt(0).toUpperCase() + user.tier.slice(1)) : 'Scout (Free)'}
                             icon="star-outline"
                             iconColor={colors.gold.main}
-                            onPress={() => {
-                                Alert.alert('Coming Soon', 'Subscriptions will be added with RevenueCat integration.');
-                            }}
+                            onPress={() => router.push('/subscription')}
                         />
                     </Section>
                 </FadeInView>
@@ -339,6 +348,7 @@ export default function SettingsScreen() {
                     </Section>
                 </FadeInView>
 
+
                 {/* BYOK Section */}
                 <FadeInView delay={200}>
                     <Section title="Bring Your Own Key (BYOK)">
@@ -368,7 +378,7 @@ export default function SettingsScreen() {
 
                         {showByokSection && (
                             <View style={styles.byokContent}>
-                                {user?.tier === 'legend' ? (
+                                {user?.tier === 'legendary' ? (
                                     <>
                                         {/* Model Preferences */}
                                         <View style={{ marginBottom: spacing.md }}>
@@ -858,5 +868,81 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: 12,
         color: '#FFFFFF',
         fontWeight: 'bold',
+    },
+    voiceModelContainer: {
+        padding: spacing.lg,
+    },
+    voiceModelDescription: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+        marginBottom: spacing.md,
+        textAlign: 'center',
+    },
+    modelGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.md,
+        justifyContent: 'center',
+    },
+    voiceModelCard: {
+        flex: 1,
+        minWidth: 140,
+        maxWidth: 180,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.lg,
+        padding: spacing.md,
+        borderWidth: 2,
+        borderColor: colors.border.default,
+    },
+    voiceModelCardSelected: {
+        borderColor: colors.primary[400],
+        backgroundColor: colors.primary[600] + '10',
+    },
+    voiceModelHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginBottom: spacing.xs,
+    },
+    voiceModelName: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+        color: colors.text.secondary,
+        flex: 1,
+    },
+    voiceModelNameSelected: {
+        color: colors.primary[400],
+    },
+    voiceModelTag: {
+        fontSize: typography.fontSize.xs,
+        color: colors.gold.main,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        marginBottom: spacing.xs,
+    },
+    voiceModelCost: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.primary,
+        fontWeight: '600',
+        marginBottom: spacing.xs,
+    },
+    voiceModelDesc: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        lineHeight: 16,
+    },
+    turnEstimate: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: spacing.xs,
+        marginTop: spacing.md,
+        padding: spacing.sm,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.md,
+    },
+    turnEstimateText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
     },
 });

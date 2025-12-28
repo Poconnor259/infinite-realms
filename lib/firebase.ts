@@ -15,7 +15,7 @@ import {
     onAuthStateChanged,
     type User
 } from 'firebase/auth';
-import type { WorldModule, GameEngine, GlobalConfig } from './types';
+import type { WorldModule, GameEngine, GlobalConfig, SubscriptionTier } from './types';
 import {
     getFirestore,
     collection,
@@ -34,13 +34,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase configuration
 const firebaseConfig = {
-    apiKey: "AIzaSyCuCsTTt0DMv9dDhzxgveviyV6LJIjr7IY",
-    authDomain: "infinite-realms-5dcba.firebaseapp.com",
-    projectId: "infinite-realms-5dcba",
-    storageBucket: "infinite-realms-5dcba.firebasestorage.app",
-    messagingSenderId: "714188392386",
-    appId: "1:714188392386:web:c877b12b8068343571b85b",
-    measurementId: "G-GNFMNEW2TZ"
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
+    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase (only once)
@@ -270,7 +270,7 @@ export interface ProcessInputRequest {
     worldModule: 'classic' | 'outworlder' | 'tactical';
     currentState: Record<string, unknown>;
     chatHistory: Array<{ role: string; content: string }>;
-    userTier: 'scout' | 'hero' | 'legend';
+    userTier: SubscriptionTier;
     byokKeys?: {
         openai?: string;
         anthropic?: string;
@@ -283,11 +283,22 @@ export interface ProcessInputResponse {
     stateUpdates?: Record<string, unknown>;
     diceRolls?: Array<any>;
     systemMessages?: string[];
+    requiresUserInput?: boolean;
+    pendingChoice?: {
+        prompt: string;
+        options?: string[];
+        choiceType: string;
+    };
+    remainingTurns?: number;
     error?: string;
     debug?: {
         brainResponse?: any;
         stateReport?: any;
         reviewerResult?: any;
+        models?: {
+            brain: string;
+            voice: string;
+        };
     };
 }
 
@@ -487,13 +498,23 @@ export async function updateUserRole(userId: string, role: 'user' | 'admin') {
     });
 }
 
-export async function updateUserTier(userId: string, tier: 'scout' | 'hero' | 'legend') {
+export async function updateUserTier(userId: string, tier: SubscriptionTier) {
     const adminUpdate = httpsCallable(functions, 'adminUpdateUser');
     await adminUpdate({
         targetUserId: userId,
         updates: { tier }
     });
 }
+
+export async function adminAdjustTurns(
+    targetUserId: string,
+    amount: number,
+    operation: 'add' | 'set' = 'add'
+): Promise<void> {
+    const adjustTurns = httpsCallable(functions, 'adminAdjustTurns');
+    await adjustTurns({ targetUserId, amount, operation });
+}
+
 
 // ==================== KNOWLEDGE BASE HELPERS ====================
 

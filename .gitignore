@@ -41,3 +41,6 @@ yarn-error.*
 /android
 
 firebase-debug.log
+
+# Cloud Functions build artifacts
+functions/lib/

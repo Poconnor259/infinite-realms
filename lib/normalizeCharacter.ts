@@ -144,7 +144,7 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
     const stamina = extractResource(char, ['stamina', 'spirit', 'focus', 'fatigue']);
     if (stamina) {
         const worldLower = worldType.toLowerCase();
-        const staminaName = worldLower === 'outworlder' ? 'Spirit' :
+        const staminaName = worldLower === 'outworlder' ? 'Stamina' :
             worldLower === 'tactical' || worldLower === 'praxis' ? 'Focus' : 'Stamina';
         resources.push({
             ...stamina,
@@ -224,8 +224,8 @@ function normalizeStats(char: any, worldType: string): NormalizedStat[] {
         }
     }
 
-    // Check for Outworlder-style stats (PWR, SPD, SPI, REC)
-    const outworlderStats = ['power', 'speed', 'spirit', 'recovery'];
+    // Check for Outworlder-style stats (PWR, SPD, STA, REC)
+    const outworlderStats = ['power', 'speed', 'stamina', 'recovery'];
     for (const statKey of outworlderStats) {
         if (typeof char[statKey] === 'number' && !stats.some(s => s.id === statKey)) {
             const statInfo = getStatInfo(statKey, worldType);
@@ -254,7 +254,8 @@ function getStatInfo(key: string, worldType: string): { name: string; abbreviati
         // Outworlder style
         power: { name: 'Power', abbreviation: 'PWR' },
         speed: { name: 'Speed', abbreviation: 'SPD' },
-        spirit: { name: 'Spirit', abbreviation: 'SPI' },
+        stamina: { name: 'Stamina', abbreviation: 'STA' },
+        spirit: { name: 'Stamina', abbreviation: 'STA' }, // Backward compatibility mapping
         recovery: { name: 'Recovery', abbreviation: 'REC' },
 
         // Tactical/Praxis style
@@ -287,6 +288,10 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
                     essence: ability.essence,
                     cost: ability.cost,
                     costAmount: ability.costAmount,
+                });
+            } else if (typeof ability === 'string') {
+                abilities.push({
+                    name: ability,
                 });
             }
         }

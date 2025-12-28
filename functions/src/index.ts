@@ -5,8 +5,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
+import { createCheckoutSession, handleStripeWebhook } from './stripe';
 import { initPromptHelper, seedAIPrompts, getStateReviewerSettings } from './promptHelper';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
+
+export { createCheckoutSession, handleStripeWebhook };
 
 
 // Initialize Firebase Admin
@@ -76,11 +79,16 @@ interface GameResponse {
         options?: string[];
         choiceType: string;
     };
+    remainingTurns?: number;
     error?: string;
     debug?: {
         brainResponse: any;
         stateReport: any;
         reviewerResult: any;
+        models?: {
+            brain: string;
+            voice: string;
+        };
     };
 }
 
@@ -319,10 +327,22 @@ export const processGameAction = onCall(
 
             // 2. Resolve AI Settings
             let aiSettings = { brainModel: 'gpt-4o-mini', voiceModel: 'claude-3-5-sonnet' };
+            let narratorLimits = { min: 150, max: 250 }; // Default narrator word limits
             try {
                 const settingsDoc = await db.collection('config').doc('aiSettings').get();
                 if (settingsDoc.exists) {
                     aiSettings = settingsDoc.data() as any;
+                }
+                // Fetch narrator limits from globalConfig
+                const globalConfigDoc = await db.collection('config').doc('globalConfig').get();
+                if (globalConfigDoc.exists) {
+                    const gc = globalConfigDoc.data();
+                    if (gc?.systemSettings?.narratorWordLimitMin) {
+                        narratorLimits.min = gc.systemSettings.narratorWordLimitMin;
+                    }
+                    if (gc?.systemSettings?.narratorWordLimitMax) {
+                        narratorLimits.max = gc.systemSettings.narratorWordLimitMax;
+                    }
                 }
             } catch (error) {
                 console.error('[ProcessGameAction] Failed to fetch AI settings:', error);
@@ -341,14 +361,14 @@ export const processGameAction = onCall(
                     const userData = userDoc.data();
                     userTier = userData?.tier || 'scout';
                     showSuggestedChoices = userData?.showSuggestedChoices !== false; // Default to true
-                    // Only Legend users can override models
-                    if (userTier === 'legend') {
-                        preferredModels = userData?.preferredModels || {};
-                    }
+
+                    // Respect user model preferences for ALL tiers
+                    // (They just pay more turns if they select heavy models)
+                    preferredModels = userData?.preferredModels || {};
                 }
             }
 
-            if (userTier === 'legend') {
+            if (userTier === 'legendary') {
                 // Legend users MUST use BYOK. 
                 // We pass the keys provided by client. If they are missing/invalid, resolveModelConfig will fail if we enforce it there,
                 // or we enforce it here:
@@ -359,13 +379,54 @@ export const processGameAction = onCall(
                 effectiveByokKeys = undefined;
             }
 
+            // 2.6 Calculate Turn Cost (for non-Legendary users)
+            // Legendary users bypass turn system (they use BYOK)
+            let turnCost = 0;
+            let finalTurnsBalance: number | undefined = undefined;
+            if (userTier !== 'legendary') {
+                // Determine voice model (preferredModels.voice or aiSettings.voiceModel)
+                const selectedVoiceModel = preferredModels.voice || aiSettings.voiceModel;
+
+                // Calculate turn cost based on voice model
+                // Opus 4.5 = 20 turns, Sonnet 3.5 = 4 turns, Gemini Flash = 1 turn
+                if (selectedVoiceModel.includes('opus')) {
+                    turnCost = 20;
+                } else if (selectedVoiceModel.includes('sonnet')) {
+                    turnCost = 4;
+                } else if (selectedVoiceModel.includes('gemini') || selectedVoiceModel.includes('flash')) {
+                    turnCost = 1;
+                } else {
+                    // Default to 1 turn for unknown models
+                    turnCost = 1;
+                }
+
+                // Validate user has enough turns
+                if (auth?.uid) {
+                    const userDoc = await db.collection('users').doc(auth.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        const currentTurns = userData?.turns || 0;
+
+                        if (currentTurns < turnCost) {
+                            return {
+                                success: false,
+                                error: `Insufficient turns. This action costs ${turnCost} turns, but you only have ${currentTurns} turns remaining. Please upgrade your subscription or switch to a more economical model.`
+                            };
+                        }
+
+                        // Optimistically calculate final balance for the response
+                        finalTurnsBalance = currentTurns - turnCost;
+                    }
+                }
+            }
+
             // 3. Resolve Keys and Models
             const secrets = await getApiKeys();
 
             // If Legend, we must NOT use system secrets as fallback?
             // User requested: "when they upgrade to legend they lost access to the global API keys"
             let effectiveSecrets = secrets;
-            if (userTier === 'legend') {
+            if (userTier === 'legendary') {
                 effectiveSecrets = { openai: '', anthropic: '', google: '' };
             }
 
@@ -386,6 +447,7 @@ export const processGameAction = onCall(
 
             // Fetch knowledge base (Voice only optimization still applies?)
             // If Brain now supports custom rules, we pass them.
+
             // KnowledgeBase documents are generally for Voice (Lore) but Brain might need mechanics?
             // Existing code said "Voice only" for docs. I'll stick to that or pass only relevant ones.
             // But brain.ts DOES handle knowledgeDocuments. I'll pass appropriately.
@@ -399,6 +461,19 @@ export const processGameAction = onCall(
                 console.warn('Failed to fetch knowledge docs:', kError);
             }
 
+            // 3.5 Dynamic Custom Rules Override
+            // Prevent "Initializing" prompt if character is already established
+            let effectiveCustomRules = worldData?.customRules || '';
+            if (engineType === 'outworlder') {
+                const char = (currentState as any)?.character;
+                if (char?.essences && Array.isArray(char.essences) && char.essences.length > 0) {
+                    effectiveCustomRules += `\n\n🚨 CRITICAL STATE FAILSAFE: Character has already awakened and bonded with essences (${char.essences.join(', ')}). 
+                     DO NOT output "INITIALIZING WORLD SYSTEM". 
+                     DO NOT ask to select essences. 
+                     Assume the system initialization is COMPLETE.`;
+                }
+            }
+
             // 4. Run Brain (Logic)
             const brainResult = await processWithBrain({
                 userInput,
@@ -409,7 +484,7 @@ export const processGameAction = onCall(
                 provider: brainConfig.provider,
                 model: brainConfig.model,
                 knowledgeDocuments: [], // Converting optimization: Brain doesn't get heavy lore docs
-                customRules: worldData?.customRules,
+                customRules: effectiveCustomRules,
                 showSuggestedChoices, // Pass user preference
             });
 
@@ -431,7 +506,10 @@ export const processGameAction = onCall(
                 provider: voiceConfig.provider,
                 model: voiceConfig.model,
                 knowledgeDocuments: knowledgeDocs,
-                customRules: worldData?.customRules,
+                customRules: effectiveCustomRules,
+                narratorWordLimitMin: narratorLimits.min,
+                narratorWordLimitMax: narratorLimits.max,
+                characterProfile: (currentState as any).character
             });
 
             // Log Voice result for debugging
@@ -495,7 +573,14 @@ export const processGameAction = onCall(
                     let updatedInventory = [...currentInventory];
 
                     if (voiceResult.stateReport.inventory.added) {
-                        updatedInventory.push(...voiceResult.stateReport.inventory.added);
+                        // Check for duplicates before adding
+                        const existingItems = new Set(updatedInventory);
+                        for (const item of voiceResult.stateReport.inventory.added) {
+                            if (!existingItems.has(item)) {
+                                updatedInventory.push(item);
+                                existingItems.add(item);
+                            }
+                        }
                     }
                     if (voiceResult.stateReport.inventory.removed) {
                         updatedInventory = updatedInventory.filter(
@@ -516,7 +601,14 @@ export const processGameAction = onCall(
                     let updatedAbilities = [...currentAbilities];
 
                     if (voiceResult.stateReport.abilities.added) {
-                        updatedAbilities.push(...voiceResult.stateReport.abilities.added);
+                        // Check for duplicates before adding
+                        const existingAbilities = new Set(updatedAbilities);
+                        for (const ability of voiceResult.stateReport.abilities.added) {
+                            if (!existingAbilities.has(ability)) {
+                                updatedAbilities.push(ability);
+                                existingAbilities.add(ability);
+                            }
+                        }
                     }
                     if (voiceResult.stateReport.abilities.removed) {
                         updatedAbilities = updatedAbilities.filter(
@@ -687,6 +779,15 @@ export const processGameAction = onCall(
                 updates['tokensTotal'] = admin.firestore.FieldValue.increment(totalTokens);
                 updates['lastActive'] = admin.firestore.FieldValue.serverTimestamp();
 
+                // Deduct turns for non-Legendary users
+                if (userTier !== 'legendary' && turnCost > 0) {
+                    updates['turns'] = admin.firestore.FieldValue.increment(-turnCost);
+                    console.log(`[ProcessGameAction] Deducting ${turnCost} turns from user ${auth.uid}`);
+
+                    // We don't update finalTurnsBalance here because FieldValue.increment is async on the server side
+                    // but we already calculated what it SHOULD be above.
+                }
+
                 await db.collection('users').doc(auth.uid).update(updates).catch(e => console.error('Failed to update stats:', e));
 
                 // Global Stats
@@ -738,6 +839,7 @@ export const processGameAction = onCall(
                 stateUpdates: finalState,
                 diceRolls: brainResult.data.diceRolls,
                 systemMessages: brainResult.data.systemMessages,
+                remainingTurns: finalTurnsBalance,
                 reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
                 requiresUserInput: brainResult.data.requiresUserInput,
                 pendingChoice: brainResult.data.pendingChoice,
@@ -746,6 +848,10 @@ export const processGameAction = onCall(
                     brainResponse: brainResult.data,
                     stateReport: voiceResult.stateReport || null,
                     reviewerResult: reviewerResult || null,
+                    models: {
+                        brain: brainConfig.model,
+                        voice: voiceConfig.model,
+                    },
                 },
             };
 
@@ -1217,6 +1323,23 @@ export const createCampaign = onCall(
             console.error('[CreateCampaign] Failed to fetch AI settings:', error);
         }
 
+        // Fetch Global Config for Narrator Limits
+        let narratorLimits = { min: 150, max: 250 };
+        try {
+            const globalConfigDoc = await db.collection('config').doc('globalConfig').get();
+            if (globalConfigDoc.exists) {
+                const gc = globalConfigDoc.data();
+                if (gc?.systemSettings?.narratorWordLimitMin) {
+                    narratorLimits.min = gc.systemSettings.narratorWordLimitMin;
+                }
+                if (gc?.systemSettings?.narratorWordLimitMax) {
+                    narratorLimits.max = gc.systemSettings.narratorWordLimitMax;
+                }
+            }
+        } catch (error) {
+            console.error('[CreateCampaign] Failed to fetch global config:', error);
+        }
+
         const voiceConfig = resolveModelConfig(aiSettings.voiceModel, undefined, secrets); // No BYOK for intro yet
 
         // Get knowledge for generating intro (limit to 2 most relevant docs to save tokens)
@@ -1233,7 +1356,8 @@ export const createCampaign = onCall(
         console.log('[CreateCampaign] Essence check:', {
             hasPreselectedEssence,
             essenceSelection: initialCharacter?.essenceSelection,
-            essences: initialCharacter?.essences
+            essences: initialCharacter?.essences,
+            confluence: initialCharacter?.confluence
         });
 
         // Only use AI generation if explicitly enabled for this world and we have a key
@@ -1243,13 +1367,18 @@ export const createCampaign = onCall(
                 let narrativeContent = `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`;
 
                 // Add essence override instruction if essences are pre-selected
+                // Add essence override instruction if essences are pre-selected
                 if (hasPreselectedEssence && engineType === 'outworlder') {
-                    const essenceName = initialCharacter?.essences?.[0] || 'unknown';
-                    narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the ${essenceName} essence during their dimensional transit. 
+                    const essenceList = initialCharacter?.essences?.join(', ') || 'unknown';
+                    const confluenceInfo = initialCharacter?.confluence ? ` and the ${initialCharacter.confluence} Confluence` : '';
+                    const rankInfo = initialCharacter?.rank || 'Iron';
+                    narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the following essences during their dimensional transit: ${essenceList}${confluenceInfo}.
                     
-CRITICAL: Do NOT present essence selection options (A, B, C, D). The character ALREADY has the ${essenceName} essence. Skip the COMPENSATION PACKAGE — ESSENCE SELECTION sequence entirely. 
+CRITICAL: Do NOT present essence selection options (A, B, C, D). The character ALREADY has their essences. Skip the COMPENSATION PACKAGE — ESSENCE SELECTION sequence entirely. 
 
-Start their adventure with them already awakened and their essence active. Describe their awakening and first moments in this new world, acknowledging their ${essenceName} essence is already part of them.`;
+IMPORTANT: The character's rank is ${rankInfo}. Ensure your narrative reflects that they are ${rankInfo} rank. Do not state they are Iron 0 unless they are actually Iron.
+
+Start their adventure with them already awakened and their essences active. Grant them the intrinsic abilities associated with their essences immediately. Describe their awakening and first moments in this new world, acknowledging their powers are already part of them.`;
                 }
 
                 // If essences are pre-selected, modify customRules to exclude essence selection
@@ -1257,7 +1386,11 @@ Start their adventure with them already awakened and their essence active. Descr
                 if (hasPreselectedEssence && effectiveCustomRules) {
                     effectiveCustomRules = effectiveCustomRules + `
 
-🚨 CRITICAL OVERRIDE: Character already has essence selected (${initialCharacter?.essences?.join(', ')}). DO NOT run essence selection. Skip to adventure start.`;
+🚨 CRITICAL OVERRIDE: Character already has essences selected (${initialCharacter?.essences?.join(', ')}). 
+Rank is ${initialCharacter?.rank || 'Iron'}.
+DO NOT RUN ESSENCE SELECTION. 
+DO NOT OFFER COMPENSATION PACKAGE.
+Skip directly to the adventure start.`;
                 }
 
                 const voiceResult = await generateNarrative({
@@ -1275,6 +1408,9 @@ Start their adventure with them already awakened and their essence active. Descr
                     model: voiceConfig.model,
                     knowledgeDocuments: voiceKnowledgeDocs,
                     customRules: effectiveCustomRules,
+                    narratorWordLimitMin: narratorLimits.min,
+                    narratorWordLimitMax: narratorLimits.max,
+                    characterProfile: initialCharacter
                 });
                 if (voiceResult.success && voiceResult.narrative) {
                     initialNarrative = voiceResult.narrative;
@@ -1811,3 +1947,67 @@ export const seedPrompts = onCall(
 
 // Export campaign save/load functions
 export { saveCampaignState, getCampaignSaves, loadCampaignSave, deleteCampaignSave } from './campaignSaves';
+
+// ==================== CACHE KEEP-ALIVE SYSTEM ====================
+export const keepVoiceCacheAlive = onCall(async (request) => {
+    if (!request.auth) throw new HttpsError('unauthenticated', 'User must be logged in.');
+    const userId = request.auth.uid;
+    const { campaignId } = request.data;
+    if (!campaignId) throw new HttpsError('invalid-argument', 'Campaign ID is required.');
+
+    try {
+        const db = admin.firestore();
+        const campaignRef = db.collection('campaigns').doc(campaignId);
+        const campaignDoc = await campaignRef.get();
+        if (!campaignDoc.exists) throw new HttpsError('not-found', 'Campaign not found.');
+
+        const campaignData = campaignDoc.data();
+        if (campaignData?.userId !== userId) throw new HttpsError('permission-denied', 'Not your campaign.');
+
+        const currentState = campaignData?.state || {};
+        const worldId = campaignData?.worldId;
+        const engineType = campaignData?.engine || 'classic';
+
+        // Get AI Settings & Keys
+        const userSettings = (await db.collection('users').doc(userId).collection('settings').doc('ai').get()).data() || {};
+        const provider = userSettings.voiceProvider || 'openai';
+        const model = userSettings.voiceModel || 'gpt-4o-mini';
+
+        const allKeys = await getApiKeys();
+        const apiKey = allKeys[provider as keyof typeof allKeys];
+
+        if (!apiKey) return { success: false, message: 'No API Key found.' };
+        if (provider !== 'anthropic') return { success: false, message: 'Keep-alive only needed for Anthropic.' };
+
+        // Construct Context
+        let worldData: any = {};
+        let effectiveCustomRules = '';
+        if (worldId) {
+            const worldDoc = await db.collection('worlds').doc(worldId).get();
+            if (worldDoc.exists) {
+                worldData = worldDoc.data();
+                effectiveCustomRules = worldData.customRules || '';
+            }
+        }
+
+        const voiceKnowledgeDocs = await getKnowledgeForModule(engineType, 'voice', 2);
+
+        const voiceResult = await generateNarrative({
+            narrativeCues: [],
+            worldModule: engineType,
+            chatHistory: [],
+            stateChanges: {},
+            diceRolls: [],
+            apiKey, provider, model,
+            knowledgeDocuments: voiceKnowledgeDocs,
+            customRules: effectiveCustomRules,
+            characterProfile: (currentState as any).character,
+            isKeepAlive: true
+        });
+
+        return { success: voiceResult.success, cached: true, usage: voiceResult.usage };
+    } catch (error: any) {
+        console.error('[KeepAlive] Error:', error);
+        throw new HttpsError('internal', 'Keep-alive failed: ' + error.message);
+    }
+});

@@ -11,7 +11,8 @@ import {
     Animated,
     Alert,
 } from 'react-native';
-import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn } from '../../lib/firebase';
+import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn, functions } from '../../lib/firebase';
+import { httpsCallable } from 'firebase/functions';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -84,6 +85,78 @@ function TurnCounter() {
 
 export default function CampaignScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+
+
+    // Smart Idle Detection for Cache Heartbeat
+    useEffect(() => {
+        if (!id) return;
+
+        const HEARTBEAT_INTERVAL = 270000; // 4m 30s (safely before 5min cache expiry)
+        const IDLE_TIMEOUT = 900000; // 15 minutes
+
+        let heartbeatInterval: NodeJS.Timeout | null = null;
+        let idleTimeout: NodeJS.Timeout | null = null;
+        let lastActivity = Date.now();
+        let isHeartbeatActive = true;
+
+        const keepAlive = httpsCallable(functions, 'keepVoiceCacheAlive');
+
+        // Reset idle timer on any activity
+        const resetIdleTimer = () => {
+            lastActivity = Date.now();
+
+            // Clear existing idle timeout
+            if (idleTimeout) clearTimeout(idleTimeout);
+
+            // Restart heartbeat if it was stopped
+            if (!isHeartbeatActive) {
+                console.log('[Heartbeat] Resuming after activity');
+                isHeartbeatActive = true;
+                startHeartbeat();
+            }
+
+            // Set new idle timeout
+            idleTimeout = setTimeout(() => {
+                console.log('[Heartbeat] Idle timeout reached (15m). Stopping heartbeat.');
+                isHeartbeatActive = false;
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+            }, IDLE_TIMEOUT);
+        };
+
+        // Start heartbeat pings
+        const startHeartbeat = () => {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+
+            heartbeatInterval = setInterval(() => {
+                if (isHeartbeatActive) {
+                    console.log('[Heartbeat] Pinging Voice Cache...');
+                    keepAlive({ campaignId: id }).catch(e => console.warn('[Heartbeat] Fail:', e));
+                }
+            }, HEARTBEAT_INTERVAL);
+        };
+
+        // Activity event listeners
+        const activityEvents = ['mousedown', 'keydown', 'touchstart', 'click'];
+        activityEvents.forEach(event => {
+            document.addEventListener(event, resetIdleTimer);
+        });
+
+        // Initialize
+        resetIdleTimer();
+        startHeartbeat();
+
+        // Cleanup
+        return () => {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (idleTimeout) clearTimeout(idleTimeout);
+            activityEvents.forEach(event => {
+                document.removeEventListener(event, resetIdleTimer);
+            });
+        };
+    }, [id]);
     const router = useRouter();
     const flatListRef = useRef<FlatList>(null);
     const { colors, isDark } = useThemeColors();
@@ -145,14 +218,14 @@ export default function CampaignScreen() {
         setHudExpanded(!hudExpanded);
     };
 
-    // Auto-scroll to bottom on new messages
-    useEffect(() => {
-        if (messages.length > 0) {
-            setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
-        }
-    }, [messages.length]);
+    // Auto-scroll disabled - users need to read from the top
+    // useEffect(() => {
+    //     if (messages.length > 0) {
+    //         setTimeout(() => {
+    //             flatListRef.current?.scrollToEnd({ animated: true });
+    //         }, 100);
+    //     }
+    // }, [messages.length]);
 
     const handleSend = async (text: string) => {
         await processUserInput(text);
@@ -395,6 +468,15 @@ export default function CampaignScreen() {
                     styles.panelContainer,
                     !isDesktop && styles.panelMobile
                 ]}>
+                    {/* Close button for mobile */}
+                    {!isDesktop && (
+                        <TouchableOpacity
+                            style={styles.closePanelButton}
+                            onPress={() => setPanelVisible(false)}
+                        >
+                            <Ionicons name="close" size={24} color={colors.text.primary} />
+                        </TouchableOpacity>
+                    )}
                     <CharacterPanel
                         moduleState={currentCampaign.moduleState}
                         worldModule={currentCampaign.worldModule}
@@ -692,6 +774,23 @@ const createStyles = (colors: any) => StyleSheet.create({
         shadowOpacity: 0.25,
         shadowRadius: 8,
         elevation: 5,
+    },
+    closePanelButton: {
+        position: 'absolute' as const,
+        top: spacing.md,
+        right: spacing.md,
+        zIndex: 1001,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.background.tertiary,
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 3,
     },
     choiceContainer: {
         backgroundColor: colors.background.secondary,

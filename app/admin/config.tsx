@@ -249,6 +249,33 @@ export default function AdminConfigScreen() {
         });
     };
 
+    const togglePermission = (tier: SubscriptionTier, modelId: string) => {
+        if (!config) return;
+
+        const currentPermissions = config.subscriptionPermissions?.[tier]?.allowedModels || [];
+        const isAllowed = currentPermissions.includes(modelId);
+        let newPermissions: string[];
+
+        if (isAllowed) {
+            newPermissions = currentPermissions.filter(id => id !== modelId);
+        } else {
+            newPermissions = [...currentPermissions, modelId];
+        }
+
+        console.log(`[Config] Toggle Permission ${tier} ${modelId}: ${!isAllowed}`);
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                subscriptionPermissions: {
+                    ...prev.subscriptionPermissions,
+                    [tier]: { allowedModels: newPermissions }
+                }
+            };
+        });
+    };
+
     const toggleModule = (moduleId: string) => {
         if (!config) return;
 
@@ -284,6 +311,40 @@ export default function AdminConfigScreen() {
                 systemSettings: {
                     ...prev.systemSettings,
                     [key]: !prev.systemSettings[key]
+                }
+            };
+        });
+    };
+
+    const updateNarratorLimit = (key: 'narratorWordLimitMin' | 'narratorWordLimitMax', value: string) => {
+        if (!config) return;
+        const numValue = value === '' ? 0 : parseInt(value);
+        if (isNaN(numValue)) return;
+        console.log(`[Config] Update narrator limit ${key}: ${numValue}`);
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                systemSettings: {
+                    ...prev.systemSettings,
+                    [key]: numValue
+                }
+            };
+        });
+    };
+
+    const updateSystemSettingNumber = (key: string, value: string) => {
+        if (!config) return;
+        const numValue = value === '' ? 0 : parseInt(value);
+        if (isNaN(numValue)) return;
+        console.log(`[Config] Update system setting ${key}: ${numValue}`);
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                systemSettings: {
+                    ...prev.systemSettings,
+                    [key]: numValue
                 }
             };
         });
@@ -515,6 +576,51 @@ export default function AdminConfigScreen() {
                 </View>
             </View>
 
+            {/* Narrator Settings Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Narrator Settings</Text>
+                <View style={styles.card}>
+                    <Text style={[styles.fieldLabel, { marginBottom: spacing.sm }]}>
+                        Word Limit for AI Responses
+                    </Text>
+                    <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
+                        Controls how long the narrator's responses should be. Current: {config?.systemSettings?.narratorWordLimitMin || 150}-{config?.systemSettings?.narratorWordLimitMax || 250} words.
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: spacing.md, alignItems: 'center' }}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Min Words</Text>
+                            <TextInput
+                                style={styles.numberInput}
+                                value={String(config?.systemSettings?.narratorWordLimitMin || 150)}
+                                onChangeText={(text) => updateNarratorLimit('narratorWordLimitMin', text)}
+                                keyboardType="number-pad"
+                                placeholder="150"
+                                placeholderTextColor={colors.text.muted}
+                            />
+                        </View>
+                        <Text style={{ color: colors.text.secondary, fontSize: 20, marginTop: spacing.lg }}>—</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.inputLabel}>Max Words</Text>
+                            <TextInput
+                                style={styles.numberInput}
+                                value={String(config?.systemSettings?.narratorWordLimitMax || 250)}
+                                onChangeText={(text) => updateNarratorLimit('narratorWordLimitMax', text)}
+                                keyboardType="number-pad"
+                                placeholder="250"
+                                placeholderTextColor={colors.text.muted}
+                            />
+                        </View>
+                    </View>
+                    <TouchableOpacity
+                        style={[styles.saveButton, { marginTop: spacing.lg }]}
+                        onPress={saveGlobalConfig}
+                        disabled={savingConfig}
+                    >
+                        {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Narrator Settings</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
             {/* API Keys Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>API Keys</Text>
@@ -602,7 +708,7 @@ export default function AdminConfigScreen() {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Subscriptions & Limits</Text>
                 <View style={styles.card}>
-                    {(['scout', 'hero', 'legend'] as SubscriptionTier[]).map(tier => (
+                    {(['scout', 'adventurer', 'hero', 'legendary'] as SubscriptionTier[]).map(tier => (
                         <View key={tier} style={styles.configItem}>
                             <Text style={styles.configLabelCapital}>{tier}</Text>
                             <View style={styles.inputRow}>
@@ -626,6 +732,27 @@ export default function AdminConfigScreen() {
                                         placeholder="Free"
                                         placeholderTextColor={colors.text.muted}
                                     />
+                                </View>
+                            </View>
+
+                            {/* Allowed Models */}
+                            <View style={{ marginTop: spacing.md }}>
+                                <Text style={styles.inputLabel}>Allowed Models</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {availableModels.map(model => {
+                                        const isAllowed = config?.subscriptionPermissions?.[tier]?.allowedModels?.includes(model.id) ?? false;
+                                        return (
+                                            <TouchableOpacity
+                                                key={model.id}
+                                                onPress={() => togglePermission(tier, model.id)}
+                                                style={[styles.modelChip, isAllowed && styles.modelChipSelected]}
+                                            >
+                                                <Text style={[styles.modelChipText, isAllowed && styles.modelChipTextSelected]}>
+                                                    {model.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             </View>
                         </View>
@@ -696,6 +823,50 @@ export default function AdminConfigScreen() {
                             value={config?.systemSettings?.showAdminDebug ?? false}
                             onValueChange={() => toggleSystemSetting('showAdminDebug')}
                             style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+
+                    {/* Cache & Heartbeat Controls */}
+                    <View style={[styles.switchRow, { borderBottomWidth: 1, borderBottomColor: colors.border.default, paddingTop: spacing.md, marginTop: spacing.md }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Enable Context Caching</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Use Anthropic cache_control headers (90% cost savings)
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.systemSettings?.enableContextCaching ?? true}
+                            onValueChange={() => toggleSystemSetting('enableContextCaching')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 1, borderBottomColor: colors.border.default }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Enable Heartbeat System</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Keep cache alive with periodic pings (~$0.02/session)
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.systemSettings?.enableHeartbeatSystem ?? true}
+                            onValueChange={() => toggleSystemSetting('enableHeartbeatSystem')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Heartbeat Idle Timeout (Minutes)</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Stop heartbeat after this many minutes of inactivity
+                            </Text>
+                        </View>
+                        <TextInput
+                            style={[styles.input, { width: 80, textAlign: 'center' }]}
+                            value={String(config?.systemSettings?.heartbeatIdleTimeout ?? 15)}
+                            keyboardType="numeric"
+                            onChangeText={(v) => updateSystemSettingNumber('heartbeatIdleTimeout', v)}
+                            placeholder="15"
+                            placeholderTextColor={colors.text.muted}
                         />
                     </View>
                 </View>
@@ -1040,5 +1211,44 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.primary,
         lineHeight: 20,
+    },
+    fieldLabel: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    helpText: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.muted,
+    },
+    numberInput: {
+        backgroundColor: colors.background.tertiary,
+        color: colors.text.primary,
+        padding: spacing.md,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        fontSize: typography.fontSize.md,
+        textAlign: 'center',
+    },
+    modelChip: {
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 4,
+        borderRadius: borderRadius.full,
+        backgroundColor: colors.background.primary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    modelChipSelected: {
+        backgroundColor: colors.primary[400],
+        borderColor: colors.primary[400],
+    },
+    modelChipText: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+    },
+    modelChipTextSelected: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
 });

@@ -9,7 +9,7 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getAdminData, updateUserRole, updateUserTier } from '../../lib/firebase';
-import { User } from '../../lib/types';
+import { User, SubscriptionTier } from '../../lib/types';
 import { useUserStore } from '../../lib/store';
 
 export default function AdminUsersScreen() {
@@ -73,8 +73,8 @@ export default function AdminUsersScreen() {
     };
 
     const handleTierUpdate = async (userId: string, currentTier: string, name: string) => {
-        const tiers = ['scout', 'hero', 'legend'];
-        const nextTier = tiers[(tiers.indexOf(currentTier) + 1) % tiers.length];
+        const tiers: SubscriptionTier[] = ['scout', 'adventurer', 'hero', 'legendary'];
+        const nextTier = tiers[(tiers.indexOf(currentTier as SubscriptionTier) + 1) % tiers.length];
 
         try {
             await updateUserTier(userId, nextTier as any);

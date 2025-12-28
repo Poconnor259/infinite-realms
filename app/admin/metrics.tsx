@@ -8,7 +8,7 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
 import { getAdminData } from '../../lib/firebase';
-import { User, SUBSCRIPTION_PRICING } from '../../lib/types';
+import { User, DEFAULT_SUBSCRIPTION_PRICING as SUBSCRIPTION_PRICING } from '../../lib/types';
 
 export default function AdminMetricsScreen() {
     const router = useRouter();
@@ -64,7 +64,8 @@ export default function AdminMetricsScreen() {
     const tierCounts = {
         scout: users.filter(u => u.tier === 'scout').length,
         hero: users.filter(u => u.tier === 'hero').length,
-        legend: users.filter(u => u.tier === 'legend').length,
+        legendary: users.filter(u => u.tier === 'legendary').length,
+        adventurer: users.filter(u => u.tier === 'adventurer').length,
     };
 
     // Role breakdown
@@ -195,9 +196,9 @@ export default function AdminMetricsScreen() {
                         <View style={styles.breakdownRow}>
                             <View style={styles.breakdownLabel}>
                                 <Ionicons name="diamond-outline" size={18} color={colors.primary[400]} />
-                                <Text style={styles.breakdownText}>Legend ({SUBSCRIPTION_PRICING.legend.displayPrice})</Text>
+                                <Text style={styles.breakdownText}>Legendary ({SUBSCRIPTION_PRICING.legendary.displayPrice})</Text>
                             </View>
-                            <Text style={styles.breakdownValue}>{tierCounts.legend}</Text>
+                            <Text style={styles.breakdownValue}>{tierCounts.legendary}</Text>
                         </View>
                     </View>
                 </View>

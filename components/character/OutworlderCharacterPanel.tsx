@@ -91,23 +91,23 @@ export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPan
                 </View>
             </View>
 
-            {/* Spirit Bar */}
+            {/* Stamina Bar */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Spirit</Text>
+                <Text style={styles.sectionTitle}>Stamina</Text>
                 <View style={styles.resourceContainer}>
                     <View style={styles.resourceBar}>
                         <View
                             style={[
                                 styles.resourceFill,
                                 {
-                                    width: `${(character.spirit.current / character.spirit.max) * 100}%`,
+                                    width: `${(character.stamina.current / character.stamina.max) * 100}%`,
                                     backgroundColor: '#8B5CF6'
                                 }
                             ]}
                         />
                     </View>
                     <Text style={styles.resourceText}>
-                        {character.spirit.current} / {character.spirit.max}
+                        {character.stamina.current} / {character.stamina.max}
                     </Text>
                 </View>
             </View>
@@ -133,9 +133,46 @@ export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPan
                 </View>
             </View>
 
+            {/* Dynamic Resources (AI Generated) */}
+            {Object.entries(character).map(([key, value]: [string, any]) => {
+                // Check if this looks like a resource (has current/max) and isn't a standard one
+                if (
+                    key !== 'hp' && key !== 'mana' && key !== 'spirit' &&
+                    value && typeof value === 'object' &&
+                    'current' in value && 'max' in value &&
+                    typeof value.current === 'number' && typeof value.max === 'number'
+                ) {
+                    return (
+                        <View key={key} style={styles.section}>
+                            <Text style={styles.sectionTitle}>
+                                {key.charAt(0).toUpperCase() + key.slice(1)}
+                            </Text>
+                            <View style={styles.resourceContainer}>
+                                <View style={styles.resourceBar}>
+                                    <View
+                                        style={[
+                                            styles.resourceFill,
+                                            {
+                                                width: `${Math.min(100, Math.max(0, (value.current / value.max) * 100))}%`,
+                                                backgroundColor: '#14B8A6' // Teal for special resources
+                                            }
+                                        ]}
+                                    />
+                                </View>
+                                <Text style={styles.resourceText}>
+                                    {value.current} / {value.max}
+                                </Text>
+                            </View>
+                        </View>
+                    );
+                }
+                return null;
+            })
+            }
+
             {/* Essences */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Essences ({(character.essences || []).length}/4)</Text>
+                <Text style={styles.sectionTitle}>Essences ({(character.essences || []).length + (character.confluence ? 1 : 0)}/4)</Text>
                 {(character.essences || []).map((essence, idx) => (
                     <View key={idx} style={styles.essenceItem}>
                         <Text style={styles.essenceName}>{essence}</Text>
@@ -178,20 +215,22 @@ export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPan
             </View>
 
             {/* Loot */}
-            {moduleState.lootAwarded && moduleState.lootAwarded.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Recent Loot</Text>
-                    {moduleState.lootAwarded.map((item, idx) => (
-                        <View key={idx} style={styles.lootItem}>
-                            <Text style={styles.lootName}>{item.name}</Text>
-                            {item.quantity > 1 && (
-                                <Text style={styles.lootQuantity}>×{item.quantity}</Text>
-                            )}
-                        </View>
-                    ))}
-                </View>
-            )}
-        </ScrollView>
+            {
+                moduleState.lootAwarded && moduleState.lootAwarded.length > 0 && (
+                    <View style={styles.section}>
+                        <Text style={styles.sectionTitle}>Recent Loot</Text>
+                        {moduleState.lootAwarded.map((item, idx) => (
+                            <View key={idx} style={styles.lootItem}>
+                                <Text style={styles.lootName}>{item.name}</Text>
+                                {item.quantity > 1 && (
+                                    <Text style={styles.lootQuantity}>×{item.quantity}</Text>
+                                )}
+                            </View>
+                        ))}
+                    </View>
+                )
+            }
+        </ScrollView >
     );
 }
 
