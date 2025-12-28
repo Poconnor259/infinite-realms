@@ -249,6 +249,33 @@ export default function AdminConfigScreen() {
         });
     };
 
+    const togglePermission = (tier: SubscriptionTier, modelId: string) => {
+        if (!config) return;
+
+        const currentPermissions = config.subscriptionPermissions?.[tier]?.allowedModels || [];
+        const isAllowed = currentPermissions.includes(modelId);
+        let newPermissions: string[];
+
+        if (isAllowed) {
+            newPermissions = currentPermissions.filter(id => id !== modelId);
+        } else {
+            newPermissions = [...currentPermissions, modelId];
+        }
+
+        console.log(`[Config] Toggle Permission ${tier} ${modelId}: ${!isAllowed}`);
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                subscriptionPermissions: {
+                    ...prev.subscriptionPermissions,
+                    [tier]: { allowedModels: newPermissions }
+                }
+            };
+        });
+    };
+
     const toggleModule = (moduleId: string) => {
         if (!config) return;
 
@@ -681,7 +708,7 @@ export default function AdminConfigScreen() {
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Subscriptions & Limits</Text>
                 <View style={styles.card}>
-                    {(['scout', 'hero', 'legend'] as SubscriptionTier[]).map(tier => (
+                    {(['scout', 'adventurer', 'hero', 'legendary'] as SubscriptionTier[]).map(tier => (
                         <View key={tier} style={styles.configItem}>
                             <Text style={styles.configLabelCapital}>{tier}</Text>
                             <View style={styles.inputRow}>
@@ -705,6 +732,27 @@ export default function AdminConfigScreen() {
                                         placeholder="Free"
                                         placeholderTextColor={colors.text.muted}
                                     />
+                                </View>
+                            </View>
+
+                            {/* Allowed Models */}
+                            <View style={{ marginTop: spacing.md }}>
+                                <Text style={styles.inputLabel}>Allowed Models</Text>
+                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                                    {availableModels.map(model => {
+                                        const isAllowed = config?.subscriptionPermissions?.[tier]?.allowedModels?.includes(model.id) ?? false;
+                                        return (
+                                            <TouchableOpacity
+                                                key={model.id}
+                                                onPress={() => togglePermission(tier, model.id)}
+                                                style={[styles.modelChip, isAllowed && styles.modelChipSelected]}
+                                            >
+                                                <Text style={[styles.modelChipText, isAllowed && styles.modelChipTextSelected]}>
+                                                    {model.name}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        );
+                                    })}
                                 </View>
                             </View>
                         </View>
@@ -1173,12 +1221,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.muted,
     },
-    inputLabel: {
-        fontSize: typography.fontSize.sm,
-        fontWeight: '500',
-        color: colors.text.secondary,
-        marginBottom: spacing.xs,
-    },
     numberInput: {
         backgroundColor: colors.background.tertiary,
         color: colors.text.primary,
@@ -1188,5 +1230,25 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderColor: colors.border.default,
         fontSize: typography.fontSize.md,
         textAlign: 'center',
+    },
+    modelChip: {
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 4,
+        borderRadius: borderRadius.full,
+        backgroundColor: colors.background.primary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    modelChipSelected: {
+        backgroundColor: colors.primary[400],
+        borderColor: colors.primary[400],
+    },
+    modelChipText: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+    },
+    modelChipTextSelected: {
+        color: '#fff',
+        fontWeight: 'bold',
     },
 });

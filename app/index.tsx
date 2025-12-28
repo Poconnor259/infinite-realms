@@ -19,6 +19,7 @@ import { TurnsMeter } from '../components/monetization/TurnsMeter';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import { getUserCampaigns, deleteCampaignFn, getWorlds } from '../lib/firebase';
 import type { WorldModuleType, Campaign, WorldModule } from '../lib/types';
+import { VoiceModelSelector } from '../components/VoiceModelSelector';
 
 const DEFAULT_WORLD_COLORS: Record<string, string> = {
     classic: '#ffd700',
@@ -133,6 +134,10 @@ export default function HomeScreen() {
         }
     };
 
+    const handleUpgradePrompt = () => {
+        router.push('/subscription');
+    };
+
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             {/* Header */}
@@ -203,6 +208,12 @@ export default function HomeScreen() {
                     </AnimatedPressable>
                 </FadeInView>
 
+                {/* Voice Model Selector (Bottom Right) */}
+                {user && (
+                    <View style={styles.voiceSelectorContainer}>
+                        <VoiceModelSelector user={user} mode="main" onShowUpgrade={handleUpgradePrompt} />
+                    </View>
+                )}
                 {/* Campaigns Section */}
                 {loading ? (
                     <View style={styles.section}>
@@ -382,6 +393,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     loadingText: {
         color: colors.text.muted,
         fontSize: typography.fontSize.sm,
+    },
+    voiceSelectorContainer: {
+        position: 'absolute',
+        bottom: spacing.lg,
+        right: spacing.lg,
+        zIndex: 100,
+        maxWidth: 220,
     },
     turnsMeterContainer: {
         paddingHorizontal: spacing.lg,

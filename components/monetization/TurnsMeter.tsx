@@ -22,7 +22,9 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
 
     // Color based on usage
     const getBarColor = () => {
-        if (tier === 'legend') return colors.gold.main;
+        if (tier === 'legendary') return colors.gold.main;
+        if (tier === 'hero') return colors.primary[400]; // Purple for Hero
+        if (tier === 'adventurer') return colors.status.info; // Blue for Adventurer
         if (percent < 50) return colors.status.success;
         if (percent < 80) return colors.status.warning;
         return colors.status.error;
@@ -31,16 +33,20 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
     const getTierIcon = () => {
         switch (tier) {
             case 'scout': return '🔭';
+            case 'adventurer': return '🧭';
             case 'hero': return '⚔️';
-            case 'legend': return '👑';
+            case 'legendary': return '👑';
+            default: return '❓';
         }
     };
 
     const getTierName = () => {
         switch (tier) {
             case 'scout': return 'Scout';
+            case 'adventurer': return 'Adventurer';
             case 'hero': return 'Hero';
-            case 'legend': return 'Legend';
+            case 'legendary': return 'Legendary';
+            default: return tier;
         }
     };
 
@@ -55,14 +61,14 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
                         style={[
                             styles.compactFill,
                             {
-                                width: tier === 'legend' ? '100%' : `${100 - percent}%`,
+                                width: tier === 'legendary' ? '100%' : `${100 - percent}%`,
                                 backgroundColor: getBarColor(),
                             }
                         ]}
                     />
                 </View>
                 <Text style={styles.compactText}>
-                    {tier === 'legend' ? '∞' : remaining}
+                    {tier === 'legendary' ? '∞' : remaining}
                 </Text>
             </TouchableOpacity>
         );
@@ -88,7 +94,7 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
                         style={[
                             styles.meterFill,
                             {
-                                width: tier === 'legend' ? '100%' : `${100 - percent}%`,
+                                width: tier === 'legendary' ? '100%' : `${100 - percent}%`,
                                 backgroundColor: getBarColor(),
                             }
                         ]}
@@ -98,9 +104,9 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
 
             <View style={styles.stats}>
                 <Text style={styles.remaining}>
-                    {tier === 'legend' ? '∞ Unlimited' : `${remaining} turns left`}
+                    {tier === 'legendary' ? '∞ Unlimited' : `${remaining} turns left`}
                 </Text>
-                {tier !== 'legend' && (
+                {tier !== 'legendary' && (
                     <Text style={styles.used}>
                         {used}/{limit + useTurnsStore.getState().bonusTurns} this month
                     </Text>
@@ -159,6 +165,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.text.secondary,
         fontSize: typography.fontSize.sm,
         fontWeight: '600',
+        minWidth: 90, // Prevent jitter
     },
     used: {
         color: colors.text.muted,

@@ -5,8 +5,11 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
+import { createCheckoutSession, handleStripeWebhook } from './stripe';
 import { initPromptHelper, seedAIPrompts, getStateReviewerSettings } from './promptHelper';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
+
+export { createCheckoutSession, handleStripeWebhook };
 
 
 // Initialize Firebase Admin
@@ -76,6 +79,7 @@ interface GameResponse {
         options?: string[];
         choiceType: string;
     };
+    remainingTurns?: number;
     error?: string;
     debug?: {
         brainResponse: any;
@@ -340,19 +344,14 @@ export const processGameAction = onCall(
                     const userData = userDoc.data();
                     userTier = userData?.tier || 'scout';
                     showSuggestedChoices = userData?.showSuggestedChoices !== false; // Default to true
-                    // Only Legend users can override models
-                    if (userTier === 'legend') {
-                        preferredModels = userData?.preferredModels || {};
-                    } else {
-                        // Hero/Visionary users can also choose voice models
-                        if (userTier === 'hero' || userTier === 'visionary') {
-                            preferredModels = userData?.preferredModels || {};
-                        }
-                    }
+
+                    // Respect user model preferences for ALL tiers
+                    // (They just pay more turns if they select heavy models)
+                    preferredModels = userData?.preferredModels || {};
                 }
             }
 
-            if (userTier === 'legend') {
+            if (userTier === 'legendary') {
                 // Legend users MUST use BYOK. 
                 // We pass the keys provided by client. If they are missing/invalid, resolveModelConfig will fail if we enforce it there,
                 // or we enforce it here:
@@ -363,10 +362,11 @@ export const processGameAction = onCall(
                 effectiveByokKeys = undefined;
             }
 
-            // 2.6 Calculate Turn Cost (for non-Legend users)
-            // Legend users bypass turn system (they use BYOK)
+            // 2.6 Calculate Turn Cost (for non-Legendary users)
+            // Legendary users bypass turn system (they use BYOK)
             let turnCost = 0;
-            if (userTier !== 'legend') {
+            let finalTurnsBalance: number | undefined = undefined;
+            if (userTier !== 'legendary') {
                 // Determine voice model (preferredModels.voice or aiSettings.voiceModel)
                 const selectedVoiceModel = preferredModels.voice || aiSettings.voiceModel;
 
@@ -396,6 +396,9 @@ export const processGameAction = onCall(
                                 error: `Insufficient turns. This action costs ${turnCost} turns, but you only have ${currentTurns} turns remaining. Please upgrade your subscription or switch to a more economical model.`
                             };
                         }
+
+                        // Optimistically calculate final balance for the response
+                        finalTurnsBalance = currentTurns - turnCost;
                     }
                 }
             }
@@ -406,7 +409,7 @@ export const processGameAction = onCall(
             // If Legend, we must NOT use system secrets as fallback?
             // User requested: "when they upgrade to legend they lost access to the global API keys"
             let effectiveSecrets = secrets;
-            if (userTier === 'legend') {
+            if (userTier === 'legendary') {
                 effectiveSecrets = { openai: '', anthropic: '', google: '' };
             }
 
@@ -759,10 +762,13 @@ export const processGameAction = onCall(
                 updates['tokensTotal'] = admin.firestore.FieldValue.increment(totalTokens);
                 updates['lastActive'] = admin.firestore.FieldValue.serverTimestamp();
 
-                // Deduct turns for non-Legend users
-                if (userTier !== 'legend' && turnCost > 0) {
+                // Deduct turns for non-Legendary users
+                if (userTier !== 'legendary' && turnCost > 0) {
                     updates['turns'] = admin.firestore.FieldValue.increment(-turnCost);
                     console.log(`[ProcessGameAction] Deducting ${turnCost} turns from user ${auth.uid}`);
+
+                    // We don't update finalTurnsBalance here because FieldValue.increment is async on the server side
+                    // but we already calculated what it SHOULD be above.
                 }
 
                 await db.collection('users').doc(auth.uid).update(updates).catch(e => console.error('Failed to update stats:', e));
@@ -816,6 +822,7 @@ export const processGameAction = onCall(
                 stateUpdates: finalState,
                 diceRolls: brainResult.data.diceRolls,
                 systemMessages: brainResult.data.systemMessages,
+                remainingTurns: finalTurnsBalance,
                 reviewerApplied: reviewerResult?.success && !reviewerResult?.skipped && !!reviewerResult?.corrections,
                 requiresUserInput: brainResult.data.requiresUserInput,
                 pendingChoice: brainResult.data.pendingChoice,

@@ -228,6 +228,21 @@ export const useGameStore = create<GameState>((set, get) => ({
                 };
             });
 
+            // Sync turns balance if provided
+            if (result.data.remainingTurns !== undefined) {
+                useTurnsStore.setState({ balance: result.data.remainingTurns });
+
+                // Persist
+                const turnsData = storage.getString('turnsData');
+                if (turnsData) {
+                    const parsed = JSON.parse(turnsData);
+                    storage.set('turnsData', JSON.stringify({
+                        ...parsed,
+                        balance: result.data.remainingTurns
+                    }));
+                }
+            }
+
         } catch (error) {
             console.error('[Game] Error:', error);
             set({
@@ -433,11 +448,11 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                     stats: {
                         power: 10,
                         speed: 10,
-                        spirit: 10,
+                        stamina: 10,
                         recovery: 10,
                     },
                     abilities: [],
-                    spirit: { current: 100, max: 100 },
+                    stamina: { current: 100, max: 100 },
                     mana: { current: 100, max: 100 },
                 },
                 lootAwarded: [],
@@ -478,15 +493,16 @@ interface TurnsState {
     bonusTurns: number;
     resetDate: number;
     tier: SubscriptionTier;
+    balance: number;
 
     // Computed
     getLimit: () => number;
     getRemaining: () => number;
-    canUseTurn: () => boolean;
+    canUseTurn: (cost?: number) => boolean;
     getUsagePercent: () => number;
 
     // Actions
-    useTurn: () => boolean;
+    useTurn: (cost?: number) => boolean;
     addBonusTurns: (amount: number) => void;
     setTier: (tier: SubscriptionTier) => void;
     checkAndResetMonthly: () => void;
@@ -509,6 +525,7 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
         bonusTurns: parsed?.bonusTurns ?? 0,
         resetDate: parsed?.resetDate ?? getMonthlyResetDate(),
         tier: (parsed?.tier as SubscriptionTier) ?? 'scout',
+        balance: parsed?.balance ?? 0, // Cache balance
     };
 
     return {
@@ -522,16 +539,21 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
         },
 
         getRemaining: () => {
-            const { used, bonusTurns, getLimit } = get();
+            const { used, bonusTurns, getLimit, balance, tier } = get();
+            if (tier === 'legendary') return Infinity;
+
             const limit = getLimit();
-            if (limit === Infinity) return Infinity;
-            return Math.max(0, limit + bonusTurns - used);
+            // If we have a cached balance from Firestore, prefer it? 
+            // Actually, balance should be sync'd. 
+            // remaining = limit - used + bonusTurns
+            // But if Firestore 'turns' exists, that's our absolute truth.
+            return balance;
         },
 
-        canUseTurn: () => {
+        canUseTurn: (cost = 1) => {
             const { getRemaining, tier } = get();
-            if (tier === 'legend') return true; // BYOK = unlimited
-            return getRemaining() > 0;
+            if (tier === 'legendary') return true; // BYOK = unlimited
+            return getRemaining() >= cost;
         },
 
         getUsagePercent: () => {
@@ -542,17 +564,19 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
             return Math.min(100, (used / total) * 100);
         },
 
-        useTurn: () => {
-            const { canUseTurn, used, tier } = get();
-            if (!canUseTurn()) return false;
+        useTurn: (cost = 1) => {
+            const { canUseTurn, used, tier, balance } = get();
+            if (!canUseTurn(cost)) return false;
 
-            if (tier !== 'legend') {
-                const newUsed = used + 1;
-                set({ used: newUsed });
+            if (tier !== 'legendary') {
+                const newUsed = used + cost;
+                const newBalance = balance - cost;
+                set({ used: newUsed, balance: newBalance });
 
                 // Persist
                 const data = JSON.stringify({
                     used: newUsed,
+                    balance: newBalance,
                     bonusTurns: get().bonusTurns,
                     resetDate: get().resetDate,
                     tier: get().tier,
@@ -625,24 +649,27 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
                     const firestoreTurnsUsed = userData?.turnsUsed || 0;
+                    const firestoreTurnsBalance = userData?.turns ?? 0; // The actual remaining turns
                     const tier = (userData?.tier as SubscriptionTier) || 'scout';
 
                     // Update local state with Firestore data
                     set({
                         used: firestoreTurnsUsed,
+                        balance: firestoreTurnsBalance,
                         tier,
                     });
 
-                    // Persist to MMKV
+                    // Persist to storage
                     const data = JSON.stringify({
                         used: firestoreTurnsUsed,
+                        balance: firestoreTurnsBalance,
                         bonusTurns: get().bonusTurns,
                         resetDate: get().resetDate,
                         tier,
                     });
                     storage.set('turnsData', data);
 
-                    console.log('[TurnsStore] Synced from Firestore:', { used: firestoreTurnsUsed, tier });
+                    console.log('[TurnsStore] Synced from Firestore:', { used: firestoreTurnsUsed, balance: firestoreTurnsBalance, tier });
                 }
             } catch (error) {
                 console.error('[TurnsStore] Failed to sync from Firestore:', error);

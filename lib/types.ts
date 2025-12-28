@@ -370,7 +370,7 @@ export interface NarrativeCue {
 
 // ==================== USER & SUBSCRIPTION ====================
 
-export type SubscriptionTier = 'scout' | 'hero' | 'legend';
+export type SubscriptionTier = 'scout' | 'adventurer' | 'hero' | 'legendary';
 
 // Per-model token tracking
 export interface ModelTokenUsage {
@@ -424,28 +424,42 @@ export interface TurnsUsage {
 }
 
 export interface TopUpPackage {
-    id: 'topup_150' | 'topup_300';
+    id: 'topup_750' | 'topup_1500';
     turns: number;
     price: number; // In cents
     displayPrice: string;
+    priceId?: string;
 }
 
 export const DEFAULT_SUBSCRIPTION_LIMITS: Record<SubscriptionTier, number> = {
-    scout: 15,
-    hero: 300,
-    legend: Infinity, // BYOK = unlimited
+    scout: 50,
+    adventurer: 1500,
+    hero: 4500,
+    legendary: Infinity, // BYOK = unlimited
 };
 
-export const DEFAULT_SUBSCRIPTION_PRICING: Record<SubscriptionTier, { price: number; displayPrice: string }> = {
+export const DEFAULT_SUBSCRIPTION_PRICING: Record<SubscriptionTier, { price: number; displayPrice: string; priceId?: string }> = {
     scout: { price: 0, displayPrice: 'Free' },
-    hero: { price: 999, displayPrice: '$9.99/month' },
-    legend: { price: 4999, displayPrice: '$49.99 one-time' },
+    adventurer: { price: 999, displayPrice: '$9.99/month', priceId: 'price_1Sj2flKYDhEuBvZw2mxvmxzZ' }, // sub_adventurer
+    hero: { price: 2999, displayPrice: '$29.99/month', priceId: 'price_1Sj2o7KYDhEuBvZwAACQIHSv' }, // sub_hero
+    legendary: { price: 3999, displayPrice: '$39.99 one-time', priceId: 'price_1Sj3AFKYDhEuBvZwvhdEZRjA' }, // ot_legendary
 };
 
 export const DEFAULT_TOP_UP_PACKAGES: TopUpPackage[] = [
-    { id: 'topup_150', turns: 150, price: 500, displayPrice: '$5' },
-    { id: 'topup_300', turns: 300, price: 1000, displayPrice: '$10' },
+    { id: 'topup_750', turns: 750, price: 499, displayPrice: '$4.99', priceId: 'price_1Sj374KYDhEuBvZwdo8htCVx' },
+    { id: 'topup_1500', turns: 1500, price: 999, displayPrice: '$9.99', priceId: 'price_1Sj388KYDhEuBvZwsryc5wTj' },
 ];
+
+// Default model permissions per tier
+// Scout: Gemini Flash only (1 turn/action)
+// Adventurer & Hero: All models (Gemini Flash 1 turn, Sonnet 4 turns, Opus 20 turns)
+// Legendary: All models (unlimited with BYOK)
+export const DEFAULT_SUBSCRIPTION_PERMISSIONS: Record<SubscriptionTier, { allowedModels: string[] }> = {
+    scout: { allowedModels: ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-exp'] },
+    adventurer: { allowedModels: ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-exp', 'claude-3-5-sonnet-20241022', 'claude-opus-4-20250514'] },
+    hero: { allowedModels: ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-exp', 'claude-3-5-sonnet-20241022', 'claude-opus-4-20250514'] },
+    legendary: { allowedModels: ['gemini-1.5-flash', 'gemini-1.5-flash-8b', 'gemini-2.0-flash-exp', 'claude-3-5-sonnet-20241022', 'claude-opus-4-20250514', 'gpt-4o', 'gpt-4o-mini'] },
+};
 
 export interface ModelDefinition {
     id: string;
@@ -541,6 +555,7 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
 
 export interface GlobalConfig {
     subscriptionLimits: Record<SubscriptionTier, number>;
+    subscriptionPermissions: Record<SubscriptionTier, { allowedModels: string[] }>;
     subscriptionPricing: Record<SubscriptionTier, { price: number; displayPrice: string }>;
     topUpPackages: TopUpPackage[];
     worldModules: Record<string, { enabled: boolean }>; // Keyed by module ID

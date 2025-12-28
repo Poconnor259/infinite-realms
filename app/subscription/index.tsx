@@ -9,9 +9,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from '../lib/theme';
-import { useTurnsStore } from '../lib/store';
-import { DEFAULT_TOP_UP_PACKAGES, type SubscriptionTier, DEFAULT_SUBSCRIPTION_PRICING } from '../lib/types';
+import { colors, spacing, borderRadius, typography, shadows } from '../../lib/theme';
+import { useTurnsStore } from '../../lib/store';
+import { DEFAULT_TOP_UP_PACKAGES, type SubscriptionTier, DEFAULT_SUBSCRIPTION_PRICING } from '../../lib/types';
+import * as Linking from 'expo-linking';
+import { functions } from '../../lib/firebase';
+import { httpsCallable } from 'firebase/functions';
+import { Alert, ActivityIndicator } from 'react-native';
 
 interface TierCardProps {
     tier: SubscriptionTier;
@@ -80,6 +84,38 @@ function TierCard({ tier, name, icon, price, turns, features, isCurrentTier, rec
 export default function SubscriptionScreen() {
     const router = useRouter();
     const { tier, used, getLimit, getRemaining, bonusTurns, resetDate } = useTurnsStore();
+    const [loading, setLoading] = React.useState(false);
+
+    const handleCheckout = async (priceId?: string) => {
+        if (!priceId) return;
+        setLoading(true);
+        try {
+            const createSession = httpsCallable(functions, 'createCheckoutSession');
+
+            // Generate deep links for return
+            const successUrl = Linking.createURL('/subscription/success');
+            const cancelUrl = Linking.createURL('/subscription/cancel');
+
+            console.log('Starting checkout for:', priceId, successUrl);
+
+            const { data }: any = await createSession({
+                priceId,
+                successUrl: successUrl,
+                cancelUrl: cancelUrl
+            });
+
+            if (data?.url) {
+                await Linking.openURL(data.url);
+            } else {
+                throw new Error('No checkout URL returned');
+            }
+        } catch (error: any) {
+            console.error('Checkout error:', error);
+            Alert.alert('Checkout Failed', error.message || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const limit = getLimit();
     const remaining = getRemaining();
@@ -91,13 +127,21 @@ export default function SubscriptionScreen() {
 
     const handleSelectTier = (selectedTier: SubscriptionTier) => {
         if (selectedTier === tier) return;
-        // TODO: Integrate with RevenueCat
-        console.log('Select tier:', selectedTier);
+        // For Legend (Life-time), Adventurer, Hero
+        const priceId = DEFAULT_SUBSCRIPTION_PRICING[selectedTier].priceId;
+        if (priceId) {
+            handleCheckout(priceId);
+        } else {
+            // Scout? (Free) - Just downgrade logic if implemented, or linking to settings
+            Alert.alert('Change Plan', 'To switch to the free plan, please manage your subscription in the settings.');
+        }
     };
 
     const handleBuyTopUp = (packageId: string) => {
-        // TODO: Integrate with RevenueCat
-        console.log('Buy top-up:', packageId);
+        const pkg = DEFAULT_TOP_UP_PACKAGES.find(p => p.id === packageId);
+        if (pkg?.priceId) {
+            handleCheckout(pkg.priceId);
+        }
     };
 
     return (
@@ -113,7 +157,7 @@ export default function SubscriptionScreen() {
                     <View style={styles.usageStats}>
                         <View style={styles.usageStat}>
                             <Text style={styles.usageValue}>
-                                {tier === 'legend' ? '∞' : remaining}
+                                {tier === 'legendary' ? '∞' : remaining}
                             </Text>
                             <Text style={styles.usageLabel}>Turns Left</Text>
                         </View>
@@ -141,14 +185,30 @@ export default function SubscriptionScreen() {
                     name="Scout"
                     icon="🔭"
                     price={DEFAULT_SUBSCRIPTION_PRICING.scout.displayPrice}
-                    turns="15 turns/month"
+                    turns="50 turns/month"
                     features={[
                         'Access all 3 world modules',
                         'Basic character progression',
-                        'Cloud save (coming soon)',
+                        'Gemini 1.5 Flash (Fast)',
                     ]}
                     isCurrentTier={tier === 'scout'}
                     onSelect={() => handleSelectTier('scout')}
+                />
+
+                <TierCard
+                    tier="adventurer"
+                    name="Adventurer"
+                    icon="🧭"
+                    price={DEFAULT_SUBSCRIPTION_PRICING.adventurer.displayPrice}
+                    turns="1,500 turns/month"
+                    features={[
+                        'Everything in Scout',
+                        '30x more turns',
+                        'Access to Claude 3.5 Sonnet',
+                        'Priority support',
+                    ]}
+                    isCurrentTier={tier === 'adventurer'}
+                    onSelect={() => handleSelectTier('adventurer')}
                 />
 
                 <TierCard
@@ -156,36 +216,36 @@ export default function SubscriptionScreen() {
                     name="Hero"
                     icon="⚔️"
                     price={DEFAULT_SUBSCRIPTION_PRICING.hero.displayPrice}
-                    turns="300 turns/month"
+                    turns="4,500 turns/month"
                     features={[
-                        'Everything in Scout',
-                        '20x more turns',
-                        'Priority support',
+                        'Everything in Adventurer',
+                        'Massive turn allowance',
+                        'Access to Claude 3 Opus',
                         'Early access to new features',
                     ]}
                     isCurrentTier={tier === 'hero'}
-                    recommended={tier === 'scout'}
+                    recommended={tier === 'scout' || tier === 'adventurer'}
                     onSelect={() => handleSelectTier('hero')}
                 />
 
                 <TierCard
-                    tier="legend"
-                    name="Legend"
+                    tier="legendary"
+                    name="Legendary"
                     icon="👑"
-                    price={DEFAULT_SUBSCRIPTION_PRICING.legend.displayPrice}
-                    turns="Unlimited turns"
+                    price={DEFAULT_SUBSCRIPTION_PRICING.legendary.displayPrice}
+                    turns="Unlimited turns (BYOK)"
                     features={[
                         'Bring your own API keys',
                         'No monthly limits',
                         'You control AI costs',
-                        'Full API customization',
+                        'Lifetime access',
                     ]}
-                    isCurrentTier={tier === 'legend'}
-                    onSelect={() => router.push('/settings')}
+                    isCurrentTier={tier === 'legendary'}
+                    onSelect={() => handleSelectTier('legendary')}
                 />
 
                 {/* Top-up Section */}
-                {tier !== 'legend' && (
+                {tier !== 'legendary' && (
                     <>
                         <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>
                             Need More Turns Now?
@@ -210,6 +270,11 @@ export default function SubscriptionScreen() {
                     </>
                 )}
             </ScrollView>
+            {loading && (
+                <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }]}>
+                    <ActivityIndicator size="large" color={colors.primary[500]} />
+                </View>
+            )}
         </SafeAreaView>
     );
 }
