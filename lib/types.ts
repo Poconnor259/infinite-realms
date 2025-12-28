@@ -471,6 +471,7 @@ export interface ModelDefinition {
         completion: number;
     };
     defaultTurnCost?: number; // Default turns per action
+    description?: string; // Marketing description for UI
 }
 
 export const AVAILABLE_MODELS: ModelDefinition[] = [
@@ -480,28 +481,32 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         name: 'GPT-4o',
         provider: 'openai',
         defaultPricing: { prompt: 2.50, completion: 10.00 },
-        defaultTurnCost: 10
+        defaultTurnCost: 10,
+        description: 'Most capable OpenAI model'
     },
     {
         id: 'gpt-4o-mini',
         name: 'GPT-4o Mini',
         provider: 'openai',
         defaultPricing: { prompt: 0.15, completion: 0.60 },
-        defaultTurnCost: 1
+        defaultTurnCost: 1,
+        description: 'Fast and cost-effective'
     },
     {
         id: 'o1-preview',
         name: 'o1 Preview',
         provider: 'openai',
         defaultPricing: { prompt: 15.00, completion: 60.00 },
-        defaultTurnCost: 15
+        defaultTurnCost: 15,
+        description: 'Advanced reasoning'
     },
     {
         id: 'o1-mini',
         name: 'o1 Mini',
         provider: 'openai',
         defaultPricing: { prompt: 3.00, completion: 12.00 },
-        defaultTurnCost: 3
+        defaultTurnCost: 3,
+        description: 'Efficient reasoning'
     },
 
     // Anthropic Models
@@ -510,21 +515,40 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         name: 'Claude 3.5 Sonnet (New)',
         provider: 'anthropic',
         defaultPricing: { prompt: 3.00, completion: 15.00 },
-        defaultTurnCost: 10
+        defaultTurnCost: 10,
+        description: 'Intelligent and versatile'
     },
     {
         id: 'claude-3-5-haiku-20241022',
         name: 'Claude 3.5 Haiku',
         provider: 'anthropic',
         defaultPricing: { prompt: 1.00, completion: 5.00 }, // Approx
-        defaultTurnCost: 1
+        defaultTurnCost: 1,
+        description: 'Extremely fast'
     },
     {
         id: 'claude-3-opus-20240229',
         name: 'Claude 3 Opus',
         provider: 'anthropic',
         defaultPricing: { prompt: 15.00, completion: 75.00 },
-        defaultTurnCost: 15
+        defaultTurnCost: 15,
+        description: 'Previous flagship'
+    },
+    {
+        id: 'claude-opus-4-5-20251101',
+        name: 'Claude Opus 4.5',
+        provider: 'anthropic',
+        defaultPricing: { prompt: 15.00, completion: 75.00 },
+        defaultTurnCost: 15,
+        description: 'Next gen storytelling'
+    },
+    {
+        id: 'claude-haiku-4-5-20251001',
+        name: 'Claude Haiku 4.5',
+        provider: 'anthropic',
+        defaultPricing: { prompt: 1.00, completion: 5.00 },
+        defaultTurnCost: 1,
+        description: 'Ultra fast next gen'
     },
 
     // Google Gemini Models
@@ -534,41 +558,46 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         provider: 'google',
         contextWindow: 2000000, // 2M+ context window
         defaultPricing: { prompt: 0.20, completion: 0.80 },
-        defaultTurnCost: 1
+        defaultTurnCost: 1,
+        description: 'Next-gen speed'
     },
     {
         id: 'gemini-2.0-flash-exp',
         name: 'Gemini 2.0 Flash (Exp)',
         provider: 'google',
         defaultPricing: { prompt: 0.00, completion: 0.00 }, // Free during preview often
-        defaultTurnCost: 1
+        defaultTurnCost: 1,
+        description: 'Experimental low latency'
     },
     {
         id: 'gemini-1.5-pro-002',
         name: 'Gemini 1.5 Pro (002)',
         provider: 'google',
         defaultPricing: { prompt: 1.25, completion: 5.00 }, // Lowered recently?
-        defaultTurnCost: 10
+        defaultTurnCost: 10,
+        description: 'High context window'
     },
     {
         id: 'gemini-1.5-flash-002',
         name: 'Gemini 1.5 Flash (002)',
         provider: 'google',
         defaultPricing: { prompt: 0.075, completion: 0.30 },
-        defaultTurnCost: 1
+        defaultTurnCost: 1,
+        description: 'Efficient and capable'
     },
     {
         id: 'gemini-1.5-flash-8b',
         name: 'Gemini 1.5 Flash-8B',
         provider: 'google',
         defaultPricing: { prompt: 0.0375, completion: 0.15 },
-        defaultTurnCost: 1
+        defaultTurnCost: 1,
+        description: 'Ultra-lightweight'
     }
 ];
 
 export interface GlobalConfig {
     subscriptionLimits: Record<SubscriptionTier, number>;
-    subscriptionPermissions: Record<SubscriptionTier, { allowedModels: string[] }>;
+    subscriptionPermissions: Record<SubscriptionTier, { allowedModels: string[]; allowedTiers?: ('economical' | 'balanced' | 'premium')[] }>;
     subscriptionPricing: Record<SubscriptionTier, { price: number; displayPrice: string }>;
     topUpPackages: TopUpPackage[];
     worldModules: Record<string, { enabled: boolean }>; // Keyed by module ID
@@ -584,5 +613,11 @@ export interface GlobalConfig {
         heartbeatIdleTimeout: number; // Minutes before heartbeat stops (default: 15)
     };
     modelCosts?: Record<string, number>; // Turns per action for each model ID
+    favoriteModels?: string[]; // IDs of models active for selection
+    tierMapping?: {
+        economical: string; // ID for Low tier
+        balanced: string; // ID for Mid tier
+        premium: string; // ID for High tier
+    };
 }
 

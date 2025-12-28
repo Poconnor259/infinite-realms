@@ -18,7 +18,7 @@ import { spacing, borderRadius, typography } from '../lib/theme';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore } from '../lib/store';
 import { signOut, db } from '../lib/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
 import { getGlobalConfig } from '../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
@@ -65,9 +65,14 @@ export default function SettingsScreen() {
     const [config, setConfig] = useState<GlobalConfig | null>(null);
 
     React.useEffect(() => {
-        getGlobalConfig().then(res => {
-            if (res.data) setConfig(res.data);
-        }).catch(err => console.error('Failed to load config:', err));
+        // Use real-time listener for config to ensure instant updates from Admin changes
+        const unsubscribe = onSnapshot(doc(db, 'config', 'global'), (snapshot) => {
+            if (snapshot.exists()) {
+                setConfig(snapshot.data() as GlobalConfig);
+            }
+        });
+
+        return () => unsubscribe();
     }, []);
 
     const handleUpgradePrompt = () => {
@@ -184,6 +189,8 @@ export default function SettingsScreen() {
                             modelType="voice"
                             onShowUpgrade={handleUpgradePrompt}
                             modelCosts={config?.modelCosts}
+                            tierMapping={config?.tierMapping}
+                            subscriptionPermissions={config?.subscriptionPermissions}
                         />
                     </Section>
                 </FadeInView>

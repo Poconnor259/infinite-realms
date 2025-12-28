@@ -1585,6 +1585,7 @@ export const getAdminDashboardData = onCall({ cors: true, invoker: 'public' }, a
                 photoURL: d.photoURL || null,
                 role: d.role || 'user',
                 tier: d.tier || 'scout',
+                turns: d.turns || 0,
                 turnsUsed: d.turnsUsed || 0,
                 tokensPrompt: d.tokensPrompt || 0,
                 tokensCompletion: d.tokensCompletion || 0,
@@ -1631,6 +1632,45 @@ export const adminUpdateUser = onCall({ cors: true, invoker: 'public' }, async (
     await db.collection('users').doc(targetUserId).update(updates);
 
     return { success: true };
+});
+
+export const adminAdjustTurns = onCall({ cors: true, invoker: 'public' }, async (request) => {
+    if (!request.auth) {
+        throw new HttpsError('unauthenticated', 'User must be signed in');
+    }
+
+    // Verify admin role
+    const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+    if (callerDoc.data()?.role !== 'admin') {
+        throw new HttpsError('permission-denied', 'Admin access required');
+    }
+
+    const { targetUserId, amount, operation } = request.data;
+
+    if (!targetUserId || amount === undefined) {
+        throw new HttpsError('invalid-argument', 'Missing targetUserId or amount');
+    }
+
+    const userRef = db.collection('users').doc(targetUserId);
+    console.log(`[Admin] Adjusting turns for user: ${targetUserId}, amount: ${amount}, operation: ${operation}`);
+
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        throw new HttpsError('not-found', `User ${targetUserId} not found in Firestore`);
+    }
+
+    if (operation === 'set') {
+        await userRef.update({ turns: amount });
+    } else {
+        await userRef.update({
+            turns: admin.firestore.FieldValue.increment(amount)
+        });
+    }
+
+    const updatedDoc = await userRef.get();
+    console.log(`[Admin] Turns updated successfully. New balance: ${updatedDoc.data()?.turns}`);
+
+    return { success: true, newBalance: updatedDoc.data()?.turns };
 });
 
 // ==================== KNOWLEDGE BASE ====================

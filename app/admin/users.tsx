@@ -8,7 +8,7 @@ import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useMemo } from 'react';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getAdminData, updateUserRole, updateUserTier } from '../../lib/firebase';
+import { getAdminData, updateUserRole, updateUserTier, adminAdjustTurns } from '../../lib/firebase';
 import { User, SubscriptionTier } from '../../lib/types';
 import { useUserStore } from '../../lib/store';
 
@@ -84,6 +84,29 @@ export default function AdminUsersScreen() {
         }
     };
 
+    const handleAdjustTurns = async (userId: string, name: string) => {
+        const amountStr = Platform.OS === 'web'
+            ? window.prompt(`Enter amount of turns to add for ${name} (use negative for subtraction):`, '500')
+            : '500';
+
+        if (amountStr === null) return;
+        const amount = parseInt(amountStr, 10);
+
+        if (isNaN(amount)) {
+            Alert.alert('Invalid Amount', 'Please enter a valid number.');
+            return;
+        }
+
+        try {
+            await adminAdjustTurns(userId, amount, 'add');
+            Alert.alert('Success', `Successfully adjusted turns for ${name}.`);
+            loadData(false);
+        } catch (error: any) {
+            console.error('Failed to adjust turns:', error);
+            Alert.alert('Error', `Failed to adjust turns: ${error.message}`);
+        }
+    };
+
     const filteredUsers = users.filter(u =>
         (u.email?.toLowerCase().includes(filter.toLowerCase())) ||
         (u.displayName?.toLowerCase().includes(filter.toLowerCase())) ||
@@ -125,7 +148,7 @@ export default function AdminUsersScreen() {
                             <Text style={styles.userName}>{user.displayName || 'Anonymous User'}</Text>
                             <Text style={styles.userEmail}>{user.email || user.id}</Text>
                             <Text style={styles.userStats}>
-                                Created: {new Date(user.createdAt).toLocaleDateString()} • Turns: {user.turnsUsed || 0}
+                                Created: {new Date(user.createdAt).toLocaleDateString()} • Balance: {user.turns || 0} • Used: {user.turnsUsed || 0}
                             </Text>
                         </View>
 
@@ -146,21 +169,55 @@ export default function AdminUsersScreen() {
                             </AnimatedPressable>
 
                             <AnimatedPressable
-                                style={[styles.badge, styles.tierBadge]}
+                                style={[
+                                    styles.badge,
+                                    user.tier === 'scout' && styles.scoutBadge,
+                                    user.tier === 'adventurer' && styles.adventurerBadge,
+                                    user.tier === 'hero' && styles.heroBadge,
+                                    user.tier === 'legendary' && styles.legendaryBadge,
+                                ]}
                                 onPress={() => handleTierUpdate(user.id, user.tier, user.displayName || 'User')}
                             >
-                                <Ionicons name="star" size={12} color={colors.gold.main} style={{ marginRight: 4 }} />
-                                <Text style={styles.tierText}>{user.tier.toUpperCase()}</Text>
+                                <Ionicons
+                                    name="star"
+                                    size={12}
+                                    color={
+                                        user.tier === 'scout' ? colors.text.muted :
+                                            user.tier === 'adventurer' ? colors.status.info :
+                                                user.tier === 'hero' ? colors.gold.main :
+                                                    colors.primary[400]
+                                    }
+                                    style={{ marginRight: 4 }}
+                                />
+                                <Text style={[
+                                    styles.tierText,
+                                    user.tier === 'scout' && styles.scoutText,
+                                    user.tier === 'adventurer' && styles.adventurerText,
+                                    user.tier === 'hero' && styles.heroText,
+                                    user.tier === 'legendary' && styles.legendaryText,
+                                ]}>
+                                    {user.tier.toUpperCase()}
+                                </Text>
+                            </AnimatedPressable>
+
+                            <AnimatedPressable
+                                style={[styles.badge, styles.turnBadge]}
+                                onPress={() => handleAdjustTurns(user.id, user.displayName || 'User')}
+                            >
+                                <Ionicons name="add-circle-outline" size={12} color={colors.primary[400]} style={{ marginRight: 4 }} />
+                                <Text style={styles.turnBadgeText}>ADD TURNS</Text>
                             </AnimatedPressable>
                         </View>
                     </View>
                 ))}
             </StaggeredList>
 
-            {filteredUsers.length === 0 && (
-                <Text style={styles.emptyText}>No users found matching "{filter}"</Text>
-            )}
-        </ScrollView>
+            {
+                filteredUsers.length === 0 && (
+                    <Text style={styles.emptyText}>No users found matching "{filter}"</Text>
+                )
+            }
+        </ScrollView >
     );
 }
 
@@ -262,13 +319,43 @@ const createStyles = (colors: any) => StyleSheet.create({
         backgroundColor: colors.gold.main + '20',
         borderColor: colors.gold.main,
     },
+    scoutBadge: {
+        backgroundColor: colors.background.tertiary,
+        borderColor: colors.border.default,
+    },
+    adventurerBadge: {
+        backgroundColor: colors.status.info + '20',
+        borderColor: colors.status.info,
+    },
+    heroBadge: {
+        backgroundColor: colors.gold.main + '20',
+        borderColor: colors.gold.main,
+    },
+    legendaryBadge: {
+        backgroundColor: colors.primary[400] + '20',
+        borderColor: colors.primary[400],
+    },
     badgeText: {
         fontSize: 10,
         fontWeight: 'bold',
     },
     adminText: { color: colors.primary[400] },
     userText: { color: colors.text.muted },
-    tierText: { color: colors.gold.main, fontSize: 10, fontWeight: 'bold' },
+    tierText: { fontSize: 10, fontWeight: 'bold' },
+    scoutText: { color: colors.text.muted },
+    adventurerText: { color: colors.status.info },
+    heroText: { color: colors.gold.main },
+    legendaryText: { color: colors.primary[400] },
+    turnBadge: {
+        backgroundColor: colors.primary[900] + '20',
+        borderColor: colors.primary[500] + '40',
+        marginTop: 4,
+    },
+    turnBadgeText: {
+        color: colors.primary[400],
+        fontSize: 10,
+        fontWeight: 'bold'
+    },
     emptyText: {
         textAlign: 'center',
         color: colors.text.muted,

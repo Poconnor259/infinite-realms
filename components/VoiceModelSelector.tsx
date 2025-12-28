@@ -6,6 +6,7 @@ import { db } from '../lib/firebase';
 import { useUserStore } from '../lib/store';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { spacing, borderRadius, typography, shadows } from '../lib/theme';
+import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
 
 interface VoiceModelSelectorProps {
     user: any;
@@ -13,118 +14,122 @@ interface VoiceModelSelectorProps {
     modelType?: 'brain' | 'voice'; // Which model to select - defaults to 'voice'
     onShowUpgrade?: () => void;
     modelCosts?: Record<string, number>;
+    tierMapping?: GlobalConfig['tierMapping'];
+    subscriptionPermissions?: GlobalConfig['subscriptionPermissions'];
 }
 
-export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade, modelCosts }: VoiceModelSelectorProps) {
+export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade, modelCosts, tierMapping, subscriptionPermissions }: VoiceModelSelectorProps) {
     const { colors } = useThemeColors();
     const styles = createStyles(colors, mode);
     const [isExpanded, setIsExpanded] = useState(false);
-    const [config, setConfig] = useState<any>(null);
-
-    React.useEffect(() => {
-        const fetchConfig = async () => {
-            try {
-                const docRef = doc(db, 'config', 'globalConfig');
-                // Use getDoc instead of onSnapshot for now to reduce reads, or use a store
-                // Ideally this should be in a global store. For now, fetch on mount.
-                const snapshot = await import('firebase/firestore').then(mod => mod.getDoc(docRef));
-                if (snapshot.exists()) {
-                    setConfig(snapshot.data());
-                }
-            } catch (err) {
-                console.warn('Failed to fetch global config:', err);
-            }
-        };
-        fetchConfig();
-    }, []);
 
     // Read the current model based on modelType
     const currentModel = modelType === 'brain'
         ? (user?.preferredModels?.brain || 'gemini-3-flash')
         : (user?.preferredModels?.voice || 'gemini-3-flash');
 
-    const getCostText = (id: string, defaultCost: string) => {
-        const costs = modelCosts || config?.modelCosts;
-        if (!costs) return defaultCost;
-
-        // Map UI IDs to Config IDs if needed
-        let configId = id;
-        if (id === 'claude-opus-4.5') configId = 'claude-3-opus-20240229';
-        if (id === 'claude-sonnet-3.5') configId = 'claude-3-5-sonnet-20241022';
-        if (id === 'gemini-3-flash') configId = 'gemini-3-flash-preview';
-
-        const cost = costs[configId] ?? costs[id];
-        if (cost !== undefined) return `~${cost} turns/action`;
-
-        return defaultCost;
+    const basicPermissions = subscriptionPermissions;
+    const basicCosts = modelCosts || {};
+    const basicMapping = tierMapping || {
+        premium: undefined,
+        balanced: undefined,
+        economical: undefined
     };
 
-    const models = [
-        {
-            id: 'claude-opus-4.5',
-            name: 'Claude Opus 4.5',
-            icon: 'sparkles' as const,
-            tag: 'Premium',
-            cost: getCostText('claude-opus-4.5', '~15 turns/action'),
-            desc: 'Immersive storytelling with rich detail',
-        },
-        {
-            id: 'claude-sonnet-3.5',
-            name: 'Claude Sonnet 3.5',
-            icon: 'flash' as const,
-            tag: 'Balanced',
-            cost: getCostText('claude-sonnet-3.5', '~10 turns/action'),
-            desc: 'Great quality at moderate cost',
-        },
-        {
-            id: 'gemini-3-flash',
-            name: 'Gemini Flash 3',
-            icon: 'rocket' as const,
-            tag: 'Economical',
-            cost: getCostText('gemini-3-flash', '~1 turn/action'),
-            desc: 'Fast and efficient',
+    const getCostText = (id: string) => {
+        let cost = basicCosts[id];
+        if (cost === undefined) {
+            const modelDef = AVAILABLE_MODELS.find(m => m.id === id);
+            cost = modelDef?.defaultTurnCost;
         }
+
+        if (cost !== undefined) return `~${cost} turns/action`;
+        return 'Unknown cost';
+    };
+
+    const getCostValue = (id: string): number => {
+        let cost = basicCosts[id];
+        if (cost === undefined) {
+            const modelDef = AVAILABLE_MODELS.find(m => m.id === id);
+            cost = modelDef?.defaultTurnCost;
+        }
+        return cost !== undefined ? cost : 1;
+    };
+
+    // Analyze User Permissions
+    const userTier = (user?.tier || 'scout').toLowerCase();
+    const userPermissions = basicPermissions?.[userTier as keyof typeof basicPermissions];
+
+    // Define the 3 main tiers dynamically
+    const tiers = [
+        { key: 'premium' as const, tag: 'Premium', icon: 'sparkles', defaultDesc: 'High quality storytelling' },
+        { key: 'balanced' as const, tag: 'Balanced', icon: 'flash', defaultDesc: 'Balanced speed & quality' },
+        { key: 'economical' as const, tag: 'Economical', icon: 'rocket', defaultDesc: 'Fast & efficient' }
     ];
 
-    // Filter models based on mode and expansion state
+    const models = tiers.map(tier => {
+        // 1. Get the Model ID mapped to this tier in Global Config
+        const mappedModelId = basicMapping[tier.key];
+
+        // 2. Look up static details (Name, Provider) from code constants
+        // This ensures we have a nice name like "GPT-4o Mini" even if config only has ID "gpt-4o-mini"
+        const staticDetails = AVAILABLE_MODELS.find(m => m.id === mappedModelId);
+
+        // 3. Fallback Name if static lookup fails (e.g. new model added to config but not code yet)
+        const displayId = mappedModelId || 'Unknown Model';
+        const displayName = staticDetails?.name || displayId;
+
+        // 4. Resolve Description
+        const description = staticDetails?.description || tier.defaultDesc;
+
+        // 5. Resolve Cost dynamically
+        const costText = getCostText(mappedModelId);
+
+        // 6. Check Permissions
+        let isLocked = false;
+
+        if (user?.tier === 'legendary' || user?.tier === 'legend') {
+            isLocked = false;
+        } else if (userPermissions?.allowedTiers) {
+            // New permission system: Check if this TIER (e.g. 'premium') is allowed
+            isLocked = !userPermissions.allowedTiers.includes(tier.key);
+        } else if (userPermissions?.allowedModels) {
+            // Legacy permission system: Check if this MODEL ID is allowed
+            isLocked = !userPermissions.allowedModels.includes(mappedModelId);
+        } else {
+            // Fallback: If no permissions loaded yet, lock everything except economical to be safe, 
+            // or if it's Scout, lock premium/balanced.
+            // Assuming Scout = Economical only.
+            if (userTier === 'scout' && tier.key !== 'economical') isLocked = true;
+        }
+
+        return {
+            id: mappedModelId,
+            name: `${tier.tag} - ${displayName} - ${costText}`,
+            rawName: displayName,
+            icon: tier.icon,
+            tag: tier.tag,
+            desc: description,
+            isLocked,
+            tierKey: tier.key
+        };
+    });
+
+    // Filter logic for Main Mode (collapsed)
     const visibleModels = mode === 'settings' || isExpanded
         ? models
         : models.filter(m => m.id === currentModel);
 
-
-    const isModelAllowed = (modelId: string) => {
-        // Legend/Legendary always allowed (BYOK or Unlimited)
-        if (user?.tier === 'legend' || user?.tier === 'legendary') return true;
-
-        // If config loaded, use it
-        if (config?.subscriptionPermissions) {
-            const tierPerms = config.subscriptionPermissions[user?.tier || 'scout'];
-            if (tierPerms?.allowedModels) {
-                // Check if modelId is in allowed list. 
-                // Note: Config might have 'claude-3-5-sonnet' but UI has 'claude-sonnet-3.5'.
-                // We need to ensure IDs match.
-                // UI IDs: claude-opus-4.5, claude-sonnet-3.5, gemini-3-flash
-                // Server IDs usually: claude-3-opus, claude-3-5-sonnet, gemini-1.5-flash
-                // User update: "gemini-3-flash" seems custom.
-                // I will assume the config uses the same IDs as the UI or I need to map them.
-                // For safety, I'll check exact match or partial match if needed.
-                return tierPerms.allowedModels.includes(modelId);
-            }
-        }
-
-        // Fallback legacy logic
-        const isScout = user?.tier === 'scout';
-        if (isScout) {
-            // Scout only gets Flash
-            return modelId.includes('flash') || modelId.includes('gemini');
-        }
-        return true; // Others allowed
-    };
+    // If current model isn't in the list (e.g. it's a custom BYOK model or old legacy ID not in current tiers),
+    // and we are collapsed, we might show nothing. 
+    // In that case, show the Economical option as a fallback or the "Selected" one if we can find it.
+    // For now, if visibleModels is empty in main mode, show all.
+    const finalVisibleModels = visibleModels.length > 0 ? visibleModels : models;
 
     const updateModel = async (modelId: string) => {
         if (user?.id) {
             try {
-                // Optimistic update based on modelType
+                // Optimistic update
                 useUserStore.setState({
                     user: {
                         ...user,
@@ -135,7 +140,6 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
                     }
                 });
 
-                // Update Firestore with the correct field path
                 await updateDoc(doc(db, 'users', user.id), {
                     [`preferredModels.${modelType}`]: modelId
                 });
@@ -145,35 +149,29 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
         }
     };
 
-    const handleModelPress = (modelId: string) => {
-        if (!isModelAllowed(modelId)) {
+    const handleModelPress = (model: typeof models[0]) => {
+        if (model.isLocked) {
             onShowUpgrade?.();
             return;
         }
 
         if (mode === 'main') {
             if (!isExpanded) {
-                // Clicking collapsed card expands
                 setIsExpanded(true);
-            } else if (modelId === currentModel) {
-                // Clicking same model while expanded collapses
+            } else if (model.id === currentModel) {
                 setIsExpanded(false);
             } else {
-                // Clicking different model selects and collapses
-                updateModel(modelId);
+                updateModel(model.id);
                 setIsExpanded(false);
             }
         } else {
-            // Settings mode: direct selection
-            updateModel(modelId);
+            updateModel(model.id);
         }
     };
 
-    // Type-specific descriptions
+    // Description for the top of the section
     const getDescription = () => {
-        if (modelType === 'brain') {
-            return "Controls game logic speed and cost. Admin only.";
-        }
+        if (modelType === 'brain') return "Controls game logic speed and cost. Admin only.";
         return "Select your narrator. Balance storytelling quality with speed and turn usage.";
     };
 
@@ -186,26 +184,26 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
             )}
 
             <View style={styles.grid}>
-                {visibleModels.map((model) => {
+                {finalVisibleModels.map((model) => {
                     const isSelected = currentModel === model.id;
 
                     return (
                         <TouchableOpacity
-                            key={model.id}
+                            key={model.tierKey} // use tierKey as key since ID might change
                             style={[
                                 styles.card,
-                                isSelected && isModelAllowed(model.id) && styles.cardSelected,
-                                !isModelAllowed(model.id) && styles.cardLocked,
+                                isSelected && !model.isLocked && styles.cardSelected,
+                                model.isLocked && styles.cardLocked,
                             ]}
-                            onPress={() => handleModelPress(model.id)}
+                            onPress={() => handleModelPress(model)}
                             activeOpacity={0.7}
                         >
                             <View style={styles.cardContent}>
-                                <View style={[styles.iconContainer, isSelected && styles.iconContainerSelected]}>
+                                <View style={[styles.iconContainer, isSelected && !model.isLocked && styles.iconContainerSelected]}>
                                     <Ionicons
-                                        name={model.icon}
+                                        name={model.icon as any}
                                         size={20}
-                                        color={!isModelAllowed(model.id) ? colors.text.muted : (isSelected ? colors.primary[400] : colors.text.secondary)}
+                                        color={model.isLocked ? colors.text.muted : (isSelected ? colors.primary[400] : colors.text.secondary)}
                                     />
                                 </View>
 
@@ -213,43 +211,33 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
                                     <View style={styles.headerRow}>
                                         <Text style={[
                                             styles.name,
-                                            isSelected && isModelAllowed(model.id) && styles.nameSelected,
-                                            !isModelAllowed(model.id) && styles.textLocked
+                                            isSelected && !model.isLocked && styles.nameSelected,
+                                            model.isLocked && styles.textLocked
                                         ]}>
                                             {model.name}
                                         </Text>
-                                        {!isModelAllowed(model.id) && (
+                                        {model.isLocked && (
                                             <Ionicons name="lock-closed" size={14} color={colors.text.muted} />
                                         )}
                                     </View>
 
                                     {mode === 'settings' && (
-                                        <Text style={[styles.desc, !isModelAllowed(model.id) && styles.textLocked]} numberOfLines={1}>
+                                        <Text style={[styles.desc, model.isLocked && styles.textLocked]} numberOfLines={1}>
                                             {model.desc}
                                         </Text>
                                     )}
                                 </View>
-
-                                {mode === 'settings' && (
-                                    <View style={styles.metaContainer}>
-                                        <Text style={[styles.cost, !isModelAllowed(model.id) && styles.textLocked]}>{model.cost}</Text>
-                                    </View>
-                                )}
                             </View>
                         </TouchableOpacity>
                     );
                 })}
             </View>
 
-            {mode === 'settings' && user?.turns !== undefined && isModelAllowed(currentModel) && (
+            {mode === 'settings' && user?.turns !== undefined && !models.find(m => m.id === currentModel)?.isLocked && (
                 <View style={styles.estimate}>
                     <Ionicons name="information-circle-outline" size={16} color={colors.text.muted} />
                     <Text style={styles.estimateText}>
-                        {user.turns} turns remaining ≈ {
-                            currentModel === 'claude-opus-4.5' ? Math.floor(user.turns / 20) :
-                                currentModel === 'claude-sonnet-3.5' ? Math.floor(user.turns / 4) :
-                                    user.turns
-                        } actions
+                        {user.turns} turns remaining ≈ {Math.floor(user.turns / getCostValue(currentModel))} actions
                     </Text>
                 </View>
             )}
@@ -325,15 +313,6 @@ const createStyles = (colors: any, mode: 'settings' | 'main') => StyleSheet.crea
         color: colors.text.muted,
         lineHeight: 16,
     },
-    metaContainer: {
-        alignItems: 'flex-end',
-    },
-    cost: {
-        fontSize: typography.fontSize.xs,
-        color: colors.primary[400],
-        fontWeight: '600',
-    },
-    // Legacy styles kept safely or remove if confirmed unused
     textLocked: {
         color: colors.text.muted,
     },

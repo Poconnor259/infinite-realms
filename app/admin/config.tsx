@@ -54,6 +54,7 @@ export default function AdminConfigScreen() {
 
     const [availableModels, setAvailableModels] = useState<ModelDefinition[]>(AVAILABLE_MODELS);
     const [refreshingModels, setRefreshingModels] = useState(false);
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [brainDropdownOpen, setBrainDropdownOpen] = useState(false);
     const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
 
@@ -249,20 +250,11 @@ export default function AdminConfigScreen() {
         });
     };
 
-    const togglePermission = (tier: SubscriptionTier, modelId: string) => {
+    const toggleTierPermission = (subTier: SubscriptionTier, modelTier: 'economical' | 'balanced' | 'premium') => {
         if (!config) return;
 
-        const currentPermissions = config.subscriptionPermissions?.[tier]?.allowedModels || [];
-        const isAllowed = currentPermissions.includes(modelId);
-        let newPermissions: string[];
-
-        if (isAllowed) {
-            newPermissions = currentPermissions.filter(id => id !== modelId);
-        } else {
-            newPermissions = [...currentPermissions, modelId];
-        }
-
-        console.log(`[Config] Toggle Permission ${tier} ${modelId}: ${!isAllowed}`);
+        const currentPermissions = config.subscriptionPermissions?.[subTier]?.allowedTiers || [];
+        const isAllowed = currentPermissions.includes(modelTier);
 
         setConfig(prev => {
             if (!prev) return null;
@@ -270,7 +262,12 @@ export default function AdminConfigScreen() {
                 ...prev,
                 subscriptionPermissions: {
                     ...prev.subscriptionPermissions,
-                    [tier]: { allowedModels: newPermissions }
+                    [subTier]: {
+                        ...prev.subscriptionPermissions?.[subTier],
+                        allowedTiers: isAllowed
+                            ? currentPermissions.filter(t => t !== modelTier)
+                            : [...currentPermissions, modelTier]
+                    }
                 }
             };
         });
@@ -362,6 +359,40 @@ export default function AdminConfigScreen() {
                 modelCosts: {
                     ...(prev.modelCosts || {}),
                     [modelId]: numValue
+                }
+            };
+        });
+    };
+
+    const toggleFavoriteModel = (modelId: string) => {
+        if (!config) return;
+        const currentFavorites = config.favoriteModels || [];
+        const isFavorite = currentFavorites.includes(modelId);
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                favoriteModels: isFavorite
+                    ? currentFavorites.filter(id => id !== modelId)
+                    : [...currentFavorites, modelId]
+            };
+        });
+    };
+
+    const updateTierMapping = (tier: 'economical' | 'balanced' | 'premium', modelId: string) => {
+        if (!config) return;
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                tierMapping: {
+                    ...(prev.tierMapping || {
+                        economical: 'gemini-3-flash-preview',
+                        balanced: 'claude-3-5-sonnet-20241022',
+                        premium: 'claude-3-opus-20240229'
+                    }),
+                    [tier]: modelId
                 }
             };
         });
@@ -472,40 +503,126 @@ export default function AdminConfigScreen() {
                                 {refreshingModels ? 'Refreshing...' : 'Refresh Models'}
                             </Text>
                         </TouchableOpacity>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ color: colors.text.secondary, fontSize: 12 }}>Filter Favorites</Text>
+                            <Switch
+                                value={showFavoritesOnly}
+                                onValueChange={setShowFavoritesOnly}
+                                trackColor={{ false: colors.background.tertiary, true: colors.primary[400] }}
+                                thumbColor="#fff"
+                                style={{ transform: [{ scale: 0.7 }] }}
+                            />
+                        </View>
                     </View>
 
-                    {availableModels.map(model => (
-                        <View key={model.id} style={styles.configItem}>
-                            <View style={{ gap: 4, flex: 1 }}>
-                                <Text style={styles.modelName}>{model.name}</Text>
-                                <Text style={styles.modelId}>{model.id}</Text>
+                    {availableModels
+                        .filter(m => !showFavoritesOnly || config?.favoriteModels?.includes(m.id))
+                        .map(model => (
+                            <View key={model.id} style={styles.configItem}>
+                                <View style={{ gap: 4, flex: 1 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Text style={styles.modelName}>{model.name}</Text>
+                                        {config?.favoriteModels?.includes(model.id) && (
+                                            <Ionicons name="star" size={14} color={colors.gold.main} />
+                                        )}
+                                    </View>
+                                    <Text style={styles.modelId}>{model.id}</Text>
+                                </View>
+
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
+                                    <View style={{ alignItems: 'center', gap: 2 }}>
+                                        <Text style={[styles.inputLabel, { fontSize: 10 }]}>Favorite</Text>
+                                        <Switch
+                                            value={config?.favoriteModels?.includes(model.id) ?? false}
+                                            onValueChange={() => toggleFavoriteModel(model.id)}
+                                            trackColor={{ false: colors.background.tertiary, true: colors.primary[400] }}
+                                            thumbColor="#fff"
+                                            style={{ transform: [{ scale: 0.8 }] }}
+                                        />
+                                    </View>
+
+                                    <View style={{ alignItems: 'center', gap: 2 }}>
+                                        <Text style={[styles.inputLabel, { fontSize: 10 }]}>Turns</Text>
+                                        <TextInput
+                                            style={[styles.input, { width: 60, textAlign: 'center', height: 32 }]}
+                                            value={String(config?.modelCosts?.[model.id] ?? (
+                                                // Defaults from constant matching
+                                                AVAILABLE_MODELS.find(am => am.id === model.id)?.defaultTurnCost ??
+                                                (model.id.includes('flash') ? 1 :
+                                                    model.id.includes('sonnet') ? 10 :
+                                                        model.id.includes('opus') ? 15 : 5)
+                                            ))}
+                                            onChangeText={(v) => updateModelCost(model.id, v)}
+                                            keyboardType="numeric"
+                                            placeholder="0"
+                                            placeholderTextColor={colors.text.muted}
+                                        />
+                                    </View>
+                                </View>
                             </View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-                                <Text style={styles.inputLabel}>Turns/Action:</Text>
-                                <TextInput
-                                    style={[styles.input, { width: 80, textAlign: 'center' }]}
-                                    value={String(config?.modelCosts?.[model.id] ?? (
-                                        // Defaults from constant matching
-                                        AVAILABLE_MODELS.find(am => am.id === model.id)?.defaultTurnCost ??
-                                        (model.id.includes('flash') ? 1 :
-                                            model.id.includes('sonnet') ? 10 :
-                                                model.id.includes('opus') ? 15 : 5)
-                                    ))}
-                                    onChangeText={(v) => updateModelCost(model.id, v)}
-                                    keyboardType="numeric"
-                                    placeholder="0"
-                                    placeholderTextColor={colors.text.muted}
-                                />
-                            </View>
-                        </View>
-                    ))}
+                        ))}
 
                     <TouchableOpacity
                         style={[styles.saveButton, { marginTop: spacing.md }]}
                         onPress={saveGlobalConfig}
                         disabled={savingConfig}
                     >
-                        {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Costs</Text>}
+                        {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save AI Configuration</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* AI Tier Mapping */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Tier Model Mapping</Text>
+                <View style={styles.card}>
+                    <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
+                        Select which models are used for the Economical, Balanced, and Premium tiers.
+                    </Text>
+
+                    {[
+                        { key: 'premium' as const, label: 'Premium (High Cost)', icon: 'sparkles', color: colors.gold.main },
+                        { key: 'balanced' as const, label: 'Balanced (Mid Cost)', icon: 'flash', color: colors.status.info },
+                        { key: 'economical' as const, label: 'Economical (Low Cost)', icon: 'rocket', color: colors.status.success }
+                    ].map(tier => (
+                        <View key={tier.key} style={{ marginBottom: spacing.lg }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                                <Ionicons name={tier.icon as any} size={18} color={tier.color} />
+                                <Text style={styles.fieldLabel}>{tier.label}</Text>
+                            </View>
+
+                            <View style={styles.dropdownList}>
+                                {availableModels
+                                    .filter(m => config?.favoriteModels?.includes(m.id))
+                                    .map(model => (
+                                        <TouchableOpacity
+                                            key={model.id}
+                                            style={[
+                                                styles.dropdownItem,
+                                                config?.tierMapping?.[tier.key] === model.id && styles.dropdownItemSelected
+                                            ]}
+                                            onPress={() => updateTierMapping(tier.key, model.id)}
+                                        >
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                                <Text style={styles.modelId}>{model.id}</Text>
+                                            </View>
+                                            {config?.tierMapping?.[tier.key] === model.id && (
+                                                <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
+                                            )}
+                                        </TouchableOpacity>
+                                    ))}
+                            </View>
+                        </View>
+                    ))}
+
+                    <TouchableOpacity
+                        style={[styles.saveButton, { marginTop: spacing.sm }]}
+                        onPress={saveGlobalConfig}
+                        disabled={savingConfig}
+                    >
+                        {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Mapping</Text>}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -670,21 +787,35 @@ export default function AdminConfigScreen() {
                                 </View>
                             </View>
 
-                            {/* Allowed Models */}
+                            {/* Allowed Tiers */}
                             <View style={{ marginTop: spacing.md }}>
-                                <Text style={styles.inputLabel}>Allowed Models</Text>
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                                    {availableModels.map(model => {
-                                        const isAllowed = config?.subscriptionPermissions?.[tier]?.allowedModels?.includes(model.id) ?? false;
+                                <Text style={styles.inputLabel}>Allowed Tiers</Text>
+                                <View style={{ flexDirection: 'row', gap: 8, marginTop: 4 }}>
+                                    {[
+                                        { id: 'economical', label: 'Economical', icon: 'rocket', color: colors.status.success },
+                                        { id: 'balanced', label: 'Balanced', icon: 'flash', color: colors.status.info },
+                                        { id: 'premium', label: 'Premium', icon: 'sparkles', color: colors.gold.main }
+                                    ].map(t => {
+                                        const isAllowed = config?.subscriptionPermissions?.[tier]?.allowedTiers?.includes(t.id as any) ?? false;
                                         return (
                                             <TouchableOpacity
-                                                key={model.id}
-                                                onPress={() => togglePermission(tier, model.id)}
-                                                style={[styles.modelChip, isAllowed && styles.modelChipSelected]}
+                                                key={t.id}
+                                                onPress={() => toggleTierPermission(tier, t.id as any)}
+                                                style={[
+                                                    styles.modelChip,
+                                                    isAllowed && { backgroundColor: t.color + '20', borderColor: t.color },
+                                                    !isAllowed && { backgroundColor: colors.background.tertiary, borderColor: 'transparent' }
+                                                ]}
                                             >
-                                                <Text style={[styles.modelChipText, isAllowed && styles.modelChipTextSelected]}>
-                                                    {model.name}
-                                                </Text>
+                                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                                    <Ionicons name={t.icon as any} size={14} color={isAllowed ? t.color : colors.text.muted} />
+                                                    <Text style={[
+                                                        styles.modelChipText,
+                                                        { color: isAllowed ? t.color : colors.text.muted }
+                                                    ]}>
+                                                        {t.label}
+                                                    </Text>
+                                                </View>
                                             </TouchableOpacity>
                                         );
                                     })}
