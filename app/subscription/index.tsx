@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
     View,
     Text,
@@ -9,7 +9,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, typography, shadows } from '../../lib/theme';
+import { spacing, borderRadius, typography, shadows } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useTurnsStore } from '../../lib/store';
 import { DEFAULT_TOP_UP_PACKAGES, type SubscriptionTier, DEFAULT_SUBSCRIPTION_PRICING } from '../../lib/types';
 import * as Linking from 'expo-linking';
@@ -27,9 +28,11 @@ interface TierCardProps {
     isCurrentTier: boolean;
     recommended?: boolean;
     onSelect: () => void;
+    colors: any;
+    styles: any;
 }
 
-function TierCard({ tier, name, icon, price, turns, features, isCurrentTier, recommended, onSelect }: TierCardProps) {
+function TierCard({ tier, name, icon, price, turns, features, isCurrentTier, recommended, onSelect, colors, styles }: TierCardProps) {
     return (
         <View style={[
             styles.tierCard,
@@ -83,6 +86,8 @@ function TierCard({ tier, name, icon, price, turns, features, isCurrentTier, rec
 
 export default function SubscriptionScreen() {
     const router = useRouter();
+    const { colors } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors), [colors]);
     const { tier, used, getLimit, getRemaining, bonusTurns, resetDate } = useTurnsStore();
     const [loading, setLoading] = React.useState(false);
 
@@ -177,77 +182,10 @@ export default function SubscriptionScreen() {
                     )}
                 </View>
 
-                {/* Subscription Tiers */}
-                <Text style={styles.sectionTitle}>Subscription Plans</Text>
-
-                <TierCard
-                    tier="scout"
-                    name="Scout"
-                    icon="🔭"
-                    price={DEFAULT_SUBSCRIPTION_PRICING.scout.displayPrice}
-                    turns="50 turns/month"
-                    features={[
-                        'Access all 3 world modules',
-                        'Basic character progression',
-                        'Gemini 1.5 Flash (Fast)',
-                    ]}
-                    isCurrentTier={tier === 'scout'}
-                    onSelect={() => handleSelectTier('scout')}
-                />
-
-                <TierCard
-                    tier="adventurer"
-                    name="Adventurer"
-                    icon="🧭"
-                    price={DEFAULT_SUBSCRIPTION_PRICING.adventurer.displayPrice}
-                    turns="1,500 turns/month"
-                    features={[
-                        'Everything in Scout',
-                        '30x more turns',
-                        'Access to Claude 3.5 Sonnet',
-                        'Priority support',
-                    ]}
-                    isCurrentTier={tier === 'adventurer'}
-                    onSelect={() => handleSelectTier('adventurer')}
-                />
-
-                <TierCard
-                    tier="hero"
-                    name="Hero"
-                    icon="⚔️"
-                    price={DEFAULT_SUBSCRIPTION_PRICING.hero.displayPrice}
-                    turns="4,500 turns/month"
-                    features={[
-                        'Everything in Adventurer',
-                        'Massive turn allowance',
-                        'Access to Claude 3 Opus',
-                        'Early access to new features',
-                    ]}
-                    isCurrentTier={tier === 'hero'}
-                    recommended={tier === 'scout' || tier === 'adventurer'}
-                    onSelect={() => handleSelectTier('hero')}
-                />
-
-                <TierCard
-                    tier="legendary"
-                    name="Legendary"
-                    icon="👑"
-                    price={DEFAULT_SUBSCRIPTION_PRICING.legendary.displayPrice}
-                    turns="Unlimited turns (BYOK)"
-                    features={[
-                        'Bring your own API keys',
-                        'No monthly limits',
-                        'You control AI costs',
-                        'Lifetime access',
-                    ]}
-                    isCurrentTier={tier === 'legendary'}
-                    onSelect={() => handleSelectTier('legendary')}
-                />
-
-                {/* Top-up Section */}
+                {/* Top-up Section - Moved to top for visibility */}
                 {tier !== 'legendary' && (
                     <>
-                        <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>
+                        <Text style={styles.sectionTitle}>
                             Need More Turns Now?
                         </Text>
                         <View style={styles.topUpContainer}>
@@ -269,6 +207,81 @@ export default function SubscriptionScreen() {
                         </Text>
                     </>
                 )}
+
+                {/* Subscription Tiers */}
+                <Text style={[styles.sectionTitle, { marginTop: spacing.xl }]}>Subscription Plans</Text>
+
+                <TierCard
+                    tier="scout"
+                    name="Scout"
+                    icon="🔭"
+                    price={DEFAULT_SUBSCRIPTION_PRICING.scout.displayPrice}
+                    turns="50 turns/month"
+                    features={[
+                        'Access all 3 world modules',
+                        'Basic character progression',
+                        'Gemini 1.5 Flash (Fast)',
+                    ]}
+                    isCurrentTier={tier === 'scout'}
+                    onSelect={() => handleSelectTier('scout')}
+                    colors={colors}
+                    styles={styles}
+                />
+
+                <TierCard
+                    tier="adventurer"
+                    name="Adventurer"
+                    icon="🧭"
+                    price={DEFAULT_SUBSCRIPTION_PRICING.adventurer.displayPrice}
+                    turns="1,500 turns/month"
+                    features={[
+                        'Everything in Scout',
+                        '30x more turns',
+                        'Access to Claude 3.5 Sonnet',
+                        'Priority support',
+                    ]}
+                    isCurrentTier={tier === 'adventurer'}
+                    onSelect={() => handleSelectTier('adventurer')}
+                    colors={colors}
+                    styles={styles}
+                />
+
+                <TierCard
+                    tier="hero"
+                    name="Hero"
+                    icon="⚔️"
+                    price={DEFAULT_SUBSCRIPTION_PRICING.hero.displayPrice}
+                    turns="4,500 turns/month"
+                    features={[
+                        'Everything in Adventurer',
+                        'Massive turn allowance',
+                        'Access to Claude 3 Opus',
+                        'Early access to new features',
+                    ]}
+                    isCurrentTier={tier === 'hero'}
+                    recommended={tier === 'scout' || tier === 'adventurer'}
+                    onSelect={() => handleSelectTier('hero')}
+                    colors={colors}
+                    styles={styles}
+                />
+
+                <TierCard
+                    tier="legendary"
+                    name="Legendary"
+                    icon="👑"
+                    price={DEFAULT_SUBSCRIPTION_PRICING.legendary.displayPrice}
+                    turns="Unlimited turns (BYOK)"
+                    features={[
+                        'Bring your own API keys',
+                        'No monthly limits',
+                        'You control AI costs',
+                        'Lifetime access',
+                    ]}
+                    isCurrentTier={tier === 'legendary'}
+                    onSelect={() => handleSelectTier('legendary')}
+                    colors={colors}
+                    styles={styles}
+                />
             </ScrollView>
             {loading && (
                 <View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' }]}>
@@ -279,7 +292,7 @@ export default function SubscriptionScreen() {
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,

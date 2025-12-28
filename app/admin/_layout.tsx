@@ -5,18 +5,31 @@ import { useUserStore } from '../../lib/store';
 import { ActivityIndicator, View } from 'react-native';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 
+// Admin email whitelist - these users have admin access even if role field isn't set
+const ADMIN_EMAILS = [
+    'patrick@shouldersofgiants.app',
+    // Add more admin emails as needed
+];
+
+function isAdmin(user: any): boolean {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
+    if (user.email && ADMIN_EMAILS.includes(user.email)) return true;
+    return false;
+}
+
 export default function AdminLayout() {
     const user = useUserStore((state) => state.user);
     const router = useRouter();
     const { colors } = useThemeColors();
 
     useEffect(() => {
-        if (!user || user.role !== 'admin') {
+        if (!isAdmin(user)) {
             router.replace('/');
         }
     }, [user]);
 
-    if (!user || user.role !== 'admin') {
+    if (!isAdmin(user)) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background.primary }}>
                 <ActivityIndicator color={colors.primary[500]} />
