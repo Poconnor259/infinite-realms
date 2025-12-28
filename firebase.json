@@ -14,7 +14,7 @@
         "ignore": [
             "firebase.json",
             "**/.*",
-            "**/node_modules/**"
+            "node_modules/**"
         ],
         "rewrites": [
             {
@@ -24,11 +24,33 @@
         ],
         "headers": [
             {
-                "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|js|css)",
+                "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|js|css|ttf|woff|woff2|eot)",
                 "headers": [
                     {
                         "key": "Cache-Control",
                         "value": "max-age=31536000"
+                    }
+                ]
+            },
+            {
+                "source": "**/*.@(ttf|woff|woff2|eot)",
+                "headers": [
+                    {
+                        "key": "Access-Control-Allow-Origin",
+                        "value": "*"
+                    }
+                ]
+            },
+            {
+                "source": "/fonts/**",
+                "headers": [
+                    {
+                        "key": "Content-Type",
+                        "value": "font/ttf"
+                    },
+                    {
+                        "key": "Access-Control-Allow-Origin",
+                        "value": "*"
                     }
                 ]
             }

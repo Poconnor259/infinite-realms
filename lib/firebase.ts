@@ -32,24 +32,46 @@ import {
 } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
-// Firebase configuration
+// Firebase configuration - with fallback for static export
 const firebaseConfig = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCuCsTTt0DMv9dDhzxgveviyV6LJIjr7IY',
+    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'infinite-realms-5dcba.firebaseapp.com',
+    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'infinite-realms-5dcba',
+    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'infinite-realms-5dcba.firebasestorage.app',
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '714188392386',
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:714188392386:web:c877b12b8068343571b85b',
+    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-GNFMNEW2TZ'
 };
 
 // Initialize Firebase (only once)
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
 
 // Firebase services
-export const auth = getAuth(app);
-export const db = getFirestore(app);
-export const functions = getFunctions(app);
+let _auth: any;
+let _db: any;
+let _functions: any;
+
+try {
+    _auth = getAuth(app);
+} catch (error: any) {
+    console.warn('[Firebase] Auth initialization warning:', error.message);
+}
+
+try {
+    _db = getFirestore(app);
+} catch (error: any) {
+    console.warn('[Firebase] Firestore initialization warning:', error.message);
+}
+
+try {
+    _functions = getFunctions(app);
+} catch (error: any) {
+    console.warn('[Firebase] Functions initialization warning:', error.message);
+}
+
+export const auth = _auth;
+export const db = _db;
+export const functions = _functions;
 
 // ==================== AUTH HELPERS ====================
 
@@ -376,26 +398,19 @@ export interface ApiKeyStatus {
 
 
 // Get API key status from Cloud Function (reads from Firestore with Secret Manager fallback)
-export const getApiKeyStatus = httpsCallable<void, ApiKeyStatus>(
-    functions,
-    'getApiKeyStatus'
-);
-
-export const updateApiKey = httpsCallable<{ provider: ApiProvider; key: string }, { success: boolean }>(
-    functions,
-    'updateApiKey'
-);
-
-export const verifyModelConfig = httpsCallable<
+// Cloud Functions References
+export const getApiKeyStatus = _functions ? httpsCallable<void, ApiKeyStatus>(_functions, 'getApiKeyStatus') : null as any;
+export const updateApiKey = _functions ? httpsCallable<{ provider: ApiProvider; key: string }, { success: boolean }>(_functions, 'updateApiKey') : null as any;
+export const verifyModelConfig = _functions ? httpsCallable<
     { provider: ApiProvider; model: string },
     { success: boolean; message?: string; latency?: number; error?: string; details?: string }
->(functions, 'verifyModelConfig');
+>(_functions, 'verifyModelConfig') : null as any;
 
 
 // ==================== FIRESTORE HELPERS ====================
 
 // Campaigns collection
-export const campaignsRef = collection(db, 'campaigns');
+export const campaignsRef = _db ? collection(_db, 'campaigns') : null as any;
 
 export async function saveCampaign(userId: string, campaignId: string, data: any) {
     const ref = doc(db, 'users', userId, 'campaigns', campaignId);
@@ -561,7 +576,7 @@ export async function deleteKnowledgeDoc(documentId: string): Promise<void> {
 }
 // ==================== WORLD HELPERS ====================
 
-export const worldsRef = collection(db, 'worlds');
+export const worldsRef = _db ? collection(_db, 'worlds') : null as any;
 
 export async function getWorlds(): Promise<WorldModule[]> {
     try {
@@ -592,7 +607,7 @@ export async function deleteWorld(worldId: string): Promise<void> {
 
 // ==================== GAME ENGINE HELPERS ====================
 
-export const gameEnginesRef = collection(db, 'gameEngines');
+export const gameEnginesRef = _db ? collection(_db, 'gameEngines') : null as any;
 
 export async function getGameEngines(): Promise<GameEngine[]> {
     try {

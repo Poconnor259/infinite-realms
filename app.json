@@ -42,7 +42,8 @@
           }
         }
       ],
-      "@react-native-firebase/app"
+      "@react-native-firebase/app",
+      "expo-asset"
     ],
     "experiments": {
       "typedRoutes": true

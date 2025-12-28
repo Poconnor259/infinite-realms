@@ -19,10 +19,18 @@ export default function Root({ children }: { children: React.ReactNode }) {
         */}
                 <ScrollViewStyleReset />
 
-                {/* Load Ionicons from CDN */}
+                {/* Preload Ionicons font */}
                 <link
-                    rel="stylesheet"
-                    href="https://unpkg.com/@expo/vector-icons@14.0.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+                    rel="preload"
+                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+                    as="font"
+                    type="font/ttf"
+                    crossOrigin="anonymous"
+                />
+                {/* Preload MaterialIcons font */}
+                <link
+                    rel="preload"
+                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf"
                     as="font"
                     type="font/ttf"
                     crossOrigin="anonymous"
@@ -31,7 +39,17 @@ export default function Root({ children }: { children: React.ReactNode }) {
                     __html: `
             @font-face {
                 font-family: 'Ionicons';
-                src: url('https://unpkg.com/@expo/vector-icons@14.0.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+                font-display: swap;
+            }
+            @font-face {
+                font-family: 'Material Icons';
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
+                font-display: swap;
+            }
+            @font-face {
+                font-family: 'MaterialIcons';
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
                 font-display: swap;
             }
             body {

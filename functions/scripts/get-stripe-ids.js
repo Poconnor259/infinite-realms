@@ -1,5 +1,6 @@
 const Stripe = require('stripe');
-const stripe = new Stripe('process.env.STRIPE_SECRET_KEY');
+// Get Stripe API key from environment variable - DO NOT hardcode!
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 async function listProductsAndPrices() {
     console.log('Fetching products...');

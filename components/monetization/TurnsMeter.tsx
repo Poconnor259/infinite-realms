@@ -14,7 +14,7 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
     const router = useRouter();
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
-    const { used, tier, getLimit, getRemaining, getUsagePercent } = useTurnsStore();
+    const { tier, getLimit, getRemaining, getUsagePercent } = useTurnsStore();
 
     const limit = getLimit();
     const remaining = getRemaining();
@@ -108,7 +108,7 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
                 </Text>
                 {tier !== 'legendary' && (
                     <Text style={styles.used}>
-                        {used}/{limit + useTurnsStore.getState().bonusTurns} this month
+                        {getLimit()} monthly
                     </Text>
                 )}
             </View>
