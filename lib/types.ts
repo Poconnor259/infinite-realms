@@ -470,6 +470,7 @@ export interface ModelDefinition {
         prompt: number; // Cost per 1M tokens
         completion: number;
     };
+    defaultTurnCost?: number; // Default turns per action
 }
 
 export const AVAILABLE_MODELS: ModelDefinition[] = [
@@ -478,25 +479,29 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         id: 'gpt-4o',
         name: 'GPT-4o',
         provider: 'openai',
-        defaultPricing: { prompt: 2.50, completion: 10.00 }
+        defaultPricing: { prompt: 2.50, completion: 10.00 },
+        defaultTurnCost: 10
     },
     {
         id: 'gpt-4o-mini',
         name: 'GPT-4o Mini',
         provider: 'openai',
-        defaultPricing: { prompt: 0.15, completion: 0.60 }
+        defaultPricing: { prompt: 0.15, completion: 0.60 },
+        defaultTurnCost: 1
     },
     {
         id: 'o1-preview',
         name: 'o1 Preview',
         provider: 'openai',
-        defaultPricing: { prompt: 15.00, completion: 60.00 }
+        defaultPricing: { prompt: 15.00, completion: 60.00 },
+        defaultTurnCost: 15
     },
     {
         id: 'o1-mini',
         name: 'o1 Mini',
         provider: 'openai',
-        defaultPricing: { prompt: 3.00, completion: 12.00 }
+        defaultPricing: { prompt: 3.00, completion: 12.00 },
+        defaultTurnCost: 3
     },
 
     // Anthropic Models
@@ -504,19 +509,22 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         id: 'claude-3-5-sonnet-20241022',
         name: 'Claude 3.5 Sonnet (New)',
         provider: 'anthropic',
-        defaultPricing: { prompt: 3.00, completion: 15.00 }
+        defaultPricing: { prompt: 3.00, completion: 15.00 },
+        defaultTurnCost: 10
     },
     {
         id: 'claude-3-5-haiku-20241022',
         name: 'Claude 3.5 Haiku',
         provider: 'anthropic',
-        defaultPricing: { prompt: 1.00, completion: 5.00 } // Approx
+        defaultPricing: { prompt: 1.00, completion: 5.00 }, // Approx
+        defaultTurnCost: 1
     },
     {
         id: 'claude-3-opus-20240229',
         name: 'Claude 3 Opus',
         provider: 'anthropic',
-        defaultPricing: { prompt: 15.00, completion: 75.00 }
+        defaultPricing: { prompt: 15.00, completion: 75.00 },
+        defaultTurnCost: 15
     },
 
     // Google Gemini Models
@@ -525,31 +533,36 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         name: 'Gemini 3.0 Flash (Preview)',
         provider: 'google',
         contextWindow: 2000000, // 2M+ context window
-        defaultPricing: { prompt: 0.20, completion: 0.80 }
+        defaultPricing: { prompt: 0.20, completion: 0.80 },
+        defaultTurnCost: 1
     },
     {
         id: 'gemini-2.0-flash-exp',
         name: 'Gemini 2.0 Flash (Exp)',
         provider: 'google',
-        defaultPricing: { prompt: 0.00, completion: 0.00 } // Free during preview often
+        defaultPricing: { prompt: 0.00, completion: 0.00 }, // Free during preview often
+        defaultTurnCost: 1
     },
     {
         id: 'gemini-1.5-pro-002',
         name: 'Gemini 1.5 Pro (002)',
         provider: 'google',
-        defaultPricing: { prompt: 1.25, completion: 5.00 } // Lowered recently?
+        defaultPricing: { prompt: 1.25, completion: 5.00 }, // Lowered recently?
+        defaultTurnCost: 10
     },
     {
         id: 'gemini-1.5-flash-002',
         name: 'Gemini 1.5 Flash (002)',
         provider: 'google',
-        defaultPricing: { prompt: 0.075, completion: 0.30 }
+        defaultPricing: { prompt: 0.075, completion: 0.30 },
+        defaultTurnCost: 1
     },
     {
         id: 'gemini-1.5-flash-8b',
         name: 'Gemini 1.5 Flash-8B',
         provider: 'google',
-        defaultPricing: { prompt: 0.0375, completion: 0.15 }
+        defaultPricing: { prompt: 0.0375, completion: 0.15 },
+        defaultTurnCost: 1
     }
 ];
 
@@ -570,5 +583,6 @@ export interface GlobalConfig {
         enableHeartbeatSystem: boolean; // Enable cache keep-alive heartbeat (default: true)
         heartbeatIdleTimeout: number; // Minutes before heartbeat stops (default: 15)
     };
+    modelCosts?: Record<string, number>; // Turns per action for each model ID
 }
 

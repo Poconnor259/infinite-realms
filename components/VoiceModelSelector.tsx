@@ -12,50 +12,13 @@ interface VoiceModelSelectorProps {
     mode: 'settings' | 'main';
     modelType?: 'brain' | 'voice'; // Which model to select - defaults to 'voice'
     onShowUpgrade?: () => void;
+    modelCosts?: Record<string, number>;
 }
 
-export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade }: VoiceModelSelectorProps) {
+export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade, modelCosts }: VoiceModelSelectorProps) {
     const { colors } = useThemeColors();
     const styles = createStyles(colors, mode);
     const [isExpanded, setIsExpanded] = useState(false);
-
-    // Read the current model based on modelType
-    const currentModel = modelType === 'brain'
-        ? (user?.preferredModels?.brain || 'gemini-3-flash')
-        : (user?.preferredModels?.voice || 'gemini-3-flash');
-
-    const models = [
-        {
-            id: 'claude-opus-4.5',
-            name: 'Claude Opus 4.5',
-            icon: 'sparkles' as const,
-            tag: 'Premium',
-            cost: '~20 turns/action',
-            desc: 'Immersive storytelling with rich detail',
-        },
-        {
-            id: 'claude-sonnet-3.5',
-            name: 'Claude Sonnet 3.5',
-            icon: 'flash' as const,
-            tag: 'Balanced',
-            cost: '~4 turns/action',
-            desc: 'Great quality at moderate cost',
-        },
-        {
-            id: 'gemini-3-flash',
-            name: 'Gemini Flash 3',
-            icon: 'rocket' as const,
-            tag: 'Economical',
-            cost: '~1 turn/action',
-            desc: 'Fast and efficient',
-        }
-    ];
-
-    // Filter models based on mode and expansion state
-    const visibleModels = mode === 'settings' || isExpanded
-        ? models
-        : models.filter(m => m.id === currentModel);
-
     const [config, setConfig] = useState<any>(null);
 
     React.useEffect(() => {
@@ -74,6 +37,60 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
         };
         fetchConfig();
     }, []);
+
+    // Read the current model based on modelType
+    const currentModel = modelType === 'brain'
+        ? (user?.preferredModels?.brain || 'gemini-3-flash')
+        : (user?.preferredModels?.voice || 'gemini-3-flash');
+
+    const getCostText = (id: string, defaultCost: string) => {
+        const costs = modelCosts || config?.modelCosts;
+        if (!costs) return defaultCost;
+
+        // Map UI IDs to Config IDs if needed
+        let configId = id;
+        if (id === 'claude-opus-4.5') configId = 'claude-3-opus-20240229';
+        if (id === 'claude-sonnet-3.5') configId = 'claude-3-5-sonnet-20241022';
+        if (id === 'gemini-3-flash') configId = 'gemini-3-flash-preview';
+
+        const cost = costs[configId] ?? costs[id];
+        if (cost !== undefined) return `~${cost} turns/action`;
+
+        return defaultCost;
+    };
+
+    const models = [
+        {
+            id: 'claude-opus-4.5',
+            name: 'Claude Opus 4.5',
+            icon: 'sparkles' as const,
+            tag: 'Premium',
+            cost: getCostText('claude-opus-4.5', '~15 turns/action'),
+            desc: 'Immersive storytelling with rich detail',
+        },
+        {
+            id: 'claude-sonnet-3.5',
+            name: 'Claude Sonnet 3.5',
+            icon: 'flash' as const,
+            tag: 'Balanced',
+            cost: getCostText('claude-sonnet-3.5', '~10 turns/action'),
+            desc: 'Great quality at moderate cost',
+        },
+        {
+            id: 'gemini-3-flash',
+            name: 'Gemini Flash 3',
+            icon: 'rocket' as const,
+            tag: 'Economical',
+            cost: getCostText('gemini-3-flash', '~1 turn/action'),
+            desc: 'Fast and efficient',
+        }
+    ];
+
+    // Filter models based on mode and expansion state
+    const visibleModels = mode === 'settings' || isExpanded
+        ? models
+        : models.filter(m => m.id === currentModel);
+
 
     const isModelAllowed = (modelId: string) => {
         // Legend/Legendary always allowed (BYOK or Unlimited)

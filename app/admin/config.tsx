@@ -349,6 +349,51 @@ export default function AdminConfigScreen() {
             };
         });
     };
+    const updateModelCost = (modelId: string, value: string) => {
+        if (!config) return;
+        const numValue = value === '' ? 0 : parseInt(value);
+        if (isNaN(numValue)) return;
+
+        console.log(`[Config] Update Model Cost ${modelId}: ${numValue}`);
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                modelCosts: {
+                    ...(prev.modelCosts || {}),
+                    [modelId]: numValue
+                }
+            };
+        });
+    };
+
+    const resetToDefaults = () => {
+        if (!config) return;
+        const defaults: Record<string, number> = {};
+
+        // Use visible available models to populate defaults from constant
+        availableModels.forEach(m => {
+            const def = AVAILABLE_MODELS.find(am => am.id === m.id);
+            if (def?.defaultTurnCost) {
+                defaults[m.id] = def.defaultTurnCost;
+            } else {
+                // Fallback if not in constant
+                if (m.id.includes('flash')) defaults[m.id] = 1;
+                else if (m.id.includes('sonnet')) defaults[m.id] = 10;
+                else if (m.id.includes('opus')) defaults[m.id] = 15;
+                else defaults[m.id] = 5;
+            }
+        });
+
+        setConfig(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                modelCosts: defaults
+            };
+        });
+        Alert.alert('Reset', 'Turn costs reset to defaults. Click Save to persist.');
+    };
 
     const brainModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
     const voiceModels = useMemo(() => availableModels.filter(m => m.provider === 'openai' || m.provider === 'anthropic' || m.provider === 'google'), [availableModels]);
@@ -401,183 +446,73 @@ export default function AdminConfigScreen() {
                 <Text style={styles.title}>Global Config</Text>
             </View>
 
-            {/* AI Settings Section */}
+            {/* AI Model Costs Section */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>AI Model Defaults</Text>
+                <Text style={styles.sectionTitle}>AI Model Turn Costs</Text>
                 <View style={styles.card}>
-
                     {/* Refresh Button */}
-                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginBottom: spacing.sm, gap: spacing.md }}>
+                        <TouchableOpacity
+                            onPress={resetToDefaults}
+                            style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+                        >
+                            <Ionicons name="refresh-circle-outline" size={16} color={colors.text.secondary} />
+                            <Text style={{ color: colors.text.secondary, fontSize: 12 }}>
+                                Reset Defaults
+                            </Text>
+                        </TouchableOpacity>
+
                         <TouchableOpacity
                             onPress={refreshModels}
                             disabled={refreshingModels}
                             style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
                         >
-                            <Ionicons name="refresh" size={16} color={colors.primary[400]} />
+                            <Ionicons name="cloud-download-outline" size={16} color={colors.primary[400]} />
                             <Text style={{ color: colors.primary[400], fontSize: 12 }}>
                                 {refreshingModels ? 'Refreshing...' : 'Refresh Models'}
                             </Text>
                         </TouchableOpacity>
                     </View>
 
-                    {/* Brain Model */}
-                    <View style={styles.settingHeader}>
-                        <Ionicons name="hardware-chip" size={24} color={colors.primary[400]} />
-                        <Text style={styles.settingTitle}>Brain Model</Text>
-                    </View>
-                    <TouchableOpacity
-                        style={styles.dropdownButton}
-                        onPress={() => { setBrainDropdownOpen(!brainDropdownOpen); setVoiceDropdownOpen(false); }}
-                    >
-                        <Text style={styles.dropdownButtonText}>
-                            {availableModels.find(m => m.id === aiSettings.brainModel)?.name || aiSettings.brainModel}
-                        </Text>
-                        <Ionicons name="chevron-down" size={20} color={colors.text.muted} />
-                    </TouchableOpacity>
-                    {brainDropdownOpen && (
-                        <View style={styles.dropdownList}>
-                            {brainModels.map(model => (
-                                <TouchableOpacity
-                                    key={model.id}
-                                    style={[styles.dropdownItem, aiSettings.brainModel === model.id && styles.dropdownItemSelected]}
-                                    onPress={() => {
-                                        setAiSettings(prev => ({ ...prev, brainModel: model.id }));
-                                        setBrainDropdownOpen(false);
-                                    }}
-                                >
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.dropdownItemText}>{model.name}</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                            <View style={[styles.providerBadge, { backgroundColor: model.provider === 'openai' ? '#10a37f20' : model.provider === 'anthropic' ? '#d9775720' : '#4285f420' }]}>
-                                                <Text style={[styles.providerBadgeText, { color: model.provider === 'openai' ? '#10a37f' : model.provider === 'anthropic' ? '#d97757' : '#4285f4' }]}>
-                                                    {model.provider === 'openai' ? 'OpenAI' : model.provider === 'anthropic' ? 'Anthropic' : 'Google'}
-                                                </Text>
-                                            </View>
-                                            {model.contextWindow && (
-                                                <Text style={styles.modelMetaText}>{(model.contextWindow / 1000).toFixed(0)}K context</Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    )}
-
-                    {/* Brain Model Test */}
-                    <View style={styles.testSection}>
-                        <Text style={styles.testLabel}>Test Brain Model</Text>
-                        <View style={styles.testInputRow}>
-                            <TextInput
-                                style={styles.testInput}
-                                value={brainTestInput}
-                                onChangeText={setBrainTestInput}
-                                placeholder="Enter test message..."
-                                placeholderTextColor={colors.text.muted}
-                            />
-                            <TouchableOpacity
-                                style={[styles.testButton, testingBrain && { opacity: 0.6 }]}
-                                onPress={testBrainModel}
-                                disabled={testingBrain}
-                            >
-                                {testingBrain ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <Text style={styles.testButtonText}>Test</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                        {brainTestResponse !== '' && (
-                            <View style={styles.testResponse}>
-                                <Text style={styles.testResponseText}>{brainTestResponse}</Text>
+                    {availableModels.map(model => (
+                        <View key={model.id} style={styles.configItem}>
+                            <View style={{ gap: 4, flex: 1 }}>
+                                <Text style={styles.modelName}>{model.name}</Text>
+                                <Text style={styles.modelId}>{model.id}</Text>
                             </View>
-                        )}
-                    </View>
-
-                    {/* Voice Model */}
-                    <View style={[styles.settingHeader, { marginTop: spacing.lg }]}>
-                        <Ionicons name="chatbubbles" size={24} color={colors.gold.main} />
-                        <Text style={styles.settingTitle}>Voice Model</Text>
-                    </View>
-                    <TouchableOpacity
-                        style={styles.dropdownButton}
-                        onPress={() => { setVoiceDropdownOpen(!voiceDropdownOpen); setBrainDropdownOpen(false); }}
-                    >
-                        <Text style={styles.dropdownButtonText}>
-                            {availableModels.find(m => m.id === aiSettings.voiceModel)?.name || aiSettings.voiceModel}
-                        </Text>
-                        <Ionicons name="chevron-down" size={20} color={colors.text.muted} />
-                    </TouchableOpacity>
-                    {voiceDropdownOpen && (
-                        <View style={styles.dropdownList}>
-                            {voiceModels.map(model => (
-                                <TouchableOpacity
-                                    key={model.id}
-                                    style={[styles.dropdownItem, aiSettings.voiceModel === model.id && styles.dropdownItemSelected]}
-                                    onPress={() => {
-                                        setAiSettings(prev => ({ ...prev, voiceModel: model.id }));
-                                        setVoiceDropdownOpen(false);
-                                    }}
-                                >
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.dropdownItemText}>{model.name}</Text>
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                            <View style={[styles.providerBadge, { backgroundColor: model.provider === 'openai' ? '#10a37f20' : model.provider === 'anthropic' ? '#d9775720' : '#4285f420' }]}>
-                                                <Text style={[styles.providerBadgeText, { color: model.provider === 'openai' ? '#10a37f' : model.provider === 'anthropic' ? '#d97757' : '#4285f4' }]}>
-                                                    {model.provider === 'openai' ? 'OpenAI' : model.provider === 'anthropic' ? 'Anthropic' : 'Google'}
-                                                </Text>
-                                            </View>
-                                            {model.contextWindow && (
-                                                <Text style={styles.modelMetaText}>{(model.contextWindow / 1000).toFixed(0)}K context</Text>
-                                            )}
-                                        </View>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                        </View>
-                    )}
-
-                    {/* Voice Model Test */}
-                    <View style={styles.testSection}>
-                        <Text style={styles.testLabel}>Test Voice Model</Text>
-                        <View style={styles.testInputRow}>
-                            <TextInput
-                                style={styles.testInput}
-                                value={voiceTestInput}
-                                onChangeText={setVoiceTestInput}
-                                placeholder="Enter test message..."
-                                placeholderTextColor={colors.text.muted}
-                            />
-                            <TouchableOpacity
-                                style={[styles.testButton, testingVoice && { opacity: 0.6 }]}
-                                onPress={testVoiceModel}
-                                disabled={testingVoice}
-                            >
-                                {testingVoice ? (
-                                    <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                    <Text style={styles.testButtonText}>Test</Text>
-                                )}
-                            </TouchableOpacity>
-                        </View>
-                        {voiceTestResponse !== '' && (
-                            <View style={styles.testResponse}>
-                                <Text style={styles.testResponseText}>{voiceTestResponse}</Text>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+                                <Text style={styles.inputLabel}>Turns/Action:</Text>
+                                <TextInput
+                                    style={[styles.input, { width: 80, textAlign: 'center' }]}
+                                    value={String(config?.modelCosts?.[model.id] ?? (
+                                        // Defaults from constant matching
+                                        AVAILABLE_MODELS.find(am => am.id === model.id)?.defaultTurnCost ??
+                                        (model.id.includes('flash') ? 1 :
+                                            model.id.includes('sonnet') ? 10 :
+                                                model.id.includes('opus') ? 15 : 5)
+                                    ))}
+                                    onChangeText={(v) => updateModelCost(model.id, v)}
+                                    keyboardType="numeric"
+                                    placeholder="0"
+                                    placeholderTextColor={colors.text.muted}
+                                />
                             </View>
-                        )}
-                    </View>
+                        </View>
+                    ))}
 
                     <TouchableOpacity
                         style={[styles.saveButton, { marginTop: spacing.md }]}
-                        onPress={saveAiSettings}
-                        disabled={savingAi}
+                        onPress={saveGlobalConfig}
+                        disabled={savingConfig}
                     >
-                        {savingAi ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save AI Defaults</Text>}
+                        {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Costs</Text>}
                     </TouchableOpacity>
                 </View>
             </View>
 
+
             {/* Narrator Settings Section */}
-            <View style={styles.section}>
+            < View style={styles.section} >
                 <Text style={styles.sectionTitle}>Narrator Settings</Text>
                 <View style={styles.card}>
                     <Text style={[styles.fieldLabel, { marginBottom: spacing.sm }]}>
@@ -619,10 +554,10 @@ export default function AdminConfigScreen() {
                         {savingConfig ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Narrator Settings</Text>}
                     </TouchableOpacity>
                 </View>
-            </View>
+            </View >
 
             {/* API Keys Section */}
-            <View style={styles.section}>
+            < View style={styles.section} >
                 <Text style={styles.sectionTitle}>API Keys</Text>
                 <View style={styles.card}>
                     {loadingApiKeys ? (
@@ -702,10 +637,10 @@ export default function AdminConfigScreen() {
                         })
                     )}
                 </View>
-            </View>
+            </View >
 
             {/* Subscriptions */}
-            <View style={styles.section}>
+            < View style={styles.section} >
                 <Text style={styles.sectionTitle}>Subscriptions & Limits</Text>
                 <View style={styles.card}>
                     {(['scout', 'adventurer', 'hero', 'legendary'] as SubscriptionTier[]).map(tier => (
@@ -758,10 +693,10 @@ export default function AdminConfigScreen() {
                         </View>
                     ))}
                 </View>
-            </View>
+            </View >
 
             {/* World Modules */}
-            <View style={styles.section}>
+            < View style={styles.section} >
                 <Text style={styles.sectionTitle}>World Modules</Text>
                 <View style={{ gap: spacing.sm }}>
                     {MODULE_METADATA.map((module) => {
@@ -787,10 +722,10 @@ export default function AdminConfigScreen() {
                         );
                     })}
                 </View>
-            </View>
+            </View >
 
             {/* System Settings */}
-            <View style={styles.section}>
+            < View style={styles.section} >
                 <Text style={styles.sectionTitle}>System Settings</Text>
                 <View style={styles.card}>
                     <View style={styles.switchRow}>
@@ -870,10 +805,11 @@ export default function AdminConfigScreen() {
                         />
                     </View>
                 </View>
-            </View>
+            </View >
 
             {/* SAVE ALL BUTTON */}
-            <View style={{ marginBottom: spacing.xxl }}>
+            < View style={{ marginBottom: spacing.xxl }
+            }>
                 <TouchableOpacity
                     style={[styles.saveButton, { backgroundColor: colors.status.success }]}
                     onPress={saveGlobalConfig}
@@ -888,9 +824,9 @@ export default function AdminConfigScreen() {
                         </View>
                     )}
                 </TouchableOpacity>
-            </View>
+            </View >
 
-        </ScrollView>
+        </ScrollView >
     );
 }
 
