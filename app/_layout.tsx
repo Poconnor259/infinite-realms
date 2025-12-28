@@ -50,10 +50,12 @@ export default function RootLayout() {
                 // Sync turns used from Firestore
                 useTurnsStore.getState().syncFromFirestore(firebaseUser.uid);
 
-                // Update store
+                // Update store with full user profile data
                 useUserStore.getState().setUser({
+                    ...userDoc, // Include all Firestore fields (preferredModels, displayName, etc.)
                     id: firebaseUser.uid,
-                    email: firebaseUser.email || '',
+                    email: firebaseUser.email || userDoc?.email || '',
+                    displayName: firebaseUser.displayName || userDoc?.displayName || '',
                     isAnonymous: firebaseUser.isAnonymous,
                     createdAt: userDoc?.createdAt || Date.now(),
                     tier: userTier,

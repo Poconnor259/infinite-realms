@@ -10,15 +10,19 @@ import { spacing, borderRadius, typography, shadows } from '../lib/theme';
 interface VoiceModelSelectorProps {
     user: any;
     mode: 'settings' | 'main';
+    modelType?: 'brain' | 'voice'; // Which model to select - defaults to 'voice'
     onShowUpgrade?: () => void;
 }
 
-export function VoiceModelSelector({ user, mode, onShowUpgrade }: VoiceModelSelectorProps) {
+export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade }: VoiceModelSelectorProps) {
     const { colors } = useThemeColors();
     const styles = createStyles(colors, mode);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const currentModel = user?.preferredModels?.voice || 'gemini-3-flash';
+    // Read the current model based on modelType
+    const currentModel = modelType === 'brain'
+        ? (user?.preferredModels?.brain || 'gemini-3-flash')
+        : (user?.preferredModels?.voice || 'gemini-3-flash');
 
     const models = [
         {
@@ -103,19 +107,20 @@ export function VoiceModelSelector({ user, mode, onShowUpgrade }: VoiceModelSele
     const updateModel = async (modelId: string) => {
         if (user?.id) {
             try {
-                // Optimistic update
+                // Optimistic update based on modelType
                 useUserStore.setState({
                     user: {
                         ...user,
                         preferredModels: {
                             ...user.preferredModels,
-                            voice: modelId
+                            [modelType]: modelId
                         }
                     }
                 });
 
+                // Update Firestore with the correct field path
                 await updateDoc(doc(db, 'users', user.id), {
-                    'preferredModels.voice': modelId
+                    [`preferredModels.${modelType}`]: modelId
                 });
             } catch (error) {
                 console.error('Failed to update model preference:', error);
@@ -147,11 +152,19 @@ export function VoiceModelSelector({ user, mode, onShowUpgrade }: VoiceModelSele
         }
     };
 
+    // Type-specific descriptions
+    const getDescription = () => {
+        if (modelType === 'brain') {
+            return "Controls game logic speed and cost. Admin only.";
+        }
+        return "Select your narrator. Balance storytelling quality with speed and turn usage.";
+    };
+
     return (
         <View style={styles.container}>
             {mode === 'settings' && (
                 <Text style={styles.description}>
-                    Choose your narrative AI. Higher quality uses more turns.
+                    {getDescription()}
                 </Text>
             )}
 
@@ -170,49 +183,42 @@ export function VoiceModelSelector({ user, mode, onShowUpgrade }: VoiceModelSele
                             onPress={() => handleModelPress(model.id)}
                             activeOpacity={0.7}
                         >
-                            <View style={styles.header}>
-                                <Ionicons
-                                    name={model.icon}
-                                    size={mode === 'main' ? 18 : 24}
-                                    color={!isModelAllowed(model.id) ? colors.text.muted : (isSelected ? colors.primary[400] : colors.text.muted)}
-                                />
-                                <Text style={[
-                                    styles.name,
-                                    isSelected && isModelAllowed(model.id) && styles.nameSelected,
-                                    !isModelAllowed(model.id) && styles.textLocked
-                                ]}>
-                                    {model.name}
-                                </Text>
-                                {mode === 'main' ? (
-                                    // Main mode: show lock if not allowed
-                                    !isModelAllowed(model.id) && (
-                                        <Ionicons
-                                            name="lock-closed"
-                                            size={14}
-                                            color={colors.text.muted}
-                                            style={styles.lockIcon}
-                                        />
-                                    )
-                                ) : (
-                                    // Settings mode: show lock if not allowed
-                                    !isModelAllowed(model.id) && (
-                                        <Ionicons
-                                            name="lock-closed"
-                                            size={16}
-                                            color={colors.text.muted}
-                                            style={styles.lockIcon}
-                                        />
-                                    )
+                            <View style={styles.cardContent}>
+                                <View style={[styles.iconContainer, isSelected && styles.iconContainerSelected]}>
+                                    <Ionicons
+                                        name={model.icon}
+                                        size={20}
+                                        color={!isModelAllowed(model.id) ? colors.text.muted : (isSelected ? colors.primary[400] : colors.text.secondary)}
+                                    />
+                                </View>
+
+                                <View style={styles.textContainer}>
+                                    <View style={styles.headerRow}>
+                                        <Text style={[
+                                            styles.name,
+                                            isSelected && isModelAllowed(model.id) && styles.nameSelected,
+                                            !isModelAllowed(model.id) && styles.textLocked
+                                        ]}>
+                                            {model.name}
+                                        </Text>
+                                        {!isModelAllowed(model.id) && (
+                                            <Ionicons name="lock-closed" size={14} color={colors.text.muted} />
+                                        )}
+                                    </View>
+
+                                    {mode === 'settings' && (
+                                        <Text style={[styles.desc, !isModelAllowed(model.id) && styles.textLocked]} numberOfLines={1}>
+                                            {model.desc}
+                                        </Text>
+                                    )}
+                                </View>
+
+                                {mode === 'settings' && (
+                                    <View style={styles.metaContainer}>
+                                        <Text style={[styles.cost, !isModelAllowed(model.id) && styles.textLocked]}>{model.cost}</Text>
+                                    </View>
                                 )}
                             </View>
-
-                            {mode === 'settings' && (
-                                <>
-                                    <Text style={[styles.tag, !isModelAllowed(model.id) && styles.textLocked]}>{model.tag}</Text>
-                                    <Text style={[styles.cost, !isModelAllowed(model.id) && styles.textLocked]}>{model.cost}</Text>
-                                    <Text style={[styles.desc, !isModelAllowed(model.id) && styles.textLocked]}>{model.desc}</Text>
-                                </>
-                            )}
                         </TouchableOpacity>
                     );
                 })}
@@ -236,78 +242,83 @@ export function VoiceModelSelector({ user, mode, onShowUpgrade }: VoiceModelSele
 
 const createStyles = (colors: any, mode: 'settings' | 'main') => StyleSheet.create({
     container: {
-        padding: mode === 'main' ? spacing.sm : spacing.lg,
+        paddingVertical: mode === 'main' ? 0 : spacing.xs,
     },
     description: {
-        fontSize: typography.fontSize.sm,
+        fontSize: typography.fontSize.xs,
         color: colors.text.muted,
-        marginBottom: spacing.md,
-        textAlign: 'center',
+        marginBottom: spacing.sm,
+        paddingHorizontal: spacing.sm,
     },
     grid: {
-        flexDirection: mode === 'main' ? 'column' : 'row',
-        flexWrap: 'wrap',
-        gap: mode === 'main' ? spacing.xs : spacing.md,
-        justifyContent: mode === 'main' ? 'flex-end' : 'center',
+        flexDirection: 'column',
+        gap: spacing.xs,
+        width: '100%',
     },
     card: {
-        flex: mode === 'main' ? 0 : 1,
-        minWidth: mode === 'main' ? 200 : 140,
-        maxWidth: mode === 'main' ? 220 : 180,
-        backgroundColor: colors.background.secondary,
-        borderRadius: borderRadius.lg,
-        padding: mode === 'main' ? spacing.sm : spacing.md,
-        borderWidth: 2,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        padding: spacing.sm,
+        borderWidth: 1,
         borderColor: colors.border.default,
-        ...(mode === 'main' ? shadows.md : {}),
     },
     cardSelected: {
         borderColor: colors.primary[400],
-        backgroundColor: colors.primary[600] + '10',
+        backgroundColor: colors.primary[600] + '05',
     },
     cardLocked: {
-        opacity: 0.5,
+        opacity: 0.6,
         backgroundColor: colors.background.tertiary,
-        borderColor: colors.border.default,
     },
-    header: {
+    cardContent: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.md,
+    },
+    iconContainer: {
+        width: 32,
+        height: 32,
+        borderRadius: borderRadius.sm,
+        backgroundColor: colors.background.secondary,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    iconContainerSelected: {
+        backgroundColor: colors.primary[400] + '15',
+    },
+    textContainer: {
+        flex: 1,
+    },
+    headerRow: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: spacing.xs,
-        marginBottom: spacing.xs,
+        marginBottom: 2,
     },
     name: {
-        fontSize: mode === 'main' ? typography.fontSize.xs : typography.fontSize.sm,
+        fontSize: typography.fontSize.sm,
         fontWeight: '600',
-        color: colors.text.secondary,
-        flex: 1,
+        color: colors.text.primary,
     },
     nameSelected: {
         color: colors.primary[400],
-    },
-    textLocked: {
-        color: colors.text.muted,
-    },
-    lockIcon: {
-        marginLeft: 'auto',
-    },
-    tag: {
-        fontSize: typography.fontSize.xs,
-        color: colors.gold.main,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-        marginBottom: spacing.xs,
-    },
-    cost: {
-        fontSize: typography.fontSize.sm,
-        color: colors.text.primary,
-        fontWeight: '600',
-        marginBottom: spacing.xs,
     },
     desc: {
         fontSize: typography.fontSize.xs,
         color: colors.text.muted,
         lineHeight: 16,
+    },
+    metaContainer: {
+        alignItems: 'flex-end',
+    },
+    cost: {
+        fontSize: typography.fontSize.xs,
+        color: colors.primary[400],
+        fontWeight: '600',
+    },
+    // Legacy styles kept safely or remove if confirmed unused
+    textLocked: {
+        color: colors.text.muted,
     },
     estimate: {
         flexDirection: 'row',

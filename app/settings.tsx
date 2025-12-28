@@ -167,10 +167,10 @@ export default function SettingsScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* AI Voice Model Section (Moved to top) */}
+                {/* AI Models Section */}
                 <FadeInView delay={50}>
                     <Section title="AI Voice Model">
-                        <VoiceModelSelector user={user} mode="settings" onShowUpgrade={handleUpgradePrompt} />
+                        <VoiceModelSelector user={user} mode="settings" modelType="voice" onShowUpgrade={handleUpgradePrompt} />
                     </Section>
                 </FadeInView>
                 {/* Account Section */}
@@ -720,6 +720,36 @@ const createStyles = (colors: any) => StyleSheet.create({
     rowSublabel: {
         color: colors.text.muted,
         fontSize: typography.fontSize.sm,
+    },
+    modelSubsection: {
+        padding: spacing.md,
+    },
+    modelHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+        gap: spacing.sm,
+    },
+    modelIcon: {
+        width: 32,
+        height: 32,
+        borderRadius: borderRadius.md,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modelTitle: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+    },
+    modelSubtitle: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.xs,
+    },
+    sectionDivider: {
+        height: 1,
+        backgroundColor: colors.border.default,
+        marginHorizontal: spacing.md,
     },
     byokHeader: {
         flexDirection: 'row',
