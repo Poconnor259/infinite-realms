@@ -440,13 +440,15 @@ export const processGameAction = onCall(
                     turnCost = 1;
                 }
 
-                // Validate user has enough turns
+                // Validate user has enough turns (will be enforced atomically in transaction later)
+                // For now, just do a preliminary check to fail fast if obviously insufficient
                 if (auth?.uid) {
                     const userDoc = await db.collection('users').doc(auth.uid).get();
                     if (userDoc.exists) {
                         const userData = userDoc.data();
                         const currentTurns = userData?.turns || 0;
 
+                        // Preliminary check (not atomic - final check happens in transaction)
                         if (currentTurns < turnCost) {
                             return {
                                 success: false,
@@ -454,7 +456,7 @@ export const processGameAction = onCall(
                             };
                         }
 
-                        // Optimistically calculate final balance for the response
+                        // Store current balance for optimistic UI update
                         finalTurnsBalance = currentTurns - turnCost;
                     }
                 }
@@ -795,16 +797,66 @@ export const processGameAction = onCall(
                 updates['tokensTotal'] = admin.firestore.FieldValue.increment(totalTokens);
                 updates['lastActive'] = admin.firestore.FieldValue.serverTimestamp();
 
-                // Deduct turns for non-Legendary users
-                if (userTier !== 'legendary' && turnCost > 0) {
-                    updates['turns'] = admin.firestore.FieldValue.increment(-turnCost);
-                    console.log(`[ProcessGameAction] Deducting ${turnCost} turns from user ${auth.uid}`);
+                // Use transaction to atomically check and deduct turns
+                try {
+                    const transactionResult = await db.runTransaction(async (transaction) => {
+                        const userRef = db.collection('users').doc(auth.uid);
+                        const userDoc = await transaction.get(userRef);
 
-                    // We don't update finalTurnsBalance here because FieldValue.increment is async on the server side
-                    // but we already calculated what it SHOULD be above.
+                        if (!userDoc.exists) {
+                            throw new Error('User document not found');
+                        }
+
+                        const userData = userDoc.data();
+                        const currentTurns = userData?.turns || 0;
+
+                        // Atomic turn validation for non-Legendary users
+                        if (userTier !== 'legendary' && turnCost > 0) {
+                            if (currentTurns < turnCost) {
+                                return {
+                                    success: false,
+                                    error: `Insufficient turns. Costs ${turnCost}, have ${currentTurns}.`,
+                                    remainingTurns: currentTurns
+                                };
+                            }
+                        }
+
+                        // Deduct turns for non-Legendary users
+                        if (userTier !== 'legendary' && turnCost > 0) {
+                            updates['turns'] = admin.firestore.FieldValue.increment(-turnCost);
+                            console.log(`[ProcessGameAction] Atomically deducting ${turnCost} turns from user ${auth.uid}`);
+                        }
+
+                        // Apply updates atomically
+                        transaction.update(userRef, updates);
+
+                        return {
+                            success: true,
+                            remainingTurns: userTier !== 'legendary' ? currentTurns - turnCost : undefined
+                        };
+                    });
+
+                    // Check if transaction failed due to insufficient turns
+                    if (!transactionResult.success) {
+                        return {
+                            success: false,
+                            error: transactionResult.error,
+                            remainingTurns: transactionResult.remainingTurns
+                        };
+                    }
+
+                    // Update finalTurnsBalance with actual result from transaction
+                    if (transactionResult.remainingTurns !== undefined) {
+                        finalTurnsBalance = transactionResult.remainingTurns;
+                    }
+
+                } catch (error) {
+                    console.error('[ProcessGameAction] Transaction failed:', error);
+                    return {
+                        success: false,
+                        error: 'Failed to process turn deduction. Please try again.'
+                    };
                 }
-
-                await db.collection('users').doc(auth.uid).update(updates).catch(e => console.error('Failed to update stats:', e));
 
                 // Global Stats
                 const today = new Date().toISOString().split('T')[0];
