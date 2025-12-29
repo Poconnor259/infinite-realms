@@ -18,8 +18,10 @@ interface VoiceInput {
     customRules?: string; // Optional custom rules for the narration style
     narratorWordLimitMin?: number; // Minimum word count (default: 150)
     narratorWordLimitMax?: number; // Maximum word count (default: 250)
+    enforceWordLimits?: boolean; // Whether to instruct AI to follow limits
     characterProfile?: any; // Current character state for context
     isKeepAlive?: boolean; // If true, only refresh cache (1 token output)
+    maxTokens?: number; // Optional dynamic token limit
 }
 
 interface VoiceOutput {
@@ -102,7 +104,9 @@ export const generateNarrative = async (input: VoiceInput): Promise<VoiceOutput>
         customRules,
         narratorWordLimitMin = 150,
         narratorWordLimitMax = 250,
-        isKeepAlive = false
+        enforceWordLimits = true,
+        isKeepAlive = false,
+        maxTokens
     } = input;
 
     try {
@@ -167,11 +171,10 @@ CRITICAL: You must ONLY grant abilities that correspond to the character's exist
 `;
         }
 
-        const systemPrompt = `${voicePrompt}
-${knowledgeSection}
-${customRulesSection}
-${resourceConstraints}
-${characterContext}
+        // Build length requirement section
+        let lengthRequirement = '';
+        if (enforceWordLimits) {
+            lengthRequirement = `
 CRITICAL LENGTH REQUIREMENT:
 **Your response MUST be between ${narratorWordLimitMin}-${narratorWordLimitMax} words. This is NON-NEGOTIABLE.**
 - Keep responses PUNCHY and FOCUSED.
@@ -179,7 +182,15 @@ CRITICAL LENGTH REQUIREMENT:
 - Don't over-describe—leave room for imagination.
 - If there's combat, describe ONE key moment vividly.
 - If there's dialogue, keep it snappy.
+`;
+        }
 
+        const systemPrompt = `${voicePrompt}
+${knowledgeSection}
+${customRulesSection}
+${resourceConstraints}
+${characterContext}
+${lengthRequirement}
 STORYTELLING RULES:
 1. You are the STORYTELLER. Write immersive, engaging prose.
 2. You receive narrative cues from the game logic engine - expand them into a focused scene.
@@ -223,7 +234,7 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 }
             }
 
-            cueText += '\nWrite a CONCISE, PUNCHY narrative (150-250 words) that captures the key moment.\n\n';
+            cueText += `\nWrite a CONCISE, PUNCHY narrative${enforceWordLimits ? ` (${narratorWordLimitMin}-${narratorWordLimitMax} words)` : ''} that captures the key moment.\n\n`;
 
             // Append state report instructions from Firestore (editable via admin)
             const stateReportPrompt = await getStateReportPrompt();
@@ -262,6 +273,9 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             // Start chat matching history
             const chat = geminiModel.startChat({
                 history: history,
+                generationConfig: {
+                    maxOutputTokens: isKeepAlive ? 1 : (maxTokens || 1024),
+                }
             });
 
             const result = await chat.sendMessage(cueText);
@@ -299,7 +313,7 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
 
             const response = await anthropic.messages.create({
                 model: model,
-                max_tokens: isKeepAlive ? 1 : 1024,
+                max_tokens: isKeepAlive ? 1 : (maxTokens || 1024),
                 system: [{
                     type: 'text',
                     text: systemPrompt,
@@ -348,7 +362,7 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 model: model,
                 messages,
                 temperature: 0.7,
-                max_tokens: 1024,
+                max_tokens: maxTokens || 1024,
             });
 
             narrative = response.choices[0]?.message?.content || null;

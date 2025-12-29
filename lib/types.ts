@@ -613,6 +613,8 @@ export interface GlobalConfig {
         enableContextCaching: boolean; // Enable Anthropic context caching (default: true)
         enableHeartbeatSystem: boolean; // Enable cache keep-alive heartbeat (default: true)
         heartbeatIdleTimeout: number; // Minutes before heartbeat stops (default: 15)
+        enforceNarratorWordLimits: boolean; // Whether to instruct AI to follow limits
+        defaultTurnCost: number; // Catch-all turn cost (default: 1)
     };
     modelCosts?: Record<string, number>; // Turns per action for each model ID
     favoriteModels?: string[]; // IDs of models active for selection

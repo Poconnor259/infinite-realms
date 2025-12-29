@@ -231,6 +231,30 @@ export default function CampaignScreen() {
         await processUserInput(text);
     };
 
+    const lastNarratorIndex = useMemo(() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'narrator') {
+                return i;
+            }
+        }
+        return -1;
+    }, [messages]);
+
+    const scrollToBottom = () => {
+        // Use a large offset without animation for instant scroll to bottom
+        flatListRef.current?.scrollToOffset({ offset: 999999, animated: false });
+    };
+
+    const scrollToLastResponse = () => {
+        if (lastNarratorIndex !== -1) {
+            flatListRef.current?.scrollToIndex({
+                index: lastNarratorIndex,
+                animated: true,
+                viewPosition: 0,
+            });
+        }
+    };
+
     const handleDeleteCampaign = async () => {
         setMenuVisible(false);
 
@@ -395,6 +419,12 @@ export default function CampaignScreen() {
                             keyExtractor={(item) => item.id}
                             contentContainerStyle={styles.messageList}
                             showsVerticalScrollIndicator={false}
+                            onScrollToIndexFailed={(info) => {
+                                flatListRef.current?.scrollToOffset({
+                                    offset: info.averageItemLength * info.index,
+                                    animated: true
+                                });
+                            }}
                             ListEmptyComponent={
                                 <View style={styles.emptyChat}>
                                     <Text style={styles.emptyChatIcon}>📜</Text>
@@ -451,6 +481,28 @@ export default function CampaignScreen() {
                                         Type your response below
                                     </Text>
                                 )}
+                            </View>
+                        )}
+
+                        {/* Navigation Buttons */}
+                        {messages.length > 0 && (
+                            <View style={styles.navButtons}>
+                                {lastNarratorIndex !== -1 && (
+                                    <TouchableOpacity
+                                        style={styles.navButton}
+                                        onPress={scrollToLastResponse}
+                                        activeOpacity={0.7}
+                                    >
+                                        <Ionicons name="text" size={20} color={colors.text.primary} />
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                    style={styles.navButton}
+                                    onPress={scrollToBottom}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons name="arrow-down" size={20} color={colors.text.primary} />
+                                </TouchableOpacity>
                             </View>
                         )}
 
@@ -833,5 +885,23 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         fontStyle: 'italic' as const,
         textAlign: 'center' as const,
+    },
+    navButtons: {
+        flexDirection: 'row' as const,
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+        gap: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+    },
+    navButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: colors.background.tertiary,
+        justifyContent: 'center' as const,
+        alignItems: 'center' as const,
+        borderWidth: 1,
+        borderColor: colors.border.default,
     },
 });

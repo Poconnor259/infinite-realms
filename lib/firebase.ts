@@ -439,6 +439,7 @@ export async function loadCampaign(userId: string, campaignId: string) {
             role: data.role,
             content: data.content,
             timestamp: data.timestamp?.toMillis?.() || Date.now(),
+            metadata: data.metadata, // Preserve metadata (voiceModel, turnCost, debug)
         };
     });
 

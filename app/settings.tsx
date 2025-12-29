@@ -49,6 +49,7 @@ export default function SettingsScreen() {
         soundEffects,
         narratorVoice,
         alternatingColors,
+        showFavoritesOnly,
         themeMode,
         openaiKey,
         anthropicKey,
@@ -180,6 +181,7 @@ export default function SettingsScreen() {
                             modelCosts={config?.modelCosts}
                             tierMapping={config?.tierMapping}
                             subscriptionPermissions={config?.subscriptionPermissions}
+                            showFavoritesOnly={showFavoritesOnly}
                         />
                     </Section>
                 </FadeInView>

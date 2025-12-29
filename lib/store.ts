@@ -348,6 +348,7 @@ interface SettingsState {
     soundEffects: boolean;
     narratorVoice: boolean;
     alternatingColors: boolean;
+    showFavoritesOnly: boolean;
     themeMode: 'light' | 'dark' | 'system';
 
     // Actions
@@ -364,6 +365,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     soundEffects: true,
     narratorVoice: false,
     alternatingColors: true,
+    showFavoritesOnly: false,
     themeMode: 'system',
 
     setApiKey: (provider, key) => {
@@ -393,6 +395,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const soundEffects = storage.getString('pref_soundEffects');
         const narratorVoice = storage.getString('pref_narratorVoice');
         const alternatingColors = storage.getString('pref_alternatingColors');
+        const showFavoritesOnly = storage.getString('pref_showFavoritesOnly');
         const themeMode = storage.getString('pref_themeMode');
 
         set({
@@ -403,6 +406,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             soundEffects: soundEffects ? JSON.parse(soundEffects) : true,
             narratorVoice: narratorVoice ? JSON.parse(narratorVoice) : false,
             alternatingColors: alternatingColors ? JSON.parse(alternatingColors) : true,
+            showFavoritesOnly: showFavoritesOnly ? JSON.parse(showFavoritesOnly) : false,
             themeMode: themeMode ? JSON.parse(themeMode) : 'system',
         });
     },

@@ -16,9 +16,10 @@ interface VoiceModelSelectorProps {
     modelCosts?: Record<string, number>;
     tierMapping?: GlobalConfig['tierMapping'];
     subscriptionPermissions?: GlobalConfig['subscriptionPermissions'];
+    showFavoritesOnly?: boolean;
 }
 
-export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade, modelCosts, tierMapping, subscriptionPermissions }: VoiceModelSelectorProps) {
+export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgrade, modelCosts, tierMapping, subscriptionPermissions, showFavoritesOnly }: VoiceModelSelectorProps) {
     const { colors } = useThemeColors();
     const styles = createStyles(colors, mode);
     const [isExpanded, setIsExpanded] = useState(false);
@@ -108,6 +109,9 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
             isLocked,
             tierKey: tier.key
         };
+    }).filter(model => {
+        if (!showFavoritesOnly || !config?.favoriteModels) return true;
+        return config.favoriteModels.includes(model.id);
     });
 
     // Filter logic for Main Mode (collapsed)

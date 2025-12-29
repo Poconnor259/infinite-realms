@@ -8,6 +8,7 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AVAILABLE_MODELS, ModelDefinition, GlobalConfig, SubscriptionTier } from '../../lib/types';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db, getAvailableModels, getGlobalConfig, updateGlobalConfig, getApiKeyStatus, updateApiKey, ApiKeyStatus, ApiProvider, generateText } from '../../lib/firebase';
+import { storage } from '../../lib/store';
 
 // Static metadata for modules (display info only)
 const MODULE_METADATA = [
@@ -54,7 +55,15 @@ export default function AdminConfigScreen() {
 
     const [availableModels, setAvailableModels] = useState<ModelDefinition[]>(AVAILABLE_MODELS);
     const [refreshingModels, setRefreshingModels] = useState(false);
-    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(() => {
+        const saved = storage.getString('pref_admin_showFavoritesOnly');
+        return saved ? JSON.parse(saved) : false;
+    });
+
+    const handleToggleFavorites = (value: boolean) => {
+        setShowFavoritesOnly(value);
+        storage.set('pref_admin_showFavoritesOnly', JSON.stringify(value));
+    };
     const [brainDropdownOpen, setBrainDropdownOpen] = useState(false);
     const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
 
@@ -84,7 +93,19 @@ export default function AdminConfigScreen() {
             console.log('[Config] Loading global config...');
             const configResult = await getGlobalConfig();
             console.log('[Config] Result:', configResult.data);
-            setConfig(configResult.data);
+
+            // Initialize modelCosts with defaults if it doesn't exist
+            const loadedConfig = configResult.data;
+            if (!loadedConfig.modelCosts) {
+                console.log('[Config] Initializing modelCosts with defaults');
+                const defaultModelCosts: Record<string, number> = {};
+                AVAILABLE_MODELS.forEach(model => {
+                    defaultModelCosts[model.id] = model.defaultTurnCost;
+                });
+                loadedConfig.modelCosts = defaultModelCosts;
+            }
+
+            setConfig(loadedConfig);
 
             const aiDoc = await getDoc(doc(db, 'config', 'aiSettings'));
             if (aiDoc.exists()) {
@@ -187,6 +208,8 @@ export default function AdminConfigScreen() {
         setSavingConfig(true);
         try {
             console.log('[Config] Saving...', config);
+            console.log('[Config] modelCosts specifically:', config.modelCosts);
+            console.log('[Config] modelCosts keys:', config.modelCosts ? Object.keys(config.modelCosts) : 'undefined');
             const result = await updateGlobalConfig(config);
             console.log('[Config] Save result:', result.data);
             if (result.data.success) {
@@ -508,7 +531,7 @@ export default function AdminConfigScreen() {
                             <Text style={{ color: colors.text.secondary, fontSize: 12 }}>Filter Favorites</Text>
                             <Switch
                                 value={showFavoritesOnly}
-                                onValueChange={setShowFavoritesOnly}
+                                onValueChange={handleToggleFavorites}
                                 trackColor={{ false: colors.background.tertiary, true: colors.primary[400] }}
                                 thumbColor="#fff"
                                 style={{ transform: [{ scale: 0.7 }] }}
@@ -629,12 +652,21 @@ export default function AdminConfigScreen() {
 
 
             {/* Narrator Settings Section */}
-            < View style={styles.section} >
+            <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Narrator Settings</Text>
                 <View style={styles.card}>
-                    <Text style={[styles.fieldLabel, { marginBottom: spacing.sm }]}>
-                        Word Limit for AI Responses
-                    </Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.sm }}>
+                        <Text style={styles.fieldLabel}>Word Limit for AI Responses</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{config?.systemSettings?.enforceNarratorWordLimits ? 'Enabled' : 'Disabled'}</Text>
+                            <Switch
+                                value={config?.systemSettings?.enforceNarratorWordLimits ?? true}
+                                onValueChange={() => toggleSystemSetting('enforceNarratorWordLimits')}
+                                trackColor={{ false: colors.background.tertiary, true: colors.primary[400] }}
+                                thumbColor="#fff"
+                            />
+                        </View>
+                    </View>
                     <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
                         Controls how long the narrator's responses should be. Current: {config?.systemSettings?.narratorWordLimitMin || 150}-{config?.systemSettings?.narratorWordLimitMax || 250} words.
                     </Text>
@@ -932,6 +964,22 @@ export default function AdminConfigScreen() {
                             keyboardType="numeric"
                             onChangeText={(v) => updateSystemSettingNumber('heartbeatIdleTimeout', v)}
                             placeholder="15"
+                            placeholderTextColor={colors.text.muted}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Default Turn Cost</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Global fallback cost for models with no specific cost set
+                            </Text>
+                        </View>
+                        <TextInput
+                            style={[styles.input, { width: 80, textAlign: 'center' }]}
+                            value={String(config?.systemSettings?.defaultTurnCost ?? 1)}
+                            keyboardType="numeric"
+                            onChangeText={(v) => updateSystemSettingNumber('defaultTurnCost', v)}
+                            placeholder="1"
                             placeholderTextColor={colors.text.muted}
                         />
                     </View>

@@ -335,15 +335,19 @@ export const processGameAction = onCall(
                 if (settingsDoc.exists) {
                     aiSettings = settingsDoc.data() as any;
                 }
-                // Fetch narrator limits from globalConfig
-                const globalConfigDoc = await db.collection('config').doc('globalConfig').get();
+                // Fetch narrator limits from global config doc
+                const globalConfigDoc = await db.collection('config').doc('global').get();
                 if (globalConfigDoc.exists) {
                     const gc = globalConfigDoc.data();
-                    if (gc?.systemSettings?.narratorWordLimitMin) {
-                        narratorLimits.min = gc.systemSettings.narratorWordLimitMin;
-                    }
-                    if (gc?.systemSettings?.narratorWordLimitMax) {
-                        narratorLimits.max = gc.systemSettings.narratorWordLimitMax;
+                    if (gc?.systemSettings) {
+                        if (gc.systemSettings.narratorWordLimitMin) {
+                            narratorLimits.min = gc.systemSettings.narratorWordLimitMin;
+                        }
+                        if (gc.systemSettings.narratorWordLimitMax) {
+                            narratorLimits.max = gc.systemSettings.narratorWordLimitMax;
+                        }
+                        // Add enforce flag (default true if missing)
+                        (narratorLimits as any).enforce = gc.systemSettings.enforceNarratorWordLimits !== false;
                     }
                 }
             } catch (error) {
@@ -381,47 +385,6 @@ export const processGameAction = onCall(
                 effectiveByokKeys = undefined;
             }
 
-            // 2.6 Calculate Turn Cost (for non-Legendary users)
-            // Legendary users bypass turn system (they use BYOK)
-            let turnCost = 0;
-            let finalTurnsBalance: number | undefined = undefined;
-            if (userTier !== 'legendary') {
-                // Determine voice model (preferredModels.voice or aiSettings.voiceModel)
-                const selectedVoiceModel = preferredModels.voice || aiSettings.voiceModel;
-
-                // Calculate turn cost based on voice model
-                // Opus 4.5 = 20 turns, Sonnet 3.5 = 4 turns, Gemini Flash = 1 turn
-                if (selectedVoiceModel.includes('opus')) {
-                    turnCost = 20;
-                } else if (selectedVoiceModel.includes('sonnet')) {
-                    turnCost = 4;
-                } else if (selectedVoiceModel.includes('gemini') || selectedVoiceModel.includes('flash')) {
-                    turnCost = 1;
-                } else {
-                    // Default to 1 turn for unknown models
-                    turnCost = 1;
-                }
-
-                // Validate user has enough turns
-                if (auth?.uid) {
-                    const userDoc = await db.collection('users').doc(auth.uid).get();
-                    if (userDoc.exists) {
-                        const userData = userDoc.data();
-                        const currentTurns = userData?.turns || 0;
-
-                        if (currentTurns < turnCost) {
-                            return {
-                                success: false,
-                                error: `Insufficient turns. This action costs ${turnCost} turns, but you only have ${currentTurns} turns remaining. Please upgrade your subscription or switch to a more economical model.`
-                            };
-                        }
-
-                        // Optimistically calculate final balance for the response
-                        finalTurnsBalance = currentTurns - turnCost;
-                    }
-                }
-            }
-
             // 3. Resolve Keys and Models
             const secrets = await getApiKeys();
 
@@ -446,6 +409,56 @@ export const processGameAction = onCall(
             }
 
             console.log(`[Process] Brain: ${brainConfig.provider}/${brainConfig.model}, Voice: ${voiceConfig.provider}/${voiceConfig.model}`);
+
+            // 2.6 Calculate Turn Cost (for non-Legendary users)
+            // Legendary users bypass turn system (they use BYOK)
+            let turnCost = 1; // Explicit safe fallback
+            let finalTurnsBalance: number | undefined = undefined;
+
+            if (userTier !== 'legendary') {
+                // Use the resolved model ID for lookup
+                const selectedVoiceModelID = voiceConfig.model;
+
+                // Resolve turn cost from Global Config
+                try {
+                    const globalDoc = await db.collection('config').doc('global').get();
+                    if (globalDoc.exists) {
+                        const gc = globalDoc.data();
+                        const modelCosts = gc?.modelCosts || {};
+                        const defaultCost = gc?.systemSettings?.defaultTurnCost ?? 1;
+
+                        // Check for specific model override, otherwise use default
+                        turnCost = modelCosts[selectedVoiceModelID] ?? defaultCost;
+                        console.log(`[TurnCost] Model: ${selectedVoiceModelID}, Resolved Cost: ${turnCost}`);
+                        console.log(`[TurnCost] Available modelCosts keys:`, Object.keys(modelCosts));
+                        console.log(`[TurnCost] Full modelCosts:`, modelCosts);
+                        console.log(`[TurnCost] Default cost: ${defaultCost}`);
+                    }
+                } catch (configError) {
+                    console.error('[TurnCost] Failed to fetch global config for cost:', configError);
+                    // Fallback to minimal 1 turn if config fails
+                    turnCost = 1;
+                }
+
+                // Validate user has enough turns
+                if (auth?.uid) {
+                    const userDoc = await db.collection('users').doc(auth.uid).get();
+                    if (userDoc.exists) {
+                        const userData = userDoc.data();
+                        const currentTurns = userData?.turns || 0;
+
+                        if (currentTurns < turnCost) {
+                            return {
+                                success: false,
+                                error: `Insufficient turns. This action costs ${turnCost} turns, but you only have ${currentTurns} turns remaining. Please upgrade your subscription or switch to a more economical model.`
+                            };
+                        }
+
+                        // Optimistically calculate final balance for the response
+                        finalTurnsBalance = currentTurns - turnCost;
+                    }
+                }
+            }
 
             // Fetch knowledge base (Voice only optimization still applies?)
             // If Brain now supports custom rules, we pass them.
@@ -511,6 +524,7 @@ export const processGameAction = onCall(
                 customRules: effectiveCustomRules,
                 narratorWordLimitMin: narratorLimits.min,
                 narratorWordLimitMax: narratorLimits.max,
+                enforceWordLimits: (narratorLimits as any).enforce,
                 characterProfile: (currentState as any).character
             });
 
@@ -823,7 +837,7 @@ export const processGameAction = onCall(
                     content: voiceResult.narrative || brainResult.data.narrativeCue,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     metadata: {
-                        voiceModel: voiceModelId,
+                        voiceModel: voiceConfig.model, // Store resolved model ID for permanent display
                         turnCost: userTier !== 'legendary' ? turnCost : 0,
                     }
                 });
@@ -1330,17 +1344,20 @@ export const createCampaign = onCall(
             console.error('[CreateCampaign] Failed to fetch AI settings:', error);
         }
 
-        // Fetch Global Config for Narrator Limits
-        let narratorLimits = { min: 150, max: 250 };
+        // Fetch Global Config for Narrator Limits from global doc
+        let narratorLimits = { min: 150, max: 250, enforce: true };
         try {
-            const globalConfigDoc = await db.collection('config').doc('globalConfig').get();
+            const globalConfigDoc = await db.collection('config').doc('global').get();
             if (globalConfigDoc.exists) {
                 const gc = globalConfigDoc.data();
-                if (gc?.systemSettings?.narratorWordLimitMin) {
-                    narratorLimits.min = gc.systemSettings.narratorWordLimitMin;
-                }
-                if (gc?.systemSettings?.narratorWordLimitMax) {
-                    narratorLimits.max = gc.systemSettings.narratorWordLimitMax;
+                if (gc?.systemSettings) {
+                    if (gc.systemSettings.narratorWordLimitMin) {
+                        narratorLimits.min = gc.systemSettings.narratorWordLimitMin;
+                    }
+                    if (gc.systemSettings.narratorWordLimitMax) {
+                        narratorLimits.max = gc.systemSettings.narratorWordLimitMax;
+                    }
+                    narratorLimits.enforce = gc.systemSettings.enforceNarratorWordLimits !== false;
                 }
             }
         } catch (error) {
@@ -1417,6 +1434,7 @@ Skip directly to the adventure start.`;
                     customRules: effectiveCustomRules,
                     narratorWordLimitMin: narratorLimits.min,
                     narratorWordLimitMax: narratorLimits.max,
+                    enforceWordLimits: narratorLimits.enforce,
                     characterProfile: initialCharacter
                 });
                 if (voiceResult.success && voiceResult.narrative) {
