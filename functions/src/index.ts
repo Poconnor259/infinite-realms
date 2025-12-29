@@ -3,11 +3,16 @@ import * as admin from 'firebase-admin';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+
+
+import { createCheckoutSession, handleStripeWebhook } from './stripe';
+// @ts-ignore - Used in processGameAction wrapper below
+import { processGameAction as processGameActionCore, GameRequest, GameResponse, resolveModelConfig } from './gameEngine';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
-import { createCheckoutSession, handleStripeWebhook } from './stripe';
 import { initPromptHelper, seedAIPrompts, getStateReviewerSettings } from './promptHelper';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
+
 
 export { createCheckoutSession, handleStripeWebhook };
 
@@ -46,110 +51,14 @@ async function getApiKeys(): Promise<{ openai: string; anthropic: string; google
 
 // ==================== TYPES ====================
 
-interface GameRequest {
-    campaignId: string;
-    userInput: string;
-    worldModule: 'classic' | 'outworlder' | 'tactical';
-    currentState: Record<string, unknown>;
-    chatHistory: Array<{ role: string; content: string }>;
-    userTier: 'scout' | 'hero' | 'legend';
-    byokKeys?: {
-        openai?: string;
-        anthropic?: string;
-        google?: string;
-    };
-}
-
-interface GameResponse {
-    success: boolean;
-    narrativeText?: string;
-    stateUpdates?: Record<string, unknown>;
-    diceRolls?: Array<{
-        type: string;
-        result: number;
-        modifier?: number;
-        total: number;
-        purpose?: string;
-    }>;
-    systemMessages?: string[];
-    reviewerApplied?: boolean;
-    requiresUserInput?: boolean;
-    pendingChoice?: {
-        prompt: string;
-        options?: string[];
-        choiceType: string;
-    };
-    remainingTurns?: number;
-    turnCost?: number;
-    voiceModelId?: string;
-    error?: string;
-    debug?: {
-        brainResponse: any;
-        stateReport: any;
-        reviewerResult: any;
-        models?: {
-            brain: string;
-            voice: string;
-        };
-    };
-}
+// Types are now exported from gameEngine.ts
+// Re-export for backwards compatibility
+export type { GameRequest, GameResponse } from './gameEngine';
 
 // ==================== HELPER ====================
 
-function getProviderFromModel(model: string): 'openai' | 'anthropic' | 'google' {
-    if (model.startsWith('claude')) return 'anthropic';
-    if (model.startsWith('gemini')) return 'google';
-    return 'openai';
-}
+// Model resolution helpers moved to gameEngine.ts
 
-const MODEL_ID_MAP: Record<string, { provider: 'openai' | 'anthropic' | 'google'; model: string }> = {
-    // UI IDs to actual Provider IDs
-    'claude-opus-4.5': { provider: 'anthropic', model: 'claude-opus-4-5-20251101' },
-    'claude-sonnet-3.5': { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
-    'gemini-3-flash': { provider: 'google', model: 'gemini-1.5-flash' },
-
-    // Legacy mapping or direct pass-through fallbacks
-    'claude-3-opus': { provider: 'anthropic', model: 'claude-opus-4-5-20251101' },
-    'claude-3-5-sonnet': { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
-    'gemini-1.5-flash': { provider: 'google', model: 'gemini-1.5-flash' },
-    'gpt-4o-mini': { provider: 'openai', model: 'gpt-4o-mini' },
-};
-
-function resolveModelConfig(
-    selectedModel: string,
-    byokKeys: GameRequest['byokKeys'],
-    secrets: { openai: string; anthropic: string; google: string }
-) {
-    // Normalize model ID if it exists in our map
-    const mapped = MODEL_ID_MAP[selectedModel];
-    const provider = mapped ? mapped.provider : getProviderFromModel(selectedModel);
-    const actualModel = mapped ? mapped.model : selectedModel;
-
-    let key: string | undefined;
-
-    // 1. Try BYOK
-    if (byokKeys && byokKeys[provider]) {
-        key = byokKeys[provider];
-    }
-
-    // 2. Try Secret
-    if (!key) {
-        key = secrets[provider];
-    }
-
-    // 3. Fallback if no key for selected provider
-    if (!key) {
-        console.warn(`[Config] No key found for selected provider ${provider}. Falling back to OpenAI.`);
-        // Fallback to OpenAI (assuming we always have a system key for it)
-        return {
-            provider: 'openai' as const,
-            model: 'gpt-4o-mini',
-            key: secrets.openai || ''
-        };
-    }
-
-    return { provider, model: actualModel, key };
-}
 
 // ==================== CONFIG ENDPOINTS ====================
 
