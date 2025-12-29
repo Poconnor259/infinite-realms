@@ -260,6 +260,42 @@ export const shadows = {
     },
 };
 
+// Glassmorphism effects (frosted glass UI)
+export const glassmorphism = {
+    // Light glass effect (for cards, bubbles)
+    light: {
+        backgroundColor: 'rgba(255, 255, 255, 0.1)',
+        backdropFilter: 'blur(10px)',
+        WebkitBackdropFilter: 'blur(10px)', // Safari support
+        borderColor: 'rgba(255, 255, 255, 0.2)',
+        borderWidth: 1,
+    },
+    // Medium glass effect (for modals, overlays)
+    medium: {
+        backgroundColor: 'rgba(255, 255, 255, 0.15)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderWidth: 1,
+    },
+    // Strong glass effect (for prominent UI elements)
+    strong: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        backdropFilter: 'blur(30px)',
+        WebkitBackdropFilter: 'blur(30px)',
+        borderColor: 'rgba(255, 255, 255, 0.4)',
+        borderWidth: 1,
+    },
+    // Dark glass (for dark-themed components)
+    dark: {
+        backgroundColor: 'rgba(0, 0, 0, 0.3)',
+        backdropFilter: 'blur(15px)',
+        WebkitBackdropFilter: 'blur(15px)',
+        borderColor: 'rgba(255, 255, 255, 0.1)',
+        borderWidth: 1,
+    },
+};
+
 // Animation durations
 export const animation = {
     fast: 150,
@@ -273,6 +309,7 @@ export const theme = {
     borderRadius,
     typography,
     shadows,
+    glassmorphism,
     animation,
 };
 

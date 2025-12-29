@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { GlassCard } from '../ui/GlassCard';
 
 interface StatCardProps {
     label: string;
@@ -11,11 +12,11 @@ interface StatCardProps {
 
 export function StatCard({ label, value, icon, color }: StatCardProps) {
     return (
-        <View style={styles.statCard}>
+        <GlassCard variant="light" style={styles.statCard}>
             {icon && <Text style={styles.statIcon}>{icon}</Text>}
             <Text style={[styles.statValue, color ? { color } : null]}>{value}</Text>
             <Text style={styles.statLabel}>{label}</Text>
-        </View>
+        </GlassCard>
     );
 }
 
@@ -30,13 +31,13 @@ export function CompactStat({ label, value, modifier }: CompactStatProps) {
         (modifier >= 0 ? `+${modifier}` : `${modifier}`) : null;
 
     return (
-        <View style={styles.compactStat}>
+        <GlassCard variant="light" style={styles.compactStat}>
             <Text style={styles.compactLabel}>{label}</Text>
             <Text style={styles.compactValue}>{value}</Text>
             {modifierText && (
                 <Text style={styles.compactModifier}>{modifierText}</Text>
             )}
-        </View>
+        </GlassCard>
     );
 }
 

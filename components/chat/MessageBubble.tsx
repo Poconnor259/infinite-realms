@@ -6,6 +6,7 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore } from '../../lib/store';
 import type { Message } from '../../lib/types';
 import { AVAILABLE_MODELS } from '../../lib/types';
+import { GlassCard } from '../ui/GlassCard';
 
 interface MessageBubbleProps {
     message: Message;
@@ -107,9 +108,12 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
                     )}
                 </View>
             )}
-            <View style={[styles.bubble, getBubbleStyle()]}>
+            <GlassCard
+                variant={isBlueBox ? 'strong' : isUser ? 'medium' : 'light'}
+                style={[styles.bubble, getBubbleStyle()]}
+            >
                 {formatContent(content)}
-            </View>
+            </GlassCard>
 
             {/* Debug Panel for Admin Users */}
             {!isUser && !isSystem && message.metadata?.debug && user?.role === 'admin' && (

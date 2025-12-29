@@ -7,6 +7,7 @@ import { useUserStore, useConfigStore } from '../lib/store';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { spacing, borderRadius, typography, shadows } from '../lib/theme';
 import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
+import { GlassCard } from './ui/GlassCard';
 
 interface VoiceModelSelectorProps {
     user: any;
@@ -185,44 +186,48 @@ export function VoiceModelSelector({ user, mode, modelType = 'voice', onShowUpgr
                     return (
                         <TouchableOpacity
                             key={model.tierKey}
-                            style={[
-                                styles.card,
-                                isSelected && !model.isLocked && styles.cardSelected,
-                                model.isLocked && styles.cardLocked,
-                            ]}
                             onPress={() => handleModelPress(model)}
                             activeOpacity={0.7}
                         >
-                            <View style={styles.cardContent}>
-                                <View style={[styles.iconContainer, isSelected && !model.isLocked && styles.iconContainerSelected]}>
-                                    <Ionicons
-                                        name={model.icon as any}
-                                        size={20}
-                                        color={model.isLocked ? colors.text.muted : (isSelected ? colors.primary[400] : colors.text.secondary)}
-                                    />
-                                </View>
-
-                                <View style={styles.textContainer}>
-                                    <View style={styles.headerRow}>
-                                        <Text style={[
-                                            styles.name,
-                                            isSelected && !model.isLocked && styles.nameSelected,
-                                            model.isLocked && styles.textLocked
-                                        ]}>
-                                            {model.name}
-                                        </Text>
-                                        {model.isLocked && (
-                                            <Ionicons name="lock-closed" size={14} color={colors.text.muted} />
-                                        )}
+                            <GlassCard
+                                variant={isSelected && !model.isLocked ? 'medium' : 'light'}
+                                style={[
+                                    styles.card,
+                                    isSelected && !model.isLocked && styles.cardSelected,
+                                    model.isLocked && styles.cardLocked,
+                                ]}
+                            >
+                                <View style={styles.cardContent}>
+                                    <View style={[styles.iconContainer, isSelected && !model.isLocked && styles.iconContainerSelected]}>
+                                        <Ionicons
+                                            name={model.icon as any}
+                                            size={20}
+                                            color={model.isLocked ? colors.text.muted : (isSelected ? colors.primary[400] : colors.text.secondary)}
+                                        />
                                     </View>
 
-                                    {mode === 'settings' && (
-                                        <Text style={[styles.desc, model.isLocked && styles.textLocked]} numberOfLines={1}>
-                                            {model.desc}
-                                        </Text>
-                                    )}
+                                    <View style={styles.textContainer}>
+                                        <View style={styles.headerRow}>
+                                            <Text style={[
+                                                styles.name,
+                                                isSelected && !model.isLocked && styles.nameSelected,
+                                                model.isLocked && styles.textLocked
+                                            ]}>
+                                                {model.name}
+                                            </Text>
+                                            {model.isLocked && (
+                                                <Ionicons name="lock-closed" size={14} color={colors.text.muted} />
+                                            )}
+                                        </View>
+
+                                        {mode === 'settings' && (
+                                            <Text style={[styles.desc, model.isLocked && styles.textLocked]} numberOfLines={1}>
+                                                {model.desc}
+                                            </Text>
+                                        )}
+                                    </View>
                                 </View>
-                            </View>
+                            </GlassCard>
                         </TouchableOpacity>
                     );
                 })}

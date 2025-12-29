@@ -20,6 +20,7 @@ import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
 import { getUserCampaigns, deleteCampaignFn, getWorlds } from '../lib/firebase';
 import type { WorldModuleType, Campaign, WorldModule } from '../lib/types';
 import { VoiceModelSelector } from '../components/VoiceModelSelector';
+import { GlassCard } from '../components/ui/GlassCard';
 
 const DEFAULT_WORLD_COLORS: Record<string, string> = {
     classic: '#ffd700',
@@ -245,64 +246,65 @@ export default function HomeScreen() {
                             return (
                                 <FadeInView key={campaign.id} delay={300 + index * 100}>
                                     <AnimatedPressable
-                                        style={styles.campaignCard}
                                         onPress={() => handleCampaignPress(campaign)}
                                     >
-                                        {/* World Badge */}
-                                        <View style={[styles.worldBadge, { backgroundColor: worldInfo.color + '20' }]}>
-                                            <Text style={styles.worldIcon}>{worldInfo.icon}</Text>
-                                        </View>
+                                        <GlassCard variant="light" style={styles.campaignCard}>
+                                            {/* World Badge */}
+                                            <View style={[styles.worldBadge, { backgroundColor: worldInfo.color + '20' }]}>
+                                                <Text style={styles.worldIcon}>{worldInfo.icon}</Text>
+                                            </View>
 
-                                        {/* Campaign Info */}
-                                        <View style={styles.campaignInfo}>
-                                            <Text style={styles.campaignName}>{campaign.name}</Text>
-                                            <Text style={styles.characterName}>
-                                                {campaign.character.name} • Lv.{campaign.character.level}
-                                            </Text>
+                                            {/* Campaign Info */}
+                                            <View style={styles.campaignInfo}>
+                                                <Text style={styles.campaignName}>{campaign.name}</Text>
+                                                <Text style={styles.characterName}>
+                                                    {campaign.character.name} • Lv.{campaign.character.level}
+                                                </Text>
 
-                                            {/* Mini HP Bar */}
-                                            <View style={styles.miniHpContainer}>
-                                                <View style={styles.miniHpTrack}>
-                                                    <View
-                                                        style={[
-                                                            styles.miniHpFill,
-                                                            {
-                                                                width: `${hpPercent}%`,
-                                                                backgroundColor: hpPercent > 50 ? colors.hp.full :
-                                                                    hpPercent > 25 ? colors.hp.medium : colors.hp.low
-                                                            }
-                                                        ]}
+                                                {/* Mini HP Bar */}
+                                                <View style={styles.miniHpContainer}>
+                                                    <View style={styles.miniHpTrack}>
+                                                        <View
+                                                            style={[
+                                                                styles.miniHpFill,
+                                                                {
+                                                                    width: `${hpPercent}%`,
+                                                                    backgroundColor: hpPercent > 50 ? colors.hp.full :
+                                                                        hpPercent > 25 ? colors.hp.medium : colors.hp.low
+                                                                }
+                                                            ]}
+                                                        />
+                                                    </View>
+                                                    <Text style={styles.miniHpText}>
+                                                        {campaign.character.hp.current}/{campaign.character.hp.max}
+                                                    </Text>
+                                                </View>
+                                            </View>
+
+                                            {/* Last Played & Delete */}
+                                            <View style={styles.campaignMeta}>
+                                                <Text style={styles.lastPlayed}>
+                                                    {formatDate(campaign.updatedAt)}
+                                                </Text>
+                                                <View style={styles.campaignActions}>
+                                                    <TouchableOpacity
+                                                        style={styles.deleteButton}
+                                                        onPress={(e) => handleDeleteCampaign(campaign, e)}
+                                                    >
+                                                        <Ionicons
+                                                            name="trash-outline"
+                                                            size={18}
+                                                            color={colors.status.error}
+                                                        />
+                                                    </TouchableOpacity>
+                                                    <Ionicons
+                                                        name="chevron-forward"
+                                                        size={20}
+                                                        color={colors.text.muted}
                                                     />
                                                 </View>
-                                                <Text style={styles.miniHpText}>
-                                                    {campaign.character.hp.current}/{campaign.character.hp.max}
-                                                </Text>
                                             </View>
-                                        </View>
-
-                                        {/* Last Played & Delete */}
-                                        <View style={styles.campaignMeta}>
-                                            <Text style={styles.lastPlayed}>
-                                                {formatDate(campaign.updatedAt)}
-                                            </Text>
-                                            <View style={styles.campaignActions}>
-                                                <TouchableOpacity
-                                                    style={styles.deleteButton}
-                                                    onPress={(e) => handleDeleteCampaign(campaign, e)}
-                                                >
-                                                    <Ionicons
-                                                        name="trash-outline"
-                                                        size={18}
-                                                        color={colors.status.error}
-                                                    />
-                                                </TouchableOpacity>
-                                                <Ionicons
-                                                    name="chevron-forward"
-                                                    size={20}
-                                                    color={colors.text.muted}
-                                                />
-                                            </View>
-                                        </View>
+                                        </GlassCard>
                                     </AnimatedPressable>
                                 </FadeInView>
                             );
@@ -326,12 +328,16 @@ export default function HomeScreen() {
                         ) : availableWorlds.map((world, index) => (
                             <AnimatedPressable
                                 key={world.id}
-                                style={[styles.worldCard, { borderColor: (world.color || DEFAULT_WORLD_COLORS[world.type] || '#888') + '40' }]}
                                 onPress={() => handleWorldSelect(world.id)}
                             >
-                                <Text style={styles.worldCardIcon}>{world.icon || '🌍'}</Text>
-                                <Text style={styles.worldCardName} numberOfLines={1}>{world.name}</Text>
-                                <Text style={styles.worldCardDesc} numberOfLines={2}>{world.subtitle || world.description || 'Custom World'}</Text>
+                                <GlassCard
+                                    variant="light"
+                                    style={[styles.worldCard, { borderColor: (world.color || DEFAULT_WORLD_COLORS[world.type] || '#888') + '40' }]}
+                                >
+                                    <Text style={styles.worldCardIcon}>{world.icon || '🌍'}</Text>
+                                    <Text style={styles.worldCardName} numberOfLines={1}>{world.name}</Text>
+                                    <Text style={styles.worldCardDesc} numberOfLines={2}>{world.subtitle || world.description || 'Custom World'}</Text>
+                                </GlassCard>
                             </AnimatedPressable>
                         ))}
                     </ScrollView>
