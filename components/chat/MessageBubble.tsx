@@ -1,19 +1,21 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Platform, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
-import { useSettingsStore, useUserStore } from '../../lib/store';
+import { useSettingsStore, useUserStore, useGameStore } from '../../lib/store';
 import type { Message } from '../../lib/types';
 import { AVAILABLE_MODELS } from '../../lib/types';
 import { GlassCard } from '../ui/GlassCard';
+import { speakText, stopSpeaking, isTTSSpeaking } from '../../lib/tts';
 
 interface MessageBubbleProps {
     message: Message;
     index: number;
+    isLastUserMessage?: boolean;
 }
 
-export function MessageBubble({ message, index }: MessageBubbleProps) {
+export function MessageBubble({ message, index, isLastUserMessage = false }: MessageBubbleProps) {
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
     const [debugExpanded, setDebugExpanded] = useState(false);
@@ -27,6 +29,52 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
 
     const { colors, isDark } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
+
+    // Game store for edit/retry
+    const { deleteLastUserMessageAndResponse, retryLastRequest, lastFailedRequest } = useGameStore();
+
+    // Check if this is an error message that can be retried
+    const isError = isSystem && content.startsWith('*Error:');
+    const canRetry = isError && lastFailedRequest !== null;
+
+    const handleEdit = () => {
+        const deletedText = deleteLastUserMessageAndResponse();
+        // The store will set editingMessage which ChatInput listens to
+    };
+
+    const handleRetry = () => {
+        retryLastRequest();
+    };
+
+    // TTS state
+    const [isSpeaking, setIsSpeaking] = useState(false);
+    const narratorVoice = useSettingsStore((state) => state.narratorVoice);
+    const isNarrator = message.role === 'narrator';
+
+    const handleSpeak = async () => {
+        if (isSpeaking) {
+            stopSpeaking();
+            setIsSpeaking(false);
+        } else {
+            setIsSpeaking(true);
+            try {
+                await speakText(content, {
+                    onEnd: () => setIsSpeaking(false),
+                    onError: () => setIsSpeaking(false),
+                });
+            } catch {
+                setIsSpeaking(false);
+            }
+        }
+    };
+
+    // Auto-speak new narrator messages if setting is enabled
+    useEffect(() => {
+        if (isNarrator && narratorVoice && index === 0) {
+            // Only auto-speak the most recent narrator message (when first rendered)
+            // This is a simplified check - we'd need more logic for truly "new" messages
+        }
+    }, [isNarrator, narratorVoice, index]);
 
     const getBubbleStyle = () => {
         if (isUser) return styles.userBubble;
@@ -113,6 +161,44 @@ export function MessageBubble({ message, index }: MessageBubbleProps) {
                 style={[styles.bubble, getBubbleStyle()]}
             >
                 {formatContent(content)}
+
+                {/* Edit button for last user message */}
+                {isUser && isLastUserMessage && (
+                    <TouchableOpacity
+                        style={styles.editButton}
+                        onPress={handleEdit}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Ionicons name="pencil" size={14} color={colors.text.inverse} />
+                        <Text style={styles.editButtonText}>Edit</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* Retry button for error messages */}
+                {canRetry && (
+                    <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={handleRetry}
+                    >
+                        <Ionicons name="refresh" size={16} color={colors.status.error} />
+                        <Text style={styles.retryButtonText}>Retry</Text>
+                    </TouchableOpacity>
+                )}
+
+                {/* Speaker button for narrator TTS */}
+                {isNarrator && (
+                    <TouchableOpacity
+                        style={styles.speakerButton}
+                        onPress={handleSpeak}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Ionicons
+                            name={isSpeaking ? 'stop-circle' : 'volume-high'}
+                            size={18}
+                            color={isSpeaking ? colors.status.error : colors.text.muted}
+                        />
+                    </TouchableOpacity>
+                )}
             </GlassCard>
 
             {/* Debug Panel for Admin Users */}
@@ -301,5 +387,47 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
         padding: spacing.sm,
         borderRadius: borderRadius.sm,
+    },
+    editButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginTop: spacing.sm,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderRadius: borderRadius.sm,
+        alignSelf: 'flex-end',
+    },
+    editButtonText: {
+        color: colors.text.inverse,
+        fontSize: typography.fontSize.xs,
+        fontWeight: '500',
+    },
+    retryButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        marginTop: spacing.sm,
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        backgroundColor: colors.status.error + '20',
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+        borderColor: colors.status.error + '40',
+        alignSelf: 'flex-start',
+    },
+    retryButtonText: {
+        color: colors.status.error,
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    speakerButton: {
+        position: 'absolute',
+        top: spacing.sm,
+        right: spacing.sm,
+        padding: spacing.xs,
+        borderRadius: borderRadius.full,
+        backgroundColor: colors.background.primary + '60',
     },
 });

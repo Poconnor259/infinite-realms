@@ -241,8 +241,10 @@ export default function CampaignScreen() {
     }, [messages]);
 
     const scrollToBottom = () => {
-        // Use a large offset without animation for instant scroll to bottom
-        flatListRef.current?.scrollToOffset({ offset: 999999, animated: false });
+        // Use requestAnimationFrame to ensure content is rendered before scrolling
+        requestAnimationFrame(() => {
+            flatListRef.current?.scrollToEnd({ animated: true });
+        });
     };
 
     const scrollToLastResponse = () => {
@@ -332,8 +334,22 @@ export default function CampaignScreen() {
     const character = normalizeCharacter(rawCharacter, currentCampaign.worldModule);
     const moduleState = currentCampaign.moduleState;
 
+    // Find last user message index for edit button
+    const lastUserMessageIndex = useMemo(() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+                return i;
+            }
+        }
+        return -1;
+    }, [messages]);
+
     const renderMessage = ({ item, index }: { item: Message; index: number }) => (
-        <MessageBubble message={item} index={index} />
+        <MessageBubble
+            message={item}
+            index={index}
+            isLastUserMessage={index === lastUserMessageIndex}
+        />
     );
 
     return (

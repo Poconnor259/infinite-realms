@@ -64,6 +64,10 @@ interface GameState {
         choiceType: string;
     } | null;
 
+    // Edit & Retry
+    editingMessage: string | null; // Text of message being edited
+    lastFailedRequest: { input: string; timestamp: number } | null;
+
     // Actions
     setCurrentCampaign: (campaign: Campaign | null) => void;
     addMessage: (message: Message) => void;
@@ -73,6 +77,12 @@ interface GameState {
     updateModuleState: (updates: Partial<ModuleState>) => void;
     clearMessages: () => void;
     setPendingChoice: (choice: { prompt: string; options?: string[]; choiceType: string } | null) => void;
+
+    // Edit & Retry Actions
+    setEditingMessage: (text: string | null) => void;
+    deleteLastUserMessageAndResponse: () => string | null; // Returns the deleted message text
+    retryLastRequest: () => Promise<void>;
+    clearFailedRequest: () => void;
 
     // Game logic
     processUserInput: (input: string) => Promise<void>;
@@ -85,6 +95,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     isLoading: false,
     error: null,
     pendingChoice: null,
+    editingMessage: null,
+    lastFailedRequest: null,
 
     setCurrentCampaign: (campaign) => {
         set({ currentCampaign: campaign });
@@ -126,6 +138,53 @@ export const useGameStore = create<GameState>((set, get) => ({
     clearMessages: () => set({ messages: [] }),
 
     setPendingChoice: (choice) => set({ pendingChoice: choice }),
+
+    setEditingMessage: (text) => set({ editingMessage: text }),
+
+    clearFailedRequest: () => set({ lastFailedRequest: null }),
+
+    deleteLastUserMessageAndResponse: () => {
+        const state = get();
+        const messages = [...state.messages];
+
+        // Find the last user message
+        let lastUserIndex = -1;
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+                lastUserIndex = i;
+                break;
+            }
+        }
+
+        if (lastUserIndex === -1) return null;
+
+        const userMessageText = messages[lastUserIndex].content;
+
+        // Remove the user message and everything after it (including any narrator response)
+        const newMessages = messages.slice(0, lastUserIndex);
+
+        set({ messages: newMessages, editingMessage: userMessageText });
+
+        return userMessageText;
+    },
+
+    retryLastRequest: async () => {
+        const { lastFailedRequest, processUserInput, clearFailedRequest } = get();
+
+        if (!lastFailedRequest) {
+            console.warn('[Game] No failed request to retry');
+            return;
+        }
+
+        // Clear the failed request and remove the error message
+        const messages = get().messages.filter(m => !m.id.startsWith('err_'));
+        set({ messages });
+
+        clearFailedRequest();
+
+        // Retry the request
+        await processUserInput(lastFailedRequest.input);
+    },
 
     processUserInput: async (input: string) => {
         const state = get();
@@ -247,9 +306,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         } catch (error) {
             console.error('[Game] Error:', error);
+
+            // Save the failed request for retry
             set({
                 isLoading: false,
                 error: error instanceof Error ? error.message : 'An error occurred',
+                lastFailedRequest: { input, timestamp: Date.now() },
             });
 
             // Add system error message to chat

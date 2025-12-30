@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
     View,
     Text,
@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
+import { useGameStore } from '../../lib/store';
 
 interface ChatInputProps {
     onSend: (text: string) => void;
@@ -22,10 +23,24 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
+    // Listen for editing state from store
+    const { editingMessage, setEditingMessage } = useGameStore();
+    const [isEditing, setIsEditing] = useState(false);
+
+    // Pre-populate text when editingMessage is set
+    useEffect(() => {
+        if (editingMessage) {
+            setText(editingMessage);
+            setIsEditing(true);
+            setEditingMessage(null); // Clear the editing state after consuming
+        }
+    }, [editingMessage, setEditingMessage]);
+
     const handleSend = () => {
         if (text.trim() && !disabled) {
             onSend(text.trim());
             setText('');
+            setIsEditing(false); // Clear editing mode after sending
         }
     };
 
@@ -51,6 +66,17 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
                     </TouchableOpacity>
                 ))}
             </View>
+
+            {/* Editing Indicator */}
+            {isEditing && (
+                <View style={styles.editingIndicator}>
+                    <Ionicons name="pencil" size={14} color={colors.primary[400]} />
+                    <Text style={styles.editingText}>Editing message...</Text>
+                    <TouchableOpacity onPress={() => { setText(''); setIsEditing(false); }}>
+                        <Text style={styles.cancelEditText}>Cancel</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Input Row */}
             <View style={styles.inputRow}>
@@ -156,5 +182,25 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     sendButtonDisabled: {
         backgroundColor: colors.background.tertiary,
+    },
+    editingIndicator: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.xs,
+        backgroundColor: colors.primary[500] + '15',
+        borderLeftWidth: 3,
+        borderLeftColor: colors.primary[400],
+    },
+    editingText: {
+        flex: 1,
+        color: colors.primary[400],
+        fontSize: typography.fontSize.sm,
+    },
+    cancelEditText: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
+        fontWeight: '500',
     },
 });
