@@ -86,10 +86,17 @@ function TurnCounter() {
 export default function CampaignScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
 
+    // Client-only render guard to prevent SSR/hydration mismatch
+    const [isMounted, setIsMounted] = useState(false);
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
 
     // Smart Idle Detection for Cache Heartbeat
     useEffect(() => {
-        if (!id) return;
+        // Only run on web and when document is available (skip SSR)
+        if (!id || Platform.OS !== 'web' || typeof document === 'undefined') return;
 
         const HEARTBEAT_INTERVAL = 270000; // 4m 30s (safely before 5min cache expiry)
         const IDLE_TIMEOUT = 900000; // 15 minutes
@@ -138,7 +145,7 @@ export default function CampaignScreen() {
             }, HEARTBEAT_INTERVAL);
         };
 
-        // Activity event listeners
+        // Activity event listeners (only on client)
         const activityEvents = ['mousedown', 'keydown', 'touchstart', 'click'];
         activityEvents.forEach(event => {
             document.addEventListener(event, resetIdleTimer);
@@ -240,6 +247,16 @@ export default function CampaignScreen() {
         return -1;
     }, [messages]);
 
+    // Find last user message index for edit button (must be before conditionals for Rules of Hooks)
+    const lastUserMessageIndex = useMemo(() => {
+        for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+                return i;
+            }
+        }
+        return -1;
+    }, [messages]);
+
     const scrollToBottom = () => {
         // Use requestAnimationFrame to ensure content is rendered before scrolling
         requestAnimationFrame(() => {
@@ -298,7 +315,8 @@ export default function CampaignScreen() {
         }
     };
 
-    if ((isLoading || isUserLoading) && !currentCampaign) {
+    // Show loading state until client is hydrated and campaign is loaded
+    if (!isMounted || ((isLoading || isUserLoading) && !currentCampaign)) {
         return (
             <SafeAreaView style={styles.container}>
                 <View style={styles.loadingContainer}>
@@ -333,16 +351,6 @@ export default function CampaignScreen() {
     const rawCharacter = currentCampaign.character || (currentCampaign.moduleState as any)?.character;
     const character = normalizeCharacter(rawCharacter, currentCampaign.worldModule);
     const moduleState = currentCampaign.moduleState;
-
-    // Find last user message index for edit button
-    const lastUserMessageIndex = useMemo(() => {
-        for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i].role === 'user') {
-                return i;
-            }
-        }
-        return -1;
-    }, [messages]);
 
     const renderMessage = ({ item, index }: { item: Message; index: number }) => (
         <MessageBubble

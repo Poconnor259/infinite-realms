@@ -312,6 +312,8 @@ export interface ProcessInputResponse {
         choiceType: string;
     };
     remainingTurns?: number;
+    voiceModelId?: string;
+    turnCost?: number;
     error?: string;
     debug?: {
         brainResponse?: any;

@@ -10,6 +10,7 @@ import type {
     ClassicModuleState,
     OutworlderModuleState,
     TacticalModuleState,
+    GlobalConfig,
 } from './types';
 import { DEFAULT_SUBSCRIPTION_LIMITS } from './types';
 import { loadCampaign as fetchCampaign, processGameAction } from './firebase';
@@ -304,6 +305,18 @@ export const useGameStore = create<GameState>((set, get) => ({
                 }
             }
 
+            // Trigger ambiance detection if enabled
+            const backgroundAmbianceEnabled = useSettingsStore.getState().backgroundAmbiance;
+            if (backgroundAmbianceEnabled && narrative) {
+                // Dynamic import to avoid circular dependencies
+                import('./ambiance').then(({ detectAmbianceFromText, fadeToAmbiance }) => {
+                    const detectedAmbiance = detectAmbianceFromText(narrative);
+                    if (detectedAmbiance !== 'none') {
+                        fadeToAmbiance(detectedAmbiance).catch(console.warn);
+                    }
+                });
+            }
+
         } catch (error) {
             console.error('[Game] Error:', error);
 
@@ -409,6 +422,7 @@ interface SettingsState {
     hapticFeedback: boolean;
     soundEffects: boolean;
     narratorVoice: boolean;
+    backgroundAmbiance: boolean;
     alternatingColors: boolean;
     showFavoritesOnly: boolean;
     themeMode: 'light' | 'dark' | 'system';
@@ -426,6 +440,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     hapticFeedback: true,
     soundEffects: true,
     narratorVoice: false,
+    backgroundAmbiance: false,
     alternatingColors: true,
     showFavoritesOnly: false,
     themeMode: 'system',
@@ -456,6 +471,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const hapticFeedback = storage.getString('pref_hapticFeedback');
         const soundEffects = storage.getString('pref_soundEffects');
         const narratorVoice = storage.getString('pref_narratorVoice');
+        const backgroundAmbiance = storage.getString('pref_backgroundAmbiance');
         const alternatingColors = storage.getString('pref_alternatingColors');
         const showFavoritesOnly = storage.getString('pref_showFavoritesOnly');
         const themeMode = storage.getString('pref_themeMode');
@@ -467,6 +483,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             hapticFeedback: hapticFeedback ? JSON.parse(hapticFeedback) : true,
             soundEffects: soundEffects ? JSON.parse(soundEffects) : true,
             narratorVoice: narratorVoice ? JSON.parse(narratorVoice) : false,
+            backgroundAmbiance: backgroundAmbiance ? JSON.parse(backgroundAmbiance) : false,
             alternatingColors: alternatingColors ? JSON.parse(alternatingColors) : true,
             showFavoritesOnly: showFavoritesOnly ? JSON.parse(showFavoritesOnly) : false,
             themeMode: themeMode ? JSON.parse(themeMode) : 'system',

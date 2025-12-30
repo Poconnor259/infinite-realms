@@ -17,7 +17,8 @@ interface SpeakOptions {
 }
 
 let isSpeaking = false;
-let currentUtterance: SpeechSynthesisUtterance | null = null;
+// Use 'any' to avoid referencing SpeechSynthesisUtterance during SSR
+let currentUtterance: any = null;
 
 /**
  * Clean text for TTS by removing markdown formatting

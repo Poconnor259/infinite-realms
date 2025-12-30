@@ -48,6 +48,7 @@ export default function SettingsScreen() {
         hapticFeedback,
         soundEffects,
         narratorVoice,
+        backgroundAmbiance,
         alternatingColors,
         showFavoritesOnly,
         themeMode,
@@ -303,6 +304,20 @@ export default function SettingsScreen() {
                                     onValueChange={(value) => setPreference('narratorVoice', value)}
                                     trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
                                     thumbColor={narratorVoice ? colors.primary[300] : colors.text.muted}
+                                />
+                            }
+                        />
+                        <Row
+                            label="Background Ambiance"
+                            sublabel="Location-based ambient sounds (Beta)"
+                            icon="musical-notes-outline"
+                            iconColor="#14b8a6"
+                            rightElement={
+                                <Switch
+                                    value={backgroundAmbiance}
+                                    onValueChange={(value) => setPreference('backgroundAmbiance', value)}
+                                    trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
+                                    thumbColor={backgroundAmbiance ? colors.primary[300] : colors.text.muted}
                                 />
                             }
                         />

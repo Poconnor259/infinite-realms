@@ -20,23 +20,36 @@ export type AmbianceType =
     | 'night'       // Night crickets, owl hoots, quiet
     | 'rain';       // Rain falling, storm ambiance
 
-// Placeholder URLs - these would be replaced with actual royalty-free audio files
+// CDN URLs for royalty-free ambient audio
+// Sources: Pixabay (Pixabay License - free for commercial use)
+// All audio is loopable ambient background
 const AMBIANCE_URLS: Record<AmbianceType, string | null> = {
     none: null,
-    tavern: null,    // TODO: Add royalty-free tavern ambiance
-    forest: null,    // TODO: Add royalty-free forest ambiance
-    dungeon: null,   // TODO: Add royalty-free dungeon ambiance
-    city: null,      // TODO: Add royalty-free city ambiance
-    combat: null,    // TODO: Add royalty-free combat ambiance
-    castle: null,    // TODO: Add royalty-free castle ambiance
-    cave: null,      // TODO: Add royalty-free cave ambiance
-    ocean: null,     // TODO: Add royalty-free ocean ambiance
-    night: null,     // TODO: Add royalty-free night ambiance
-    rain: null,      // TODO: Add royalty-free rain ambiance
+    // Tavern: Medieval tavern with crowd chatter and clinking glasses
+    tavern: 'https://cdn.pixabay.com/audio/2024/02/08/audio_ac56737be4.mp3',
+    // Forest: Birds chirping and wind in trees
+    forest: 'https://cdn.pixabay.com/audio/2022/03/09/audio_c7acb35bca.mp3',
+    // Dungeon: Dark eerie ambiance with dripping water
+    dungeon: 'https://cdn.pixabay.com/audio/2022/11/17/audio_fe4aaeecb0.mp3',
+    // City: Marketplace bustle and urban sounds
+    city: 'https://cdn.pixabay.com/audio/2021/09/02/audio_95e4dc3d6f.mp3',
+    // Combat: Tense battle-ready percussion
+    combat: 'https://cdn.pixabay.com/audio/2023/10/24/audio_7fd0df0e06.mp3',
+    // Castle: Grand hall ambiance with echoes
+    castle: 'https://cdn.pixabay.com/audio/2022/05/27/audio_f5462cdede.mp3',
+    // Cave: Underground echoes and dripping
+    cave: 'https://cdn.pixabay.com/audio/2022/06/01/audio_c067fb28ea.mp3',
+    // Ocean: Waves and seagulls
+    ocean: 'https://cdn.pixabay.com/audio/2022/02/22/audio_ea1a0c0a91.mp3',
+    // Night: Crickets and night sounds
+    night: 'https://cdn.pixabay.com/audio/2022/05/31/audio_32e41c0bc6.mp3',
+    // Rain: Steady rainfall ambiance
+    rain: 'https://cdn.pixabay.com/audio/2022/03/24/audio_bae35a2adf.mp3',
 };
 
 let currentAmbiance: AmbianceType = 'none';
-let currentAudio: HTMLAudioElement | null = null;
+// Use 'any' to avoid referencing HTMLAudioElement during SSR
+let currentAudio: any = null;
 let currentVolume = 0.3; // Default volume
 let isFading = false;
 
@@ -150,7 +163,7 @@ export function pauseAmbiance(): void {
  */
 export function resumeAmbiance(): void {
     if (currentAudio && currentAudio.paused) {
-        currentAudio.play().catch(e => console.warn('[Ambiance] Resume failed:', e));
+        currentAudio.play().catch((e: Error) => console.warn('[Ambiance] Resume failed:', e));
     }
 }
 

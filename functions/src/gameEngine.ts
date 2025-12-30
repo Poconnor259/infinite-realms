@@ -391,7 +391,51 @@ export async function processGameAction(
             // Don't fail the whole request if reviewer fails
         }
 
-        // 11. Record Token Usage and Deduct Turns (Atomic Transaction)
+        // 11. Save session data (Messages & State) FIRST - before turn deduction
+        // This ensures we don't charge turns if message save fails
+        if (auth?.uid) {
+            try {
+                const messagesRef = db.collection('users')
+                    .doc(auth.uid)
+                    .collection('campaigns')
+                    .doc(campaignId)
+                    .collection('messages');
+
+                await messagesRef.add({
+                    role: 'user',
+                    content: userInput,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                });
+
+                await messagesRef.add({
+                    role: 'narrator',
+                    content: voiceResult.narrative || brainResult.data?.narrativeCue || '',
+                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    metadata: {
+                        voiceModel: voiceConfig.model,
+                        turnCost: userTier !== 'legendary' ? turnCost : 0,
+                    }
+                });
+
+                await db.collection('users')
+                    .doc(auth.uid)
+                    .collection('campaigns')
+                    .doc(campaignId)
+                    .update({
+                        moduleState: finalState,
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+            } catch (saveError) {
+                console.error('[ProcessGameAction] Failed to save messages:', saveError);
+                // Return error WITHOUT deducting turns - data wasn't saved
+                return {
+                    success: false,
+                    error: 'Failed to save game progress. Your turn was NOT charged. Please try again.',
+                };
+            }
+        }
+
+        // 12. Record Token Usage and Deduct Turns (ONLY after successful save)
         if (auth?.uid) {
             const brainStatsKey = getTokenStatsKey(brainConfig.provider, brainConfig.model);
             const voiceStatsKey = getTokenStatsKey(voiceConfig.provider, voiceConfig.model);
@@ -480,59 +524,31 @@ export async function processGameAction(
                 }
 
             } catch (error) {
-                console.error('[ProcessGameAction] Transaction failed:', error);
-                return {
-                    success: false,
-                    error: 'Failed to process turn deduction. Please try again.'
-                };
+                console.error('[ProcessGameAction] Turn deduction transaction failed:', error);
+                // Message was already saved, but turn tracking failed
+                // Still return success since the game action completed
+                // Turn will be slightly off but user got their content
+                console.warn('[ProcessGameAction] Game succeeded but turn tracking may be inaccurate');
             }
 
             // Global Stats (outside transaction for performance)
-            const today = new Date().toISOString().split('T')[0];
-            await db.collection('systemStats').doc('tokens').collection('daily').doc(today).set({
-                date: today,
-                tokensPrompt: admin.firestore.FieldValue.increment(totalPrompt),
-                tokensCompletion: admin.firestore.FieldValue.increment(totalCompletion),
-                tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
-                turns: admin.firestore.FieldValue.increment(1),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            }, { merge: true });
-        }
-
-        // 12. Save session data (Messages & State)
-        if (auth?.uid) {
-            const messagesRef = db.collection('users')
-                .doc(auth.uid)
-                .collection('campaigns')
-                .doc(campaignId)
-                .collection('messages');
-
-            await messagesRef.add({
-                role: 'user',
-                content: userInput,
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-            });
-
-            await messagesRef.add({
-                role: 'narrator',
-                content: voiceResult.narrative || brainResult.data?.narrativeCue || '',
-                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                metadata: {
-                    voiceModel: voiceConfig.model, // Store resolved model ID for permanent display
-                    turnCost: userTier !== 'legendary' ? turnCost : 0,
-                }
-            });
-
-            await db.collection('users')
-                .doc(auth.uid)
-                .collection('campaigns')
-                .doc(campaignId)
-                .update({
-                    moduleState: finalState,
+            try {
+                const today = new Date().toISOString().split('T')[0];
+                await db.collection('systemStats').doc('tokens').collection('daily').doc(today).set({
+                    date: today,
+                    tokensPrompt: admin.firestore.FieldValue.increment(totalPrompt),
+                    tokensCompletion: admin.firestore.FieldValue.increment(totalCompletion),
+                    tokensTotal: admin.firestore.FieldValue.increment(totalTokens),
+                    turns: admin.firestore.FieldValue.increment(1),
                     updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-                });
+                }, { merge: true });
+            } catch (statsError) {
+                console.error('[ProcessGameAction] Stats update failed:', statsError);
+                // Non-critical, don't fail the request
+            }
         }
 
+        // 13. Return success response
         return {
             success: true,
             narrativeText: voiceResult.narrative || brainResult.data?.narrativeCue || '',
