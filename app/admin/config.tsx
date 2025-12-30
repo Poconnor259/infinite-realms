@@ -500,6 +500,160 @@ export default function AdminConfigScreen() {
                 <Text style={styles.title}>Global Config</Text>
             </View>
 
+            {/* Global AI Model Selection */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Global AI Models (Default)</Text>
+                <View style={styles.card}>
+                    <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
+                        These are the default global models used when users haven't picked their own preference.
+                    </Text>
+
+                    {/* Brain Model Dropdown */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <Ionicons name="hardware-chip" size={18} color={colors.primary[400]} />
+                            <Text style={styles.fieldLabel}>Brain Model (Game Logic)</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.dropdown}
+                            onPress={() => setBrainDropdownOpen(!brainDropdownOpen)}
+                        >
+                            <Text style={styles.dropdownText}>
+                                {brainModels.find(m => m.id === aiSettings.brainModel)?.name || aiSettings.brainModel}
+                            </Text>
+                            <Ionicons name={brainDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                        {brainDropdownOpen && (
+                            <View style={styles.dropdownList}>
+                                {brainModels.filter(m => !showFavoritesOnly || config?.favoriteModels?.includes(m.id)).map(model => (
+                                    <TouchableOpacity
+                                        key={model.id}
+                                        style={[styles.dropdownItem, aiSettings.brainModel === model.id && styles.dropdownItemSelected]}
+                                        onPress={() => {
+                                            setAiSettings(prev => ({ ...prev, brainModel: model.id }));
+                                            setBrainDropdownOpen(false);
+                                        }}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                            <Text style={styles.modelId}>{model.id}</Text>
+                                        </View>
+                                        {aiSettings.brainModel === model.id && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Voice Model Dropdown */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <Ionicons name="sparkles" size={18} color={colors.gold.main} />
+                            <Text style={styles.fieldLabel}>Voice Model (Narration)</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.dropdown}
+                            onPress={() => setVoiceDropdownOpen(!voiceDropdownOpen)}
+                        >
+                            <Text style={styles.dropdownText}>
+                                {voiceModels.find(m => m.id === aiSettings.voiceModel)?.name || aiSettings.voiceModel}
+                            </Text>
+                            <Ionicons name={voiceDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                        {voiceDropdownOpen && (
+                            <View style={styles.dropdownList}>
+                                {voiceModels.filter(m => !showFavoritesOnly || config?.favoriteModels?.includes(m.id)).map(model => (
+                                    <TouchableOpacity
+                                        key={model.id}
+                                        style={[styles.dropdownItem, aiSettings.voiceModel === model.id && styles.dropdownItemSelected]}
+                                        onPress={() => {
+                                            setAiSettings(prev => ({ ...prev, voiceModel: model.id }));
+                                            setVoiceDropdownOpen(false);
+                                        }}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                            <Text style={styles.modelId}>{model.id}</Text>
+                                        </View>
+                                        {aiSettings.voiceModel === model.id && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    <TouchableOpacity
+                        style={styles.saveButton}
+                        onPress={saveAiSettings}
+                        disabled={savingAi}
+                    >
+                        {savingAi ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save AI Model Settings</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+
+            {/* Model Testing Section */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Test AI Models</Text>
+                <View style={styles.card}>
+                    <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
+                        Send a test message to verify the AI models are working correctly.
+                    </Text>
+
+                    {/* Brain Test */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <Text style={styles.fieldLabel}>Test Brain Model</Text>
+                        <TextInput
+                            style={[styles.input, { marginBottom: spacing.sm }]}
+                            value={brainTestInput}
+                            onChangeText={setBrainTestInput}
+                            placeholder="Enter test prompt..."
+                            placeholderTextColor={colors.text.muted}
+                        />
+                        <TouchableOpacity
+                            style={[styles.saveButton, { backgroundColor: colors.primary[400] }]}
+                            onPress={testBrainModel}
+                            disabled={testingBrain}
+                        >
+                            {testingBrain ? <ActivityIndicator color="#fff" /> : <Text style={[styles.saveButtonText, { color: '#fff' }]}>Test Brain</Text>}
+                        </TouchableOpacity>
+                        {brainTestResponse ? (
+                            <View style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.background.tertiary, borderRadius: borderRadius.sm }}>
+                                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{brainTestResponse}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+
+                    {/* Voice Test */}
+                    <View>
+                        <Text style={styles.fieldLabel}>Test Voice Model</Text>
+                        <TextInput
+                            style={[styles.input, { marginBottom: spacing.sm }]}
+                            value={voiceTestInput}
+                            onChangeText={setVoiceTestInput}
+                            placeholder="Enter test prompt..."
+                            placeholderTextColor={colors.text.muted}
+                        />
+                        <TouchableOpacity
+                            style={[styles.saveButton, { backgroundColor: colors.gold.main }]}
+                            onPress={testVoiceModel}
+                            disabled={testingVoice}
+                        >
+                            {testingVoice ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Test Voice</Text>}
+                        </TouchableOpacity>
+                        {voiceTestResponse ? (
+                            <View style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.background.tertiary, borderRadius: borderRadius.sm }}>
+                                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{voiceTestResponse}</Text>
+                            </View>
+                        ) : null}
+                    </View>
+                </View>
+            </View>
+
             {/* AI Model Costs Section */}
             <View style={styles.section}>
                 <Text style={styles.sectionTitle}>AI Model Turn Costs</Text>

@@ -22,6 +22,7 @@ interface VoiceInput {
     characterProfile?: any; // Current character state for context
     isKeepAlive?: boolean; // If true, only refresh cache (1 token output)
     maxTokens?: number; // Optional dynamic token limit
+    systemMessages?: string[]; // Game logic messages from Brain (ability activations, mana costs, etc.)
 }
 
 interface VoiceOutput {
@@ -231,6 +232,14 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 cueText += '\nSTATE CHANGES:\n';
                 for (const [key, value] of Object.entries(stateChanges)) {
                     cueText += `- ${key}: ${JSON.stringify(value)}\n`;
+                }
+            }
+
+            // Add system messages from Brain AI (CRITICAL for ability activation consistency)
+            if (input.systemMessages && input.systemMessages.length > 0) {
+                cueText += '\nGAME LOGIC EVENTS (YOU MUST INCORPORATE THESE):\n';
+                for (const msg of input.systemMessages) {
+                    cueText += `- ${msg}\n`;
                 }
             }
 

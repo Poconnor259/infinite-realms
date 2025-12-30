@@ -271,12 +271,13 @@ export async function processGameAction(
         console.log(`[Process] Brain: ${brainConfig.provider}/${brainConfig.model}, Voice: ${voiceConfig.provider}/${voiceConfig.model}`);
 
         // 6. Calculate Turn Cost (for non-Legendary users)
-        let turnCost = 1; // Explicit safe fallback
+        let turnCost = 0; // Will be set from database config
         let finalTurnsBalance: number | undefined = undefined;
 
         if (userTier !== 'legendary') {
-            // Use the resolved model ID for lookup
-            const selectedVoiceModelID = voiceConfig.model;
+            // We need to check both the UI model ID and the resolved model ID
+            const uiModelId = voiceModelId; // What user selected in UI
+            const resolvedModelId = voiceConfig.model; // What we send to API
 
             // Resolve turn cost from Global Config
             try {
@@ -284,16 +285,27 @@ export async function processGameAction(
                 if (globalDoc.exists) {
                     const gc = globalDoc.data();
                     const modelCosts = gc?.modelCosts || {};
-                    const defaultCost = gc?.systemSettings?.defaultTurnCost ?? 1;
+                    const defaultCost = gc?.systemSettings?.defaultTurnCost || 10; // Use configured default, NOT hardcoded 1
 
-                    // Check for specific model override, otherwise use default
-                    turnCost = modelCosts[selectedVoiceModelID] ?? defaultCost;
-                    console.log(`[TurnCost] Model: ${selectedVoiceModelID}, Resolved Cost: ${turnCost}`);
+                    // Check for cost using UI ID first (most common), then resolved ID, then default
+                    const uiCost = modelCosts[uiModelId];
+                    const resolvedCost = modelCosts[resolvedModelId];
+
+                    if (uiCost !== undefined) {
+                        turnCost = uiCost;
+                        console.log(`[TurnCost] Found cost by UI ID '${uiModelId}': ${turnCost}`);
+                    } else if (resolvedCost !== undefined) {
+                        turnCost = resolvedCost;
+                        console.log(`[TurnCost] Found cost by resolved ID '${resolvedModelId}': ${turnCost}`);
+                    } else {
+                        turnCost = defaultCost;
+                        console.warn(`[TurnCost] No cost found for '${uiModelId}' or '${resolvedModelId}', using default: ${turnCost}`);
+                    }
                 }
             } catch (configError) {
                 console.error('[TurnCost] Failed to fetch global config for cost:', configError);
-                // Fallback to minimal 1 turn if config fails
-                turnCost = 1;
+                // Fallback to safe default if config fails (not hardcoded 1)
+                turnCost = 10;
             }
 
             // Validate user has enough turns (preliminary check - final check in transaction)
@@ -341,12 +353,12 @@ export async function processGameAction(
 
         const finalState = { ...currentState, ...(brainResult.data?.stateUpdates || {}) };
 
-        // 9. Generate Narrative with Voice
         console.log('[Voice] Generating narrative...');
         const voiceResult = await generateNarrative({
             narrativeCues: brainResult.data?.narrativeCues || [{ type: 'description', content: brainResult.data?.narrativeCue || '' }],
             stateChanges: brainResult.data?.stateUpdates || {},
             diceRolls: brainResult.data?.diceRolls || [],
+            systemMessages: brainResult.data?.systemMessages || [], // CRITICAL: Pass ability activations to Voice
             chatHistory,
             worldModule: engineType,
             provider: voiceConfig.provider,
