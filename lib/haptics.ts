@@ -1,14 +1,22 @@
 import { Platform } from 'react-native';
 import * as Haptics from 'expo-haptics';
+import { useSettingsStore } from './store';
 
 // Check if we're running on a platform that supports haptics
 const isHapticSupported = Platform.OS === 'ios' || Platform.OS === 'android';
 
 /**
+ * Check if haptic feedback is enabled in settings
+ */
+function isHapticEnabled(): boolean {
+    return useSettingsStore.getState().hapticFeedback;
+}
+
+/**
  * Light haptic feedback for taps and selections
  */
 export function lightHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
         } catch (e) {
@@ -21,7 +29,7 @@ export function lightHaptic() {
  * Medium haptic feedback for confirmations
  */
 export function mediumHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         } catch (e) {
@@ -34,7 +42,7 @@ export function mediumHaptic() {
  * Heavy haptic feedback for important actions
  */
 export function heavyHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
         } catch (e) {
@@ -47,7 +55,7 @@ export function heavyHaptic() {
  * Success haptic feedback
  */
 export function successHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         } catch (e) {
@@ -60,7 +68,7 @@ export function successHaptic() {
  * Warning haptic feedback
  */
 export function warningHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
         } catch (e) {
@@ -73,7 +81,7 @@ export function warningHaptic() {
  * Error haptic feedback
  */
 export function errorHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
         } catch (e) {
@@ -86,7 +94,7 @@ export function errorHaptic() {
  * Selection changed haptic feedback
  */
 export function selectionHaptic() {
-    if (isHapticSupported) {
+    if (isHapticSupported && isHapticEnabled()) {
         try {
             Haptics.selectionAsync();
         } catch (e) {

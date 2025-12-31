@@ -317,6 +317,14 @@ export const useGameStore = create<GameState>((set, get) => ({
                 });
             }
 
+            // Play message received sound if enabled
+            const soundEffectsEnabled = useSettingsStore.getState().soundEffects;
+            if (soundEffectsEnabled && narrative) {
+                import('./sounds').then(({ playMessageReceived }) => {
+                    playMessageReceived();
+                });
+            }
+
         } catch (error) {
             console.error('[Game] Error:', error);
 

@@ -9,6 +9,7 @@ import {
     type PressableProps,
 } from 'react-native';
 import { lightHaptic } from '../../lib/haptics';
+import { playClick } from '../../lib/sounds';
 
 // useNativeDriver is not supported on web
 const USE_NATIVE_DRIVER = Platform.OS !== 'web';
@@ -18,6 +19,7 @@ interface AnimatedPressableProps extends Omit<PressableProps, 'style'> {
     children: React.ReactNode;
     scaleValue?: number;
     haptic?: boolean;
+    sound?: boolean;
 }
 
 /**
@@ -28,6 +30,7 @@ export function AnimatedPressable({
     children,
     scaleValue = 0.97,
     haptic = true,
+    sound = false, // Default false to avoid too many clicks
     onPressIn,
     onPressOut,
     onPress,
@@ -44,6 +47,9 @@ export function AnimatedPressable({
         }).start();
         if (haptic) {
             lightHaptic();
+        }
+        if (sound) {
+            playClick();
         }
         onPressIn?.(e);
     };
