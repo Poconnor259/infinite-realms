@@ -200,6 +200,7 @@ STORYTELLING RULES:
 5. SHOW, DON'T TELL. Be vivid but concise.
 6. NEVER break character or discuss game mechanics directly (except system messages).
 7. If reference materials or custom rules are provided, use them for consistent world-building.
+8. CRITICAL: ALWAYS end your response with a complete thought. NEVER end mid-sentence. If you're running long, wrap up the current scene gracefully with something like "...as you consider your next move" rather than cutting off abruptly.
 
 SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK. No sexual content or hate speech.`;
 
@@ -283,7 +284,8 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             const chat = geminiModel.startChat({
                 history: history,
                 generationConfig: {
-                    maxOutputTokens: isKeepAlive ? 1 : (maxTokens || 1024),
+                    // Only set maxOutputTokens if explicitly provided (enforced), otherwise let model use default
+                    ...(isKeepAlive ? { maxOutputTokens: 1 } : maxTokens ? { maxOutputTokens: maxTokens } : {}),
                 }
             });
 
@@ -322,7 +324,8 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
 
             const response = await anthropic.messages.create({
                 model: model,
-                max_tokens: isKeepAlive ? 1 : (maxTokens || 1024),
+                // Only set max_tokens if explicitly provided (enforced), otherwise use model default
+                max_tokens: isKeepAlive ? 1 : (maxTokens || 8192),
                 system: [{
                     type: 'text',
                     text: systemPrompt,
@@ -371,7 +374,8 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 model: model,
                 messages,
                 temperature: 0.7,
-                max_tokens: maxTokens || 1024,
+                // Only set max_tokens if explicitly provided (enforced), otherwise let model use default
+                ...(maxTokens ? { max_tokens: maxTokens } : {}),
             });
 
             narrative = response.choices[0]?.message?.content || null;

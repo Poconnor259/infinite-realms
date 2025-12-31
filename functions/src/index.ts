@@ -853,6 +853,7 @@ export const processGameAction = onCall(
 interface GenerateTextRequest {
     prompt: string;
     maxLength?: number;
+    modelId?: string; // Optional: Model ID to use (defaults to Brain model if not specified)
 }
 
 interface GenerateTextResponse {
@@ -865,7 +866,7 @@ export const generateText = onCall(
     { cors: true, invoker: 'public' },
     async (request): Promise<GenerateTextResponse> => {
         try {
-            const { prompt, maxLength = 150 } = request.data as GenerateTextRequest;
+            const { prompt, maxLength = 150, modelId } = request.data as GenerateTextRequest;
             const auth = request.auth;
 
             if (!auth) {
@@ -876,73 +877,119 @@ export const generateText = onCall(
                 throw new HttpsError('invalid-argument', 'Prompt is required');
             }
 
-            // Get API key
+            // Get API keys
             const keys = await getApiKeys();
-            const openaiKey = keys.openai;
-            console.log(`[GenerateText] API key exists: ${!!openaiKey}, length: ${openaiKey?.length || 0}`);
 
-            if (!openaiKey) {
-                console.error('[GenerateText] OpenAI API key not configured');
-                throw new HttpsError('failed-precondition', 'OpenAI API key not configured');
-            }
+            // Resolve model and provider from model ID prefix
+            const resolvedModelId = modelId || 'gpt-4o-mini';
+            const getProvider = (id: string): 'openai' | 'anthropic' | 'google' => {
+                if (id.startsWith('gpt') || id.includes('openai') || id.startsWith('o1') || id.startsWith('o3')) return 'openai';
+                if (id.startsWith('claude')) return 'anthropic';
+                if (id.startsWith('gemini') || id.includes('google')) return 'google';
+                return 'openai'; // Default to OpenAI
+            };
+            const provider = getProvider(resolvedModelId);
 
-            console.log(`[GenerateText] Generating text for user ${auth.uid}`);
+            console.log(`[GenerateText] Using ${provider}/${resolvedModelId} for user ${auth.uid}`);
 
-            // Simple OpenAI call for text generation
-            const response = await fetch('https://api.openai.com/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${openaiKey}`,
-                },
-                body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    messages: [
-                        {
-                            role: 'system',
-                            content: 'You are a creative writing assistant. Generate concise, engaging text based on the user\'s prompt. Keep responses to 2-3 sentences unless otherwise specified.'
-                        },
-                        {
-                            role: 'user',
-                            content: prompt
-                        }
-                    ],
+            let generatedText = '';
+            let tokensUsed = 0;
+            let promptTokens = 0;
+            let completionTokens = 0;
+
+            if (provider === 'openai') {
+                const apiKey = keys.openai;
+                if (!apiKey) {
+                    throw new HttpsError('failed-precondition', 'OpenAI API key not configured');
+                }
+
+                const response = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`,
+                    },
+                    body: JSON.stringify({
+                        model: resolvedModelId,
+                        messages: [
+                            { role: 'system', content: 'You are a helpful assistant. Be concise.' },
+                            { role: 'user', content: prompt }
+                        ],
+                        max_tokens: maxLength,
+                        temperature: 0.8,
+                    }),
+                });
+
+                if (!response.ok) {
+                    const error = await response.text();
+                    throw new HttpsError('internal', `OpenAI error: ${error.substring(0, 100)}`);
+                }
+
+                const data = await response.json();
+                generatedText = data.choices[0]?.message?.content?.trim() || '';
+                promptTokens = data.usage?.prompt_tokens || 0;
+                completionTokens = data.usage?.completion_tokens || 0;
+                tokensUsed = data.usage?.total_tokens || 0;
+
+            } else if (provider === 'anthropic') {
+                const apiKey = keys.anthropic;
+                if (!apiKey) {
+                    throw new HttpsError('failed-precondition', 'Anthropic API key not configured');
+                }
+
+                const anthropic = new Anthropic({ apiKey });
+                const response = await anthropic.messages.create({
+                    model: resolvedModelId,
                     max_tokens: maxLength,
-                    temperature: 0.8,
-                }),
-            });
+                    messages: [
+                        { role: 'user', content: prompt }
+                    ],
+                });
 
-            if (!response.ok) {
-                const error = await response.text();
-                console.error('[GenerateText] OpenAI error:', error);
-                throw new HttpsError('internal', `Failed to generate text: ${error.substring(0, 100)}`);
+                const textContent = response.content.find(block => block.type === 'text');
+                if (textContent && textContent.type === 'text') {
+                    generatedText = textContent.text;
+                }
+                promptTokens = response.usage.input_tokens;
+                completionTokens = response.usage.output_tokens;
+                tokensUsed = promptTokens + completionTokens;
+
+            } else if (provider === 'google') {
+                const apiKey = keys.google;
+                if (!apiKey) {
+                    throw new HttpsError('failed-precondition', 'Google API key not configured');
+                }
+
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({ model: resolvedModelId });
+                const result = await model.generateContent(prompt);
+                generatedText = result.response.text();
+                promptTokens = result.response.usageMetadata?.promptTokenCount || 0;
+                completionTokens = result.response.usageMetadata?.candidatesTokenCount || 0;
+                tokensUsed = result.response.usageMetadata?.totalTokenCount || 0;
             }
-
-            const data = await response.json();
-            const generatedText = data.choices[0]?.message?.content?.trim();
 
             if (!generatedText) {
                 throw new HttpsError('internal', 'No text generated');
             }
 
-            // Track usage under GPT-4o-mini (text generation uses GPT-4o-mini)
-            const promptTokens = data.usage?.prompt_tokens || 0;
-            const completionTokens = data.usage?.completion_tokens || 0;
-            const tokensUsed = data.usage?.total_tokens || 0;
+            // Track usage
+            const statsKey = resolvedModelId.replace(/\./g, '_');
+
 
             await db.collection('users').doc(auth.uid).update({
-                // Per-model tracking (new)
-                'tokens.gpt4oMini.prompt': admin.firestore.FieldValue.increment(promptTokens),
-                'tokens.gpt4oMini.completion': admin.firestore.FieldValue.increment(completionTokens),
-                'tokens.gpt4oMini.total': admin.firestore.FieldValue.increment(tokensUsed),
+                // Per-model tracking
+                [`tokens.${statsKey}.prompt`]: admin.firestore.FieldValue.increment(promptTokens),
+                [`tokens.${statsKey}.completion`]: admin.firestore.FieldValue.increment(completionTokens),
+                [`tokens.${statsKey}.total`]: admin.firestore.FieldValue.increment(tokensUsed),
 
-                // Legacy field (kept for backward compatibility)
+                // Legacy field
                 tokensTotal: admin.firestore.FieldValue.increment(tokensUsed),
 
                 lastActive: admin.firestore.FieldValue.serverTimestamp(),
             });
 
-            console.log(`[GenerateText] Generated ${generatedText.length} characters, ${tokensUsed} tokens`);
+            console.log(`[GenerateText] Generated ${generatedText.length} chars using ${provider}/${resolvedModelId}`);
 
             return {
                 success: true,

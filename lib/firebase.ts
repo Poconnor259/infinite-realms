@@ -347,9 +347,9 @@ export const processGameAction = httpsCallable<ProcessInputRequest, ProcessInput
     'processGameAction'
 );
 
-// Generate text with AI (for character creation, etc.)
+// Generate text with AI (for character creation, testing, etc.)
 export const generateText = httpsCallable<
-    { prompt: string; maxLength?: number },
+    { prompt: string; maxLength?: number; modelId?: string },
     { success: boolean; text?: string; error?: string }
 >(functions, 'generateText');
 

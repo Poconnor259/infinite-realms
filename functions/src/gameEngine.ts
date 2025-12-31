@@ -215,6 +215,9 @@ export async function processGameAction(
                     }
                     // Add enforce flag (default true if missing)
                     (narratorLimits as any).enforce = gc.systemSettings.enforceNarratorWordLimits !== false;
+                    // Add max output tokens config
+                    (narratorLimits as any).maxOutputTokens = gc.systemSettings.maxOutputTokens || 4096;
+                    (narratorLimits as any).enforceMaxOutputTokens = gc.systemSettings.enforceMaxOutputTokens !== false;
                 }
             }
         } catch (error) {
@@ -369,6 +372,7 @@ export async function processGameAction(
             narratorWordLimitMax: narratorLimits.max,
             enforceWordLimits: (narratorLimits as any).enforce,
             characterProfile: (currentState as any).character,
+            maxTokens: (narratorLimits as any).enforceMaxOutputTokens ? (narratorLimits as any).maxOutputTokens : undefined,
         });
 
         if (!voiceResult.success) {

@@ -35,6 +35,26 @@ const MODULE_METADATA = [
     },
 ];
 
+// Helper function to format model ID into a display name
+const formatModelName = (id: string): string => {
+    // Convert claude-opus-4-5-20251101 -> "Claude Opus 4.5"
+    return id
+        .replace(/-\d{8}$/, '') // Remove date suffix
+        .replace(/-/g, ' ')
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ')
+        .replace(/(\d) (\d)/g, '$1.$2'); // "4 5" -> "4.5"
+};
+
+// Helper function to detect provider from model ID
+const detectProvider = (id: string): 'openai' | 'anthropic' | 'google' => {
+    if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3') || id.includes('openai')) return 'openai';
+    if (id.startsWith('claude')) return 'anthropic';
+    if (id.startsWith('gemini') || id.includes('google')) return 'google';
+    return 'openai'; // Default
+};
+
 export default function AdminConfigScreen() {
     const router = useRouter();
     const { colors } = useThemeColors();
@@ -68,12 +88,12 @@ export default function AdminConfigScreen() {
     const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
 
     // Model testing state
-    const [brainTestInput, setBrainTestInput] = useState('Hello, world!');
-    const [voiceTestInput, setVoiceTestInput] = useState('Hello, world!');
+    const [brainTestInput, setBrainTestInput] = useState('What is your technical model name?');
+    const [voiceTestInput, setVoiceTestInput] = useState('What is your technical model name?');
     const [brainTestResponse, setBrainTestResponse] = useState('');
-    const [voiceTestResponse, setVoiceTestResponse] = useState('');
+    const [voiceTestResponses, setVoiceTestResponses] = useState<{ economical?: string; balanced?: string; premium?: string }>({});
     const [testingBrain, setTestingBrain] = useState(false);
-    const [testingVoice, setTestingVoice] = useState(false);
+    const [testingVoiceTier, setTestingVoiceTier] = useState<string | null>(null);
 
     // API Keys State
     const [apiKeyStatus, setApiKeyStatus] = useState<ApiKeyStatus | null>(null);
@@ -110,6 +130,26 @@ export default function AdminConfigScreen() {
             const aiDoc = await getDoc(doc(db, 'config', 'aiSettings'));
             if (aiDoc.exists()) {
                 setAiSettings(aiDoc.data() as any);
+            }
+
+            // Merge favorited models into the available list
+            // This ensures any model that was favorited (even if from API refresh) always appears
+            if (loadedConfig.favoriteModels && loadedConfig.favoriteModels.length > 0) {
+                const staticModelIds = new Set(AVAILABLE_MODELS.map(m => m.id));
+                const missingFavorites = loadedConfig.favoriteModels.filter((id: string) => !staticModelIds.has(id));
+
+                if (missingFavorites.length > 0) {
+                    console.log(`[Config] Adding ${missingFavorites.length} favorited models not in static list`);
+                    const syntheticModels: ModelDefinition[] = missingFavorites.map((id: string) => ({
+                        id,
+                        name: formatModelName(id), // Generate nice name from ID
+                        provider: detectProvider(id),
+                        defaultPricing: { prompt: 1.0, completion: 5.0 },
+                        defaultTurnCost: 5,
+                        description: 'Favorited model'
+                    }));
+                    setAvailableModels([...AVAILABLE_MODELS, ...syntheticModels]);
+                }
             }
         } catch (error) {
             console.error('[Config] Failed to load:', error);
@@ -168,24 +208,30 @@ export default function AdminConfigScreen() {
         }
     };
 
-    const testVoiceModel = async () => {
+    const testVoiceModel = async (tier: 'economical' | 'balanced' | 'premium') => {
         if (!voiceTestInput.trim()) {
             Alert.alert('Error', 'Please enter a test message');
             return;
         }
-        setTestingVoice(true);
-        setVoiceTestResponse('');
+        // Get the model ID from tierMapping
+        const modelId = config?.tierMapping?.[tier];
+        if (!modelId) {
+            Alert.alert('Error', `No model configured for ${tier} tier. Set it in Tier Mapping section below.`);
+            return;
+        }
+        setTestingVoiceTier(tier);
+        setVoiceTestResponses(prev => ({ ...prev, [tier]: '' }));
         try {
-            const result = await generateText({ prompt: voiceTestInput });
+            const result = await generateText({ prompt: voiceTestInput, modelId });
             if (result.data.success) {
-                setVoiceTestResponse(result.data.text || 'No response');
+                setVoiceTestResponses(prev => ({ ...prev, [tier]: result.data.text || 'No response' }));
             } else {
-                setVoiceTestResponse(`Error: ${result.data.error}`);
+                setVoiceTestResponses(prev => ({ ...prev, [tier]: `Error: ${result.data.error}` }));
             }
         } catch (error: any) {
-            setVoiceTestResponse(`Error: ${error.message}`);
+            setVoiceTestResponses(prev => ({ ...prev, [tier]: `Error: ${error.message}` }));
         } finally {
-            setTestingVoice(false);
+            setTestingVoiceTier(null);
         }
     };
 
@@ -502,17 +548,17 @@ export default function AdminConfigScreen() {
 
             {/* Global AI Model Selection */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Global AI Models (Default)</Text>
+                <Text style={styles.sectionTitle}>Global Brain Model (Game Logic)</Text>
                 <View style={styles.card}>
                     <Text style={[styles.helpText, { marginBottom: spacing.md }]}>
-                        These are the default global models used when users haven't picked their own preference.
+                        The Brain model handles game logic and state updates. Voice models are tier-based (see Tier Mapping below).
                     </Text>
 
                     {/* Brain Model Dropdown */}
                     <View style={{ marginBottom: spacing.lg }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                             <Ionicons name="hardware-chip" size={18} color={colors.primary[400]} />
-                            <Text style={styles.fieldLabel}>Brain Model (Game Logic)</Text>
+                            <Text style={styles.fieldLabel}>Brain Model</Text>
                         </View>
                         <TouchableOpacity
                             style={styles.dropdown}
@@ -547,51 +593,12 @@ export default function AdminConfigScreen() {
                         )}
                     </View>
 
-                    {/* Voice Model Dropdown */}
-                    <View style={{ marginBottom: spacing.lg }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                            <Ionicons name="sparkles" size={18} color={colors.gold.main} />
-                            <Text style={styles.fieldLabel}>Voice Model (Narration)</Text>
-                        </View>
-                        <TouchableOpacity
-                            style={styles.dropdown}
-                            onPress={() => setVoiceDropdownOpen(!voiceDropdownOpen)}
-                        >
-                            <Text style={styles.dropdownText}>
-                                {voiceModels.find(m => m.id === aiSettings.voiceModel)?.name || aiSettings.voiceModel}
-                            </Text>
-                            <Ionicons name={voiceDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={colors.text.secondary} />
-                        </TouchableOpacity>
-                        {voiceDropdownOpen && (
-                            <View style={styles.dropdownList}>
-                                {voiceModels.filter(m => !showFavoritesOnly || config?.favoriteModels?.includes(m.id)).map(model => (
-                                    <TouchableOpacity
-                                        key={model.id}
-                                        style={[styles.dropdownItem, aiSettings.voiceModel === model.id && styles.dropdownItemSelected]}
-                                        onPress={() => {
-                                            setAiSettings(prev => ({ ...prev, voiceModel: model.id }));
-                                            setVoiceDropdownOpen(false);
-                                        }}
-                                    >
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.dropdownItemText}>{model.name}</Text>
-                                            <Text style={styles.modelId}>{model.id}</Text>
-                                        </View>
-                                        {aiSettings.voiceModel === model.id && (
-                                            <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
-                            </View>
-                        )}
-                    </View>
-
                     <TouchableOpacity
                         style={styles.saveButton}
                         onPress={saveAiSettings}
                         disabled={savingAi}
                     >
-                        {savingAi ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save AI Model Settings</Text>}
+                        {savingAi ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Save Brain Model</Text>}
                     </TouchableOpacity>
                 </View>
             </View>
@@ -628,9 +635,12 @@ export default function AdminConfigScreen() {
                         ) : null}
                     </View>
 
-                    {/* Voice Test */}
+                    {/* Voice Test - Tier Based */}
                     <View>
-                        <Text style={styles.fieldLabel}>Test Voice Model</Text>
+                        <Text style={styles.fieldLabel}>Test Voice Models (by Tier)</Text>
+                        <Text style={[styles.helpText, { marginBottom: spacing.sm }]}>
+                            Test each tier's configured Voice model
+                        </Text>
                         <TextInput
                             style={[styles.input, { marginBottom: spacing.sm }]}
                             value={voiceTestInput}
@@ -638,16 +648,64 @@ export default function AdminConfigScreen() {
                             placeholder="Enter test prompt..."
                             placeholderTextColor={colors.text.muted}
                         />
-                        <TouchableOpacity
-                            style={[styles.saveButton, { backgroundColor: colors.gold.main }]}
-                            onPress={testVoiceModel}
-                            disabled={testingVoice}
-                        >
-                            {testingVoice ? <ActivityIndicator color="#000" /> : <Text style={styles.saveButtonText}>Test Voice</Text>}
-                        </TouchableOpacity>
-                        {voiceTestResponse ? (
-                            <View style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.background.tertiary, borderRadius: borderRadius.sm }}>
-                                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{voiceTestResponse}</Text>
+
+                        {/* Tier Test Buttons */}
+                        <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.sm }}>
+                            <TouchableOpacity
+                                style={[styles.saveButton, { flex: 1, backgroundColor: '#10b981' }]}
+                                onPress={() => testVoiceModel('economical')}
+                                disabled={testingVoiceTier !== null}
+                            >
+                                {testingVoiceTier === 'economical' ? <ActivityIndicator color="#fff" /> : (
+                                    <View style={{ alignItems: 'center' }}>
+                                        <Text style={[styles.saveButtonText, { color: '#fff' }]}>Economical</Text>
+                                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>{config?.tierMapping?.economical || 'Not set'}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.saveButton, { flex: 1, backgroundColor: '#3b82f6' }]}
+                                onPress={() => testVoiceModel('balanced')}
+                                disabled={testingVoiceTier !== null}
+                            >
+                                {testingVoiceTier === 'balanced' ? <ActivityIndicator color="#fff" /> : (
+                                    <View style={{ alignItems: 'center' }}>
+                                        <Text style={[styles.saveButtonText, { color: '#fff' }]}>Balanced</Text>
+                                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>{config?.tierMapping?.balanced || 'Not set'}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.saveButton, { flex: 1, backgroundColor: '#a855f7' }]}
+                                onPress={() => testVoiceModel('premium')}
+                                disabled={testingVoiceTier !== null}
+                            >
+                                {testingVoiceTier === 'premium' ? <ActivityIndicator color="#fff" /> : (
+                                    <View style={{ alignItems: 'center' }}>
+                                        <Text style={[styles.saveButtonText, { color: '#fff' }]}>Premium</Text>
+                                        <Text style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)' }}>{config?.tierMapping?.premium || 'Not set'}</Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Response Display for Each Tier */}
+                        {voiceTestResponses.economical ? (
+                            <View style={{ marginBottom: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(16,185,129,0.1)', borderRadius: borderRadius.sm, borderLeftWidth: 3, borderLeftColor: '#10b981' }}>
+                                <Text style={{ color: '#10b981', fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>Economical:</Text>
+                                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{voiceTestResponses.economical}</Text>
+                            </View>
+                        ) : null}
+                        {voiceTestResponses.balanced ? (
+                            <View style={{ marginBottom: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(59,130,246,0.1)', borderRadius: borderRadius.sm, borderLeftWidth: 3, borderLeftColor: '#3b82f6' }}>
+                                <Text style={{ color: '#3b82f6', fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>Balanced:</Text>
+                                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{voiceTestResponses.balanced}</Text>
+                            </View>
+                        ) : null}
+                        {voiceTestResponses.premium ? (
+                            <View style={{ marginBottom: spacing.sm, padding: spacing.sm, backgroundColor: 'rgba(168,85,247,0.1)', borderRadius: borderRadius.sm, borderLeftWidth: 3, borderLeftColor: '#a855f7' }}>
+                                <Text style={{ color: '#a855f7', fontSize: 11, fontWeight: 'bold', marginBottom: 4 }}>Premium:</Text>
+                                <Text style={{ color: colors.text.secondary, fontSize: 12 }}>{voiceTestResponses.premium}</Text>
                             </View>
                         ) : null}
                     </View>
@@ -1137,6 +1195,35 @@ export default function AdminConfigScreen() {
                             placeholderTextColor={colors.text.muted}
                         />
                     </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Max Output Tokens</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Maximum tokens for AI responses (prevents truncation). Default: 4096
+                            </Text>
+                        </View>
+                        <TextInput
+                            style={[styles.input, { width: 80, textAlign: 'center' }]}
+                            value={String(config?.systemSettings?.maxOutputTokens ?? 4096)}
+                            keyboardType="numeric"
+                            onChangeText={(v) => updateSystemSettingNumber('maxOutputTokens', v)}
+                            placeholder="4096"
+                            placeholderTextColor={colors.text.muted}
+                        />
+                    </View>
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Enforce Max Tokens</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                When OFF, AI uses its model default (no limit)
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.systemSettings?.enforceMaxOutputTokens ?? true}
+                            onValueChange={() => toggleSystemSetting('enforceMaxOutputTokens')}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
                 </View>
             </View >
 
@@ -1519,5 +1606,30 @@ const createStyles = (colors: any) => StyleSheet.create({
     modelChipTextSelected: {
         color: '#fff',
         fontWeight: 'bold',
+    },
+    // Dropdown styles for AI Model Selection
+    dropdown: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        backgroundColor: colors.background.tertiary,
+        padding: spacing.md,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    dropdownText: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.md,
+    },
+    modelId: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+    },
+    modelName: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+        color: colors.text.primary,
     },
 });

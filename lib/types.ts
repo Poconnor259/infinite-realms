@@ -513,23 +513,23 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
 
     // Anthropic Models
     {
-        id: 'claude-3-5-sonnet-20241022',
-        name: 'Claude 3.5 Sonnet (New)',
+        id: 'claude-3-5-sonnet-latest',
+        name: 'Claude 3.5 Sonnet',
         provider: 'anthropic',
         defaultPricing: { prompt: 3.00, completion: 15.00 },
         defaultTurnCost: 10,
         description: 'Intelligent and versatile'
     },
     {
-        id: 'claude-3-5-haiku-20241022',
+        id: 'claude-3-5-haiku-latest',
         name: 'Claude 3.5 Haiku',
         provider: 'anthropic',
-        defaultPricing: { prompt: 1.00, completion: 5.00 }, // Approx
+        defaultPricing: { prompt: 0.80, completion: 4.00 },
         defaultTurnCost: 1,
         description: 'Extremely fast'
     },
     {
-        id: 'claude-3-opus-20240229',
+        id: 'claude-3-opus-latest',
         name: 'Claude 3 Opus',
         provider: 'anthropic',
         defaultPricing: { prompt: 15.00, completion: 75.00 },
@@ -537,28 +537,29 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
         description: 'Previous flagship'
     },
     {
-        id: 'claude-opus-4-5-20251101',
-        name: 'Claude Opus 4.5',
+        id: 'claude-opus-4-0-20250514',
+        name: 'Claude Opus 4',
         provider: 'anthropic',
         defaultPricing: { prompt: 15.00, completion: 75.00 },
         defaultTurnCost: 15,
-        description: 'Next gen storytelling'
-    },
-    {
-        id: 'claude-haiku-4-5-20251001',
-        name: 'Claude Haiku 4.5',
-        provider: 'anthropic',
-        defaultPricing: { prompt: 1.00, completion: 5.00 },
-        defaultTurnCost: 1,
-        description: 'Ultra fast next gen'
+        description: 'Latest flagship model'
     },
 
     // Google Gemini Models
     {
-        id: 'gemini-3-flash-preview',
-        name: 'Gemini 3.0 Flash (Preview)',
+        id: 'gemini-3-pro-preview',
+        name: 'Gemini 3 Pro Preview',
         provider: 'google',
-        contextWindow: 2000000, // 2M+ context window
+        contextWindow: 2000000,
+        defaultPricing: { prompt: 1.25, completion: 5.00 },
+        defaultTurnCost: 10,
+        description: 'Next-gen flagship'
+    },
+    {
+        id: 'gemini-3-flash-preview',
+        name: 'Gemini 3 Flash Preview',
+        provider: 'google',
+        contextWindow: 2000000,
         defaultPricing: { prompt: 0.20, completion: 0.80 },
         defaultTurnCost: 1,
         description: 'Next-gen speed'
@@ -615,6 +616,8 @@ export interface GlobalConfig {
         heartbeatIdleTimeout: number; // Minutes before heartbeat stops (default: 15)
         enforceNarratorWordLimits: boolean; // Whether to instruct AI to follow limits
         defaultTurnCost: number; // Catch-all turn cost (default: 1)
+        maxOutputTokens: number; // Max tokens for AI responses (default: 2048)
+        enforceMaxOutputTokens: boolean; // Whether to enforce the max tokens limit (default: true)
     };
     modelCosts?: Record<string, number>; // Turns per action for each model ID
     favoriteModels?: string[]; // IDs of models active for selection

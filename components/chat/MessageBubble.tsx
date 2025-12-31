@@ -80,10 +80,6 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
         if (isUser) return styles.userBubble;
         if (isSystem) return styles.systemBubble;
         if (isBlueBox) return styles.blueBoxBubble;
-        // Alternate narrator bubble colors only if setting is enabled
-        if (alternatingColors) {
-            return index % 2 === 0 ? styles.narratorBubble : styles.narratorBubbleAlt;
-        }
         return styles.narratorBubble;
     };
 
@@ -91,10 +87,6 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
         if (isUser) return styles.userText;
         if (isSystem) return styles.systemText;
         if (isBlueBox) return styles.blueBoxText;
-        // Use slightly different text color for alternating bubbles only if setting is enabled
-        if (alternatingColors) {
-            return index % 2 === 0 ? styles.narratorText : styles.narratorTextAlt;
-        }
         return styles.narratorText;
     };
 
