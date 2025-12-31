@@ -297,6 +297,8 @@ export interface ProcessInputRequest {
         openai?: string;
         anthropic?: string;
     };
+    interactiveDiceRolls?: boolean;
+    rollResult?: number;
 }
 
 export interface ProcessInputResponse {
@@ -310,6 +312,13 @@ export interface ProcessInputResponse {
         prompt: string;
         options?: string[];
         choiceType: string;
+    };
+    pendingRoll?: {
+        type: string;
+        purpose: string;
+        modifier?: number;
+        stat?: string;
+        difficulty?: number;
     };
     remainingTurns?: number;
     voiceModelId?: string;

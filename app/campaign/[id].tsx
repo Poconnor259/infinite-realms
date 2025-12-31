@@ -25,6 +25,7 @@ import { HPBar } from '../../components/hud/HPBar';
 import { StatRow, ResourceBar } from '../../components/hud/StatCard';
 import { CharacterPanel } from '../../components/character/CharacterPanel';
 import { Logo } from '../../components/ui/Logo';
+import { DiceRoller } from '../../components/DiceRoller';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
 import type { Message, WorldModuleType, ClassicModuleState, OutworlderModuleState, TacticalModuleState } from '../../lib/types';
 
@@ -178,6 +179,8 @@ export default function CampaignScreen() {
         error,
         pendingChoice,
         setPendingChoice,
+        pendingRoll,
+        submitRollResult,
     } = useGameStore();
     const user = useUserStore((state) => state.user);
     const isUserLoading = useUserStore((state) => state.isLoading);
@@ -506,6 +509,17 @@ export default function CampaignScreen() {
                                     </Text>
                                 )}
                             </View>
+                        )}
+
+                        {/* Dice Roller Display */}
+                        {!isLoading && pendingRoll && (
+                            <DiceRoller
+                                pendingRoll={pendingRoll}
+                                onRollComplete={(result) => {
+                                    console.log('[Campaign] Dice roll complete:', result);
+                                    submitRollResult(result.total);
+                                }}
+                            />
                         )}
 
                         {/* Navigation Buttons */}

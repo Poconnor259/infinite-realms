@@ -64,6 +64,13 @@ interface GameState {
         options?: string[];
         choiceType: string;
     } | null;
+    pendingRoll: {
+        type: string;
+        purpose: string;
+        modifier?: number;
+        stat?: string;
+        difficulty?: number;
+    } | null;
 
     // Edit & Retry
     editingMessage: string | null; // Text of message being edited
@@ -78,6 +85,8 @@ interface GameState {
     updateModuleState: (updates: Partial<ModuleState>) => void;
     clearMessages: () => void;
     setPendingChoice: (choice: { prompt: string; options?: string[]; choiceType: string } | null) => void;
+    setPendingRoll: (roll: { type: string; purpose: string; modifier?: number; stat?: string; difficulty?: number } | null) => void;
+    submitRollResult: (rollResult: number) => Promise<void>;
 
     // Edit & Retry Actions
     setEditingMessage: (text: string | null) => void;
@@ -96,6 +105,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     isLoading: false,
     error: null,
     pendingChoice: null,
+    pendingRoll: null,
     editingMessage: null,
     lastFailedRequest: null,
 
@@ -139,6 +149,94 @@ export const useGameStore = create<GameState>((set, get) => ({
     clearMessages: () => set({ messages: [] }),
 
     setPendingChoice: (choice) => set({ pendingChoice: choice }),
+
+    setPendingRoll: (roll) => set({ pendingRoll: roll }),
+
+    submitRollResult: async (rollResult: number) => {
+        const state = get();
+        if (!state.currentCampaign || !state.pendingRoll) return;
+
+        // Clear the pending roll and set loading
+        set({ pendingRoll: null, isLoading: true, error: null });
+
+        try {
+            const user = useUserStore.getState().user;
+            const settings = useSettingsStore.getState();
+
+            if (!user) {
+                throw new Error("User not authenticated");
+            }
+
+            // Call Cloud Function with roll result to continue
+            const result = await processGameAction({
+                campaignId: state.currentCampaign.id,
+                userInput: `[DICE ROLL RESULT: ${rollResult}]`, // Special marker for continuation
+                worldModule: state.currentCampaign.worldModule,
+                currentState: state.currentCampaign.moduleState as any,
+                chatHistory: state.messages.slice(-10).map(m => ({
+                    role: m.role,
+                    content: m.content
+                })),
+                userTier: user.tier || 'scout',
+                byokKeys: {
+                    openai: settings.openaiKey || undefined,
+                    anthropic: settings.anthropicKey || undefined,
+                },
+                interactiveDiceRolls: false, // Don't pause again
+                rollResult: rollResult,
+            });
+
+            if (!result.data.success) {
+                throw new Error(result.data.error || 'Failed to process roll result');
+            }
+
+            const narrative = result.data.narrativeText || '...';
+
+            const narratorMessage: Message = {
+                id: `msg_${Date.now()}`,
+                role: 'narrator',
+                content: narrative,
+                timestamp: Date.now(),
+                metadata: {
+                    voiceModel: result.data.voiceModelId,
+                    turnCost: result.data.turnCost,
+                    diceRolls: [{ type: state.pendingRoll?.type || 'd20', result: rollResult, total: rollResult + (state.pendingRoll?.modifier || 0), purpose: state.pendingRoll?.purpose }],
+                    debug: result.data.debug,
+                },
+            };
+
+            // Update state with narrator message
+            set((s) => {
+                const updatedCampaign = s.currentCampaign!;
+                if (result.data.stateUpdates) {
+                    updatedCampaign.moduleState = {
+                        ...updatedCampaign.moduleState,
+                        ...result.data.stateUpdates
+                    };
+                    updatedCampaign.updatedAt = Date.now();
+                }
+                return {
+                    messages: [...s.messages, narratorMessage],
+                    currentCampaign: updatedCampaign,
+                    isLoading: false,
+                    pendingChoice: result.data.requiresUserInput && result.data.pendingChoice
+                        ? result.data.pendingChoice
+                        : null,
+                };
+            });
+
+            // Sync turns balance if provided
+            if (result.data.remainingTurns !== undefined) {
+                useTurnsStore.setState({ balance: result.data.remainingTurns });
+            }
+        } catch (error) {
+            console.error('[Game] Roll result submission error:', error);
+            set({
+                isLoading: false,
+                error: error instanceof Error ? error.message : 'Roll submission failed',
+            });
+        }
+    },
 
     setEditingMessage: (text) => set({ editingMessage: text }),
 
@@ -241,13 +339,25 @@ export const useGameStore = create<GameState>((set, get) => ({
                 byokKeys: {
                     openai: settings.openaiKey || undefined,
                     anthropic: settings.anthropicKey || undefined,
-                }
+                },
+                interactiveDiceRolls: settings.diceRollMode !== 'auto',
             });
 
             console.log('[Game] Result:', result.data);
 
             if (!result.data.success) {
                 throw new Error(result.data.error || 'Unknown error from Game Brain');
+            }
+
+            // Check if we have a pending dice roll (no narrator message yet)
+            if (result.data.pendingRoll && result.data.requiresUserInput) {
+                console.log('[Game] Pending dice roll detected:', result.data.pendingRoll);
+                set({
+                    isLoading: false,
+                    pendingRoll: result.data.pendingRoll,
+                    pendingChoice: null,
+                });
+                return; // Wait for user to roll dice
             }
 
             const narrative = result.data.narrativeText || '...';
@@ -284,6 +394,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                     pendingChoice: result.data.requiresUserInput && result.data.pendingChoice
                         ? result.data.pendingChoice
                         : null,
+                    pendingRoll: null, // Clear any pending roll
                 };
             });
 
@@ -428,9 +539,9 @@ interface SettingsState {
     soundEffects: boolean;
     narratorVoice: boolean;
     backgroundAmbiance: boolean;
-    alternatingColors: boolean;
     showFavoritesOnly: boolean;
     themeMode: 'light' | 'dark' | 'system';
+    diceRollMode: 'auto' | 'digital' | 'physical';
 
     // Actions
     setApiKey: (provider: 'openai' | 'anthropic' | 'google', key: string | null) => void;
@@ -446,9 +557,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     soundEffects: true,
     narratorVoice: false,
     backgroundAmbiance: false,
-    alternatingColors: true,
     showFavoritesOnly: false,
     themeMode: 'system',
+    diceRollMode: 'digital',
 
     setApiKey: (provider, key) => {
         // Store securely (will use expo-secure-store in production)
@@ -477,9 +588,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const soundEffects = storage.getString('pref_soundEffects');
         const narratorVoice = storage.getString('pref_narratorVoice');
         const backgroundAmbiance = storage.getString('pref_backgroundAmbiance');
-        const alternatingColors = storage.getString('pref_alternatingColors');
         const showFavoritesOnly = storage.getString('pref_showFavoritesOnly');
         const themeMode = storage.getString('pref_themeMode');
+        const diceRollMode = storage.getString('pref_diceRollMode');
 
         set({
             openaiKey,
@@ -489,9 +600,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             soundEffects: soundEffects ? JSON.parse(soundEffects) : true,
             narratorVoice: narratorVoice ? JSON.parse(narratorVoice) : false,
             backgroundAmbiance: backgroundAmbiance ? JSON.parse(backgroundAmbiance) : false,
-            alternatingColors: alternatingColors ? JSON.parse(alternatingColors) : true,
             showFavoritesOnly: showFavoritesOnly ? JSON.parse(showFavoritesOnly) : false,
             themeMode: themeMode ? JSON.parse(themeMode) : 'system',
+            diceRollMode: diceRollMode ? JSON.parse(diceRollMode) : 'digital',
         });
     },
 }));

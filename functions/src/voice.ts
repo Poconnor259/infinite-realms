@@ -186,7 +186,18 @@ CRITICAL LENGTH REQUIREMENT:
 `;
         }
 
-        const systemPrompt = `${voicePrompt}
+        let systemPrompt = voicePrompt;
+
+        // Apply template replacements
+        systemPrompt = systemPrompt.replace('{{KNOWLEDGE_SECTION}}', knowledgeSection || '');
+        systemPrompt = systemPrompt.replace('{{CUSTOM_RULES_SECTION}}', customRulesSection || '');
+        systemPrompt = systemPrompt.replace('{{RESOURCE_CONSTRAINTS}}', resourceConstraints || '');
+        systemPrompt = systemPrompt.replace('{{CHARACTER_CONTEXT}}', characterContext || '');
+        systemPrompt = systemPrompt.replace('{{LENGTH_REQUIREMENT}}', lengthRequirement || '');
+
+        // BACKWARD COMPATIBILITY: If placeholders are missing, append the content
+        if (!voicePrompt.includes('{{STORYTELLING_RULES}}') && !systemPrompt.includes('STORYTELLING RULES:')) {
+            systemPrompt += `
 ${knowledgeSection}
 ${customRulesSection}
 ${resourceConstraints}
@@ -203,6 +214,7 @@ STORYTELLING RULES:
 8. CRITICAL: ALWAYS end your response with a complete thought. NEVER end mid-sentence. If you're running long, wrap up the current scene gracefully with something like "...as you consider your next move" rather than cutting off abruptly.
 
 SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK. No sexual content or hate speech.`;
+        }
 
         // ==================== CUE CONSTRUCTION ====================
 

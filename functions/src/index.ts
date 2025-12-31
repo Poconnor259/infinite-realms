@@ -8,6 +8,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { createCheckoutSession, handleStripeWebhook } from './stripe';
 // @ts-ignore - Used in processGameAction wrapper below
 import { processGameAction as processGameActionCore, GameRequest, GameResponse, resolveModelConfig } from './gameEngine';
+import { deepMergeState, decrementCooldowns } from './utils/stateHelpers';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
 import { initPromptHelper, seedAIPrompts, getStateReviewerSettings } from './promptHelper';
@@ -210,6 +211,8 @@ export const processGameAction = onCall(
             currentState,
             chatHistory,
             byokKeys,
+            interactiveDiceRolls,
+            rollResult,
         } = data;
 
         // Validate required fields
@@ -412,12 +415,29 @@ export const processGameAction = onCall(
                 knowledgeDocuments: [], // Converting optimization: Brain doesn't get heavy lore docs
                 customRules: effectiveCustomRules,
                 showSuggestedChoices, // Pass user preference
+                interactiveDiceRolls,
+                rollResult,
             });
 
             if (!brainResult.success || !brainResult.data) {
                 return {
                     success: false,
                     error: brainResult.error || 'Brain processing failed',
+                };
+            }
+
+            // If there's a pending roll, return early (no Voice AI call, no turn charge)
+            // User will roll dice and continue with rollResult
+            if (brainResult.data.pendingRoll && brainResult.data.requiresUserInput) {
+                console.log('[Brain] Pending dice roll required, pausing for user input');
+                return {
+                    success: true,
+                    stateUpdates: brainResult.data.stateUpdates || {},
+                    diceRolls: [],
+                    systemMessages: brainResult.data.systemMessages || [],
+                    requiresUserInput: true,
+                    pendingRoll: brainResult.data.pendingRoll,
+                    // Note: No turn charge for pending roll - will charge when user continues
                 };
             }
 
@@ -451,13 +471,17 @@ export const processGameAction = onCall(
                 console.error('[Voice] Generation failed:', voiceResult.error);
             }
 
-            // 6. State Consistency Review (optional - runs based on frequency setting)
+            // 6. Pre-process: Decrement cooldowns for new turn
+            let stateAfterCooldowns = decrementCooldowns(currentState);
+
+            // 7. DEEP MERGE stateUpdates to preserve character data (abilities, essences, etc.)
+            let finalState = deepMergeState(
+                stateAfterCooldowns,
+                brainResult.data.stateUpdates || {}
+            );
+
+            // 8. State Consistency Review (optional - runs based on frequency setting)
             let reviewerResult: any = null;
-            // MERGE stateUpdates into currentState to preserve character data
-            let finalState = {
-                ...currentState,
-                ...(brainResult.data.stateUpdates || {})
-            };
 
             // Deep merge character object to preserve existing character data
             if ((currentState as any).character && (brainResult.data.stateUpdates as any)?.character) {

@@ -24,6 +24,8 @@ export interface GameRequest {
         anthropic?: string;
         google?: string;
     };
+    interactiveDiceRolls?: boolean; // Whether user wants to roll dice manually
+    rollResult?: number; // Result from user's dice roll when continuing
 }
 
 export interface GameResponse {
@@ -44,6 +46,13 @@ export interface GameResponse {
         prompt: string;
         options?: string[];
         choiceType: string;
+    };
+    pendingRoll?: {
+        type: string;
+        purpose: string;
+        modifier?: number;
+        stat?: string;
+        difficulty?: number;
     };
     remainingTurns?: number;
     turnCost?: number;
@@ -168,6 +177,8 @@ export async function processGameAction(
         currentState,
         chatHistory,
         byokKeys,
+        interactiveDiceRolls,
+        rollResult,
     } = data;
 
     // Validate required fields
@@ -348,10 +359,27 @@ export async function processGameAction(
             model: brainConfig.model,
             apiKey: brainConfig.key,
             knowledgeDocuments: brainKnowledgeDocs,
+            interactiveDiceRolls,
+            rollResult,
         });
 
         if (!brainResult.success) {
             return { success: false, error: brainResult.error || 'Brain processing failed' };
+        }
+
+        // If there's a pending roll, return early (no Voice AI call, no turn charge)
+        // User will roll dice and continue with rollResult
+        if (brainResult.data?.pendingRoll && brainResult.data?.requiresUserInput) {
+            console.log('[Brain] Pending dice roll required, pausing for user input');
+            return {
+                success: true,
+                stateUpdates: brainResult.data?.stateUpdates || {},
+                diceRolls: [],
+                systemMessages: brainResult.data?.systemMessages || [],
+                requiresUserInput: true,
+                pendingRoll: brainResult.data.pendingRoll,
+                // Note: No turn charge for pending roll - will charge when user continues
+            };
         }
 
         const finalState = { ...currentState, ...(brainResult.data?.stateUpdates || {}) };

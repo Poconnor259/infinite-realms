@@ -17,6 +17,8 @@ interface BrainInput {
     knowledgeDocuments?: string[]; // Reference documents for context
     customRules?: string; // Optional custom rules for the AI logic
     showSuggestedChoices?: boolean; // Whether to include options in pendingChoice (default: true)
+    interactiveDiceRolls?: boolean; // Whether user wants to roll dice manually (default: false = auto-roll)
+    rollResult?: number; // Result from user's dice roll when continuing after pendingRoll
 }
 
 interface BrainOutput {
@@ -32,6 +34,13 @@ interface BrainOutput {
             prompt: string; // What to ask the player
             options?: string[]; // Suggested choices (only if user preference allows)
             choiceType: 'action' | 'target' | 'dialogue' | 'direction' | 'item' | 'decision';
+        };
+        pendingRoll?: {
+            type: string;           // "d20", "2d6", etc.
+            purpose: string;        // "Attack Roll", "Saving Throw", etc.
+            modifier?: number;      // +5, -2, etc.
+            stat?: string;          // "Strength", "Dexterity" (for display)
+            difficulty?: number;    // DC/Target number (optional)
         };
     };
     usage?: {
@@ -80,12 +89,21 @@ const BrainResponseSchema = z.object({
         options: z.array(z.string()).optional().describe('Suggested choices (only if user preference allows)'),
         choiceType: z.enum(['action', 'target', 'dialogue', 'direction', 'item', 'decision']).describe('Category of choice'),
     }).optional().describe('Player choice data when requiresUserInput is true'),
+    pendingRoll: z.object({
+        type: z.string().describe('Dice type, e.g., "d20" or "2d6"'),
+        purpose: z.string().describe('What the roll is for, e.g., "Attack Roll" or "Perception Check"'),
+        modifier: z.number().optional().describe('Modifier to add to roll'),
+        stat: z.string().optional().describe('Related stat, e.g., "Strength" or "Dexterity"'),
+        difficulty: z.number().optional().describe('DC/Target number for success'),
+    }).optional().describe('Pending dice roll when user needs to roll interactively'),
 });
 
 // ==================== MAIN BRAIN FUNCTION ====================
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
-    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true } = input;
+    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true, interactiveDiceRolls = false, rollResult } = input;
+
+    console.log(`[Brain] interactiveDiceRolls=${interactiveDiceRolls}, rollResult=${rollResult}`);
 
     try {
         // Build knowledge base section if documents exist
@@ -151,19 +169,57 @@ Acknowledge their essence in narrative but do not offer selection.
             }
         }
 
-        const systemPrompt = `${brainPrompt}
+        // Define dynamic instruction blocks
+        const diceRules = interactiveDiceRolls
+            ? `INTERACTIVE DICE MODE ENABLED - MANDATORY RULES:
+   - When ANY dice roll is needed (attack rolls, damage rolls, skill checks, saving throws, ability checks), you MUST:
+     a) Set "requiresUserInput": true
+     b) Set "pendingRoll" with: type (e.g., "d20", "2d6"), purpose (e.g., "Attack Roll vs Goblin", "Stealth Check"), modifier (number), stat (optional), difficulty (DC if known)
+     c) Leave "diceRolls" as an EMPTY array - do NOT auto-roll
+     d) In "narrativeCues", describe the setup but NOT the outcome (e.g., "You swing your sword..." not "You hit/miss")
+   - EXAMPLES when to pause for dice:
+     * Combat attacks: pendingRoll: { type: "d20", purpose: "Attack Roll", modifier: 3, stat: "Strength" }
+     * Skill checks: pendingRoll: { type: "d20", purpose: "Perception Check", modifier: 2, stat: "Wisdom", difficulty: 15 }
+     * Damage: pendingRoll: { type: "2d6", purpose: "Damage Roll (Longsword)", modifier: 3 }
+   - Do NOT resolve the outcome until the user provides the roll result.`
+            : 'Calculate all dice rolls using proper randomization simulation and include them in diceRolls array.';
+
+        const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
+
+        const rollResultRule = rollResult !== undefined
+            ? `CONTINUING FROM USER ROLL: The user rolled ${rollResult}. Process the outcome of this roll and continue the narrative accordingly. Do NOT request another roll.`
+            : '';
+
+        let systemPrompt = brainPrompt;
+
+        // Apply template replacements
+        systemPrompt = systemPrompt.replace('{{KNOWLEDGE_SECTION}}', knowledgeSection || '');
+        systemPrompt = systemPrompt.replace('{{CUSTOM_RULES_SECTION}}', customRulesSection || '');
+        systemPrompt = systemPrompt.replace('{{ESSENCE_OVERRIDE_SECTION}}', essenceOverrideSection || '');
+        systemPrompt = systemPrompt.replace('{{INTERACTIVE_DICE_RULES}}', diceRules);
+        systemPrompt = systemPrompt.replace('{{SUGGESTED_CHOICES_RULES}}', choicesRule);
+        systemPrompt = systemPrompt.replace('{{ROLL_RESULT_RULE}}', rollResultRule);
+
+        // BACKWARD COMPATIBILITY: If placeholders are missing (old prompt version), append the logic
+        if (!systemPrompt.includes(diceRules) && !brainPrompt.includes('{{INTERACTIVE_DICE_RULES}}')) {
+            systemPrompt += `
 ${knowledgeSection}
 ${customRulesSection}
 ${essenceOverrideSection}
+
 CRITICAL INSTRUCTIONS:
 1. You are ONLY the logic engine. You process game mechanics, not story.
 2. You MUST respond with valid JSON. Include a "stateUpdates" object with any changed game state fields.
-3. Calculate all dice rolls using proper randomization simulation.
+3. ${diceRules}
 4. Update only the state fields that changed in the stateUpdates object.
 5. Provide narrative cues for the storyteller, not full prose.
 6. Include any system messages (level ups, achievements, warnings).
 7. If reference materials or custom rules are provided, use them for world-consistent responses.
-8. USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}
+8. ${choicesRule}
+${rollResultRule}`;
+        }
+
+        systemPrompt += `
 
 CURRENT GAME STATE:
 ${JSON.stringify(currentState, null, 2)}
