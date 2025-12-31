@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
 import { getPrompt } from './promptHelper';
+import { getActiveQuest, type GameState } from './utils/stateHelpers';
 
 // ==================== TYPES ====================
 
@@ -219,7 +220,26 @@ CRITICAL INSTRUCTIONS:
 ${rollResultRule}`;
         }
 
-        systemPrompt += `
+        // Inject active quest context if exists
+        const activeQuest = getActiveQuest(currentState as GameState);
+        let questContext = '';
+        if (activeQuest) {
+            const objectives = activeQuest.objectives?.map(obj =>
+                `  ${obj.isCompleted ? '[\u2713]' : '[ ]'} ${obj.text}`
+            ).join('\n') || '';
+
+            questContext = `
+
+ACTIVE QUEST:
+Title: ${activeQuest.title}
+Description: ${activeQuest.description}
+Objectives:
+${objectives}
+
+IMPORTANT: Keep this quest objective in mind. The player is working towards completing these objectives.`;
+        }
+
+        systemPrompt += `${questContext}
 
 CURRENT GAME STATE:
 ${JSON.stringify(currentState, null, 2)}
