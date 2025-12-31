@@ -49,7 +49,6 @@ export default function SettingsScreen() {
         soundEffects,
         narratorVoice,
         backgroundAmbiance,
-        alternatingColors,
         showFavoritesOnly,
         themeMode,
         openaiKey,
@@ -318,20 +317,6 @@ export default function SettingsScreen() {
                                     onValueChange={(value) => setPreference('backgroundAmbiance', value)}
                                     trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
                                     thumbColor={backgroundAmbiance ? colors.primary[300] : colors.text.muted}
-                                />
-                            }
-                        />
-                        <Row
-                            label="Alternating Message Colors"
-                            sublabel="Use different colors for narrator messages"
-                            icon="color-palette-outline"
-                            iconColor="#f59e0b"
-                            rightElement={
-                                <Switch
-                                    value={alternatingColors}
-                                    onValueChange={(value) => setPreference('alternatingColors', value)}
-                                    trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
-                                    thumbColor={alternatingColors ? colors.primary[300] : colors.text.muted}
                                 />
                             }
                         />
