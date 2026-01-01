@@ -1,5 +1,6 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import type { NormalizedCharacter, NormalizedResource, NormalizedStat, NormalizedAbility, NormalizedItem } from '../../lib/normalizeCharacter';
@@ -14,6 +15,65 @@ interface UnifiedCharacterPanelProps {
 export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest }: UnifiedCharacterPanelProps) {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
+
+    // Enable LayoutAnimation for Android
+    if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+        UIManager.setLayoutAnimationEnabledExperimental(true);
+    }
+
+    // Previous Character Ref for simple change detection
+    const prevCharacter = useRef(character);
+    const [updates, setUpdates] = useState<Record<string, boolean>>({});
+
+    // Simple heuristic to detect changes in sections
+    useEffect(() => {
+        const newUpdates: Record<string, boolean> = { ...updates };
+        let hasChanges = false;
+
+        // Health/Resources change
+        const prevHp = prevCharacter.current.resources.find(r => r.name === 'HP')?.current;
+        const currHp = character.resources.find(r => r.name === 'HP')?.current;
+        if (prevHp !== currHp) {
+            newUpdates['resources'] = true;
+            hasChanges = true;
+        }
+
+        // Inventory change
+        if (prevCharacter.current.inventory.length !== character.inventory.length) {
+            newUpdates['inventory'] = true;
+            hasChanges = true;
+        }
+
+        // Stats change (e.g. level up or buff)
+        if (JSON.stringify(prevCharacter.current.stats) !== JSON.stringify(character.stats)) {
+            newUpdates['stats'] = true;
+            hasChanges = true;
+        }
+
+        // Adventures change (handled directly via suggestedQuests check usually, but stick to pattern)
+        if (character.suggestedQuests.length > prevCharacter.current.suggestedQuests.length) {
+            newUpdates['quests'] = true;
+            hasChanges = true;
+        }
+
+        // Abilities change
+        if (character.abilities.length !== prevCharacter.current.abilities.length) {
+            newUpdates['abilities'] = true;
+            hasChanges = true;
+        }
+
+        if (hasChanges) {
+            setUpdates(newUpdates);
+        }
+
+        prevCharacter.current = character;
+    }, [character]);
+
+    const clearUpdate = (key: string) => {
+        if (updates[key]) {
+            setUpdates(u => ({ ...u, [key]: false }));
+        }
+    };
 
     // Debug logging
     console.log('[UnifiedCharacterPanel] Rendering character:', character);
@@ -56,53 +116,16 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                 </View>
             </View>
 
-            {/* Resources Section */}
-            {character.resources.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Resources</Text>
-                    {character.resources.map((resource, index) => (
-                        <ResourceBar key={`${resource.name}-${index}`} resource={resource} colors={colors} />
-                    ))}
-                </View>
-            )}
-
-            {/* Stats Section */}
-            {character.stats.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Stats</Text>
-                    <View style={styles.statsGrid}>
-                        {character.stats.map((stat, index) => (
-                            <StatBox key={`${stat.id}-${index}`} stat={stat} colors={colors} />
-                        ))}
-                    </View>
-                </View>
-            )}
-
-            {/* Inventory Section */}
-            {character.inventory.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Inventory</Text>
-                    {character.inventory.map((item, index) => (
-                        <InventoryItem key={`${item.name}-${index}`} item={item} colors={colors} />
-                    ))}
-                </View>
-            )}
-
-            {/* Abilities Section */}
-            {character.abilities.length > 0 && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Abilities</Text>
-                    {character.abilities.map((ability, index) => (
-                        <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} />
-                    ))}
-                </View>
-            )}
-
-            {/* Quests Section */}
+            {/* Quests Section (Moved to Top) */}
             {(character.quests.length > 0 || character.suggestedQuests.length > 0) && (
-                <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Adventures</Text>
-
+                <CollapsibleSection
+                    title="Adventures"
+                    colors={colors}
+                    styles={styles}
+                    defaultExpanded={true}
+                    hasUpdate={updates['quests'] || character.suggestedQuests.length > 0}
+                    onExpand={() => clearUpdate('quests')}
+                >
                     {/* Suggested Quests (New Opportunities) */}
                     {character.suggestedQuests.map((quest, index) => (
                         <View key={`suggested-${quest.id || index}`} style={[styles.questCard, { borderColor: colors.primary[400], borderLeftWidth: 4 }]}>
@@ -142,7 +165,70 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                             )}
                         </View>
                     ))}
-                </View>
+                </CollapsibleSection>
+            )}
+
+            {/* Resources Section */}
+            {character.resources.length > 0 && (
+                <CollapsibleSection
+                    title="Resources"
+                    colors={colors}
+                    styles={styles}
+                    defaultExpanded={true}
+                    hasUpdate={updates['resources']}
+                    onExpand={() => clearUpdate('resources')}
+                >
+                    {character.resources.map((resource, index) => (
+                        <ResourceBar key={`${resource.name}-${index}`} resource={resource} colors={colors} />
+                    ))}
+                </CollapsibleSection>
+            )}
+
+            {/* Stats Section */}
+            {character.stats.length > 0 && (
+                <CollapsibleSection
+                    title="Stats"
+                    colors={colors}
+                    styles={styles}
+                    hasUpdate={updates['stats']}
+                    onExpand={() => clearUpdate('stats')}
+                >
+                    <View style={styles.statsGrid}>
+                        {character.stats.map((stat, index) => (
+                            <StatBox key={`${stat.id}-${index}`} stat={stat} colors={colors} />
+                        ))}
+                    </View>
+                </CollapsibleSection>
+            )}
+
+            {/* Inventory Section */}
+            {character.inventory.length > 0 && (
+                <CollapsibleSection
+                    title="Inventory"
+                    colors={colors}
+                    styles={styles}
+                    hasUpdate={updates['inventory']}
+                    onExpand={() => clearUpdate('inventory')}
+                >
+                    {character.inventory.map((item, index) => (
+                        <InventoryItem key={`${item.name}-${index}`} item={item} colors={colors} />
+                    ))}
+                </CollapsibleSection>
+            )}
+
+            {/* Abilities Section */}
+            {character.abilities.length > 0 && (
+                <CollapsibleSection
+                    title="Abilities"
+                    colors={colors}
+                    styles={styles}
+                    hasUpdate={updates['abilities']}
+                    onExpand={() => clearUpdate('abilities')}
+                >
+                    {character.abilities.map((ability, index) => (
+                        <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} />
+                    ))}
+                </CollapsibleSection>
             )}
 
             {/* World-Specific Extras */}
@@ -154,6 +240,53 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
 }
 
 // ==================== SUB-COMPONENTS ====================
+
+interface CollapsibleSectionProps {
+    title: string;
+    children: React.ReactNode;
+    colors: any;
+    styles: any;
+    hasUpdate?: boolean;
+    defaultExpanded?: boolean;
+    onExpand?: () => void;
+}
+
+function CollapsibleSection({ title, children, colors, styles, hasUpdate, defaultExpanded = false, onExpand }: CollapsibleSectionProps) {
+    const [expanded, setExpanded] = useState(defaultExpanded);
+
+    const toggle = () => {
+        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+        const nextState = !expanded;
+        setExpanded(nextState);
+        if (nextState && onExpand) {
+            onExpand();
+        }
+    };
+
+    return (
+        <View style={styles.sectionContainer}>
+            <TouchableOpacity onPress={toggle} style={styles.sectionHeader} activeOpacity={0.7}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>{title}</Text>
+                    {hasUpdate && !expanded && (
+                        <View style={styles.updateDot} />
+                    )}
+                </View>
+                <Ionicons
+                    name={expanded ? "chevron-down" : "chevron-forward"}
+                    size={20}
+                    color={colors.text.muted}
+                />
+            </TouchableOpacity>
+
+            {expanded && (
+                <View style={styles.sectionContent}>
+                    {children}
+                </View>
+            )}
+        </View>
+    );
+}
 
 function ResourceBar({ resource, colors }: { resource: NormalizedResource; colors: any }) {
     const percentage = resource.max > 0 ? (resource.current / resource.max) * 100 : 0;
@@ -371,16 +504,31 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.text.muted,
         fontStyle: 'italic',
     },
-    section: {
-        padding: spacing.md,
+    sectionContainer: {
         borderBottomWidth: 1,
         borderBottomColor: colors.border.default,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: spacing.md,
+    },
+    sectionContent: {
+        paddingHorizontal: spacing.md,
+        paddingBottom: spacing.md,
+    },
+    updateDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        backgroundColor: colors.primary[400],
     },
     sectionTitle: {
         fontSize: typography.fontSize.md,
         fontWeight: '600',
         color: colors.text.primary,
-        marginBottom: spacing.sm,
+        marginBottom: 0,
     },
     statsGrid: {
         flexDirection: 'row',
