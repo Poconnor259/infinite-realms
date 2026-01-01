@@ -101,7 +101,7 @@ const REWARD_SCALING: Record<number, { experience: number; gold: number; itemRar
 
 const QuestResponseSchema = z.object({
     quests: z.array(z.object({
-        id: z.string().describe('Unique quest ID'),
+        id: z.coerce.string().describe('Unique quest ID'),
         title: z.string().describe('Quest title'),
         description: z.string().describe('Quest description'),
         type: z.enum(['fetch', 'escort', 'kill', 'explore', 'puzzle', 'diplomacy', 'salvage', 'infiltration', 'research', 'defense', 'trade', 'assault', 'reconnaissance', 'extraction', 'sabotage', 'holdout']).describe('Quest type'),
@@ -109,7 +109,7 @@ const QuestResponseSchema = z.object({
         scope: z.enum(['errand', 'task', 'adventure', 'saga', 'epic']).describe('Quest length/scope'),
         estimatedTurns: z.number().optional().describe('Estimated turns to complete'),
         objectives: z.array(z.object({
-            id: z.string(),
+            id: z.coerce.string(),
             text: z.string(),
             isCompleted: z.boolean().default(false),
             optional: z.boolean().optional()
@@ -120,9 +120,9 @@ const QuestResponseSchema = z.object({
             items: z.array(z.string()).optional(),
             abilities: z.array(z.string()).optional()
         }).describe('Quest rewards'),
-        prerequisites: z.array(z.string()).optional().describe('Required quest IDs'),
+        prerequisites: z.array(z.coerce.string()).optional().describe('Required quest IDs'),
         expiresAfterTurns: z.number().optional().describe('Time limit in turns'),
-        chainId: z.string().optional().describe('Quest chain ID'),
+        chainId: z.coerce.string().optional().describe('Quest chain ID'),
         chainPart: z.number().optional().describe('Part number in chain')
     })),
     reasoning: z.string().describe('Why these quests fit the current moment')
@@ -130,8 +130,11 @@ const QuestResponseSchema = z.object({
 
 // ==================== PROMPT BUILDER ====================
 
-function buildPrompt(input: QuestMasterInput): string {
-    const { worldModule, currentState, triggerReason, recentEvents, maxQuests = 2 } = input;
+/**
+ * Builds the contextual data strings for template replacement
+ */
+function getTemplateData(input: QuestMasterInput): Record<string, string> {
+    const { worldModule, currentState, triggerReason, recentEvents } = input;
 
     const character = (currentState as any).character || {};
     const rank = character.rank || 1;
@@ -154,31 +157,59 @@ function buildPrompt(input: QuestMasterInput): string {
         ? recentEvents.join('\n')
         : '- No recent events';
 
-    return `You are the Quest Master for a ${worldModule} RPG campaign.
-
-## CHARACTER CONTEXT
+    return {
+        '{{CHARACTER_CONTEXT}}': `
 - Name: ${character.name || 'Unknown'}
 - Rank/Level: ${rank}
 - Class/Role: ${character.role || 'Adventurer'}
 - Key Abilities: ${character.abilities?.slice(0, 5).join(', ') || 'None'}
-- Current Location: ${(currentState as any).location || 'Unknown'}
+- Current Location: ${(currentState as any).location || 'Unknown'}`,
 
-## QUEST HISTORY
+        '{{QUEST_HISTORY}}': `
 Active Quests (DO NOT DUPLICATE):
 ${activeQuestList}
 
 Recently Completed:
-${completedQuestList}
+${completedQuestList}`,
+
+        '{{RECENT_EVENTS}}': recentEventsList,
+
+        '{{TRIGGER_CONTEXT}}': `
+Trigger: "${triggerReason}"
+Guidance: ${TRIGGER_GUIDANCE[triggerReason]}`,
+
+        '{{WORLD_CONTEXT}}': `
+World: ${worldModule.toUpperCase()}
+Available Quest Types: ${questTypes.join(', ')}`,
+
+        '{{REWARD_SCALING}}': `
+Current Scale (Rank ${rank}):
+- Experience: ${scaling.experience} XP
+- Gold: ${scaling.gold} gold
+- Item Rarity: ${scaling.itemRarity}`
+    };
+}
+
+function buildPrompt(input: QuestMasterInput): string {
+    const { worldModule, maxQuests = 2 } = input;
+    const data = getTemplateData(input);
+
+    let prompt = `You are the Quest Master for a ${worldModule} RPG campaign.
+
+## CHARACTER CONTEXT
+{{CHARACTER_CONTEXT}}
+
+## QUEST HISTORY
+{{QUEST_HISTORY}}
 
 ## RECENT EVENTS (Last 5 turns)
-${recentEventsList}
+{{RECENT_EVENTS}}
 
 ## TRIGGER REASON
-"${triggerReason}"
-${TRIGGER_GUIDANCE[triggerReason]}
+{{TRIGGER_CONTEXT}}
 
-## QUEST TYPE OPTIONS FOR ${worldModule.toUpperCase()}
-${questTypes.join(', ')}
+## QUEST TYPE OPTIONS
+{{WORLD_CONTEXT}}
 
 ## QUEST SCOPE OPTIONS
 - errand: 1-3 turns, 1 objective (quick favor, single task)
@@ -193,10 +224,8 @@ SCOPE GUIDANCE:
 - Queue Empty should mix scopes for variety
 - At least one 'saga' or 'epic' quest should exist at any time for long-term goals
 
-## REWARD SCALING (Level ${rank})
-- Experience: ${scaling.experience} XP
-- Gold: ${scaling.gold} gold
-- Item Rarity: ${scaling.itemRarity}
+## REWARD SCALING
+{{REWARD_SCALING}}
 
 ## OUTPUT REQUIREMENTS
 Generate ${maxQuests} quest(s) in JSON format.
@@ -204,6 +233,13 @@ Each quest MUST include: id, title, description, type, difficulty, scope, estima
 Optional: prerequisites, expiresAfterTurns, chainId, chainPart.
 
 Respond with JSON only. No markdown.`;
+
+    // Apply replacements to the default prompt
+    for (const [placeholder, value] of Object.entries(data)) {
+        prompt = prompt.split(placeholder).join(value);
+    }
+
+    return prompt;
 }
 
 // ==================== MAIN FUNCTION ====================
@@ -212,7 +248,19 @@ export async function generateQuests(input: QuestMasterInput): Promise<QuestMast
     const { provider, model, apiKey, customPrompt } = input;
 
     try {
-        const systemPrompt = customPrompt || buildPrompt(input);
+        let systemPrompt = customPrompt || buildPrompt(input);
+
+        // If using a custom prompt (from Admin UI), we MUST apply common replacements
+        if (customPrompt) {
+            const data = getTemplateData(input);
+            for (const [placeholder, value] of Object.entries(data)) {
+                systemPrompt = systemPrompt.split(placeholder).join(value);
+            }
+
+            // Also handle world name and max quests if they use placeholders
+            systemPrompt = systemPrompt.split('${worldModule}').join(input.worldModule);
+            systemPrompt = systemPrompt.split('${maxQuests}').join(String(input.maxQuests || 2));
+        }
 
         console.log(`[QuestMaster] Using provider: ${provider} (Model: ${model})`);
 

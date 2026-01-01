@@ -377,6 +377,42 @@ export default function AdminPromptsScreen() {
                     />
                 </View>
 
+                {/* Quest Master Prompt Section */}
+                <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                        <View style={styles.sectionTitleRow}>
+                            <Ionicons name="map" size={20} color="#8b5cf6" />
+                            <Text style={styles.sectionTitle}>Quest Master (Quest Generator)</Text>
+                        </View>
+                        {selectedScope !== 'global' && (
+                            <View style={styles.overrideToggle}>
+                                <Text style={styles.overrideLabel}>Override</Text>
+                                <Switch
+                                    value={overrideEnabled.questMasterPrompt}
+                                    onValueChange={() => toggleOverride('questMasterPrompt')}
+                                    trackColor={{ false: colors.border.default, true: colors.primary[400] }}
+                                />
+                            </View>
+                        )}
+                    </View>
+                    <Text style={styles.sectionDescription}>
+                        Generates context-aware quests based on triggers. Returns JSON.
+                    </Text>
+                    <TextInput
+                        style={[
+                            styles.promptInput,
+                            selectedScope !== 'global' && !overrideEnabled.questMasterPrompt && styles.promptInputDisabled
+                        ]}
+                        value={getCurrentValue('questMasterPrompt')}
+                        onChangeText={(text) => setCurrentValue('questMasterPrompt', text)}
+                        multiline
+                        textAlignVertical="top"
+                        placeholder="Enter quest master prompt..."
+                        placeholderTextColor={colors.text.muted}
+                        editable={selectedScope === 'global' || overrideEnabled.questMasterPrompt}
+                    />
+                </View>
+
                 {/* State Report Prompt Section (Global Only) - PRIMARY */}
                 {selectedScope === 'global' && (
                     <View style={styles.section}>

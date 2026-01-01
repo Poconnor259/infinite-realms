@@ -698,6 +698,7 @@ export const processGameAction = onCall(
 
             // 7. Quest Master - Generate quests based on triggers
             let questMasterSystemMessages: string[] = [];
+            let questMasterDebug: any = null;
             try {
                 const globalConfigDoc = await db.collection('config').doc('global').get();
                 const configData = globalConfigDoc.data() || {};
@@ -738,7 +739,9 @@ export const processGameAction = onCall(
                             );
 
                             questMasterSystemMessages.push(`Quest Master: ${questMasterResult.data.reasoning}`);
+                            questMasterDebug = questMasterResult;
                         } else if (questMasterResult.error) {
+                            questMasterDebug = { success: false, error: questMasterResult.error };
                             console.error('[QuestMaster] Generation failed:', questMasterResult.error);
                         }
                     } else {
@@ -909,6 +912,7 @@ export const processGameAction = onCall(
                     brainResponse: brainResult.data,
                     stateReport: voiceResult.stateReport || null,
                     reviewerResult: reviewerResult || null,
+                    questResult: questMasterDebug,
                     models: {
                         brain: brainConfig.model,
                         voice: voiceConfig.model,
@@ -1470,7 +1474,7 @@ export const requestQuestsTrigger = onCall(
         const questMasterConfig = resolveModelConfig(questMasterModel, undefined, secrets);
 
         if (!questMasterConfig.key) {
-            throw new HttpsError('failed-precondition', 'Quest Master API key not configured');
+            throw new HttpsError('failed-precondition', 'Quest Master API key not configured. Please add an API Key for the selected model provider in Admin > Config.');
         }
 
         const qmPrompt = await getQuestMasterPrompt(engineType);

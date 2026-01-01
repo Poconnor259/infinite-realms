@@ -62,6 +62,7 @@ export interface GameResponse {
         brainResponse: any;
         stateReport: any;
         reviewerResult: any;
+        questResult?: any;
         models?: {
             brain: string;
             voice: string;

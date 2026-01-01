@@ -64,13 +64,17 @@ export interface NormalizedCharacter {
     // Inventory
     inventory: NormalizedItem[];
 
+    // Quests
+    quests: any[];
+    suggestedQuests: any[];
+
     // World-specific extras (essences, confluence, etc.)
     extras: Record<string, any>;
 }
 
 // ==================== NORMALIZATION FUNCTION ====================
 
-export function normalizeCharacter(rawCharacter: any, worldType: string): NormalizedCharacter {
+export function normalizeCharacter(rawCharacter: any, worldType: string, questLog: any[] = [], suggestedQuests: any[] = []): NormalizedCharacter {
     if (!rawCharacter) {
         return getEmptyCharacter();
     }
@@ -107,6 +111,8 @@ export function normalizeCharacter(rawCharacter: any, worldType: string): Normal
         stats,
         abilities,
         inventory,
+        quests: Array.isArray(questLog) ? questLog : [],
+        suggestedQuests: Array.isArray(suggestedQuests) ? suggestedQuests : [],
         extras,
     };
 }
@@ -458,6 +464,8 @@ function getEmptyCharacter(): NormalizedCharacter {
         stats: [],
         abilities: [],
         inventory: [],
+        quests: [],
+        suggestedQuests: [],
         extras: {},
     };
 }

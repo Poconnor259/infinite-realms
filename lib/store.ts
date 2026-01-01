@@ -78,6 +78,7 @@ interface GameState {
 
     // Actions
     setCurrentCampaign: (campaign: Campaign | null) => void;
+    updateCurrentCampaign: (updates: Partial<Campaign>) => void;
     addMessage: (message: Message) => void;
     setMessages: (messages: Message[]) => void;
     setLoading: (loading: boolean) => void;
@@ -115,6 +116,18 @@ export const useGameStore = create<GameState>((set, get) => ({
             // Cache campaign ID
             storage.set('lastCampaignId', campaign.id);
         }
+    },
+
+    updateCurrentCampaign: (updates) => {
+        set((state) => {
+            if (!state.currentCampaign) return state;
+            return {
+                currentCampaign: {
+                    ...state.currentCampaign,
+                    ...updates,
+                }
+            };
+        });
     },
 
     addMessage: (message) => {
@@ -656,6 +669,8 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                     stamina: { current: 100, max: 100 },
                     mana: { current: 100, max: 100 },
                 },
+                encounterActive: false,
+                currentLocation: 'Unknown',
                 lootAwarded: [],
             } as OutworlderModuleState;
 
@@ -682,6 +697,7 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                     tacticalSquad: [],
                 },
                 inDungeon: false,
+                currentLocation: 'Unknown',
                 penaltyZoneActive: false,
             } as TacticalModuleState;
     }

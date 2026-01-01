@@ -27,6 +27,7 @@ export interface Message {
             brainResponse?: any;
             stateReport?: any;
             reviewerResult?: any;
+            questResult?: any;
             models?: {
                 brain: string;
                 voice: string;

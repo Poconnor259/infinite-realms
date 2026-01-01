@@ -13,8 +13,9 @@ import {
     Modal,
     ScrollView as RNScrollView,
 } from 'react-native';
-import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn, functions } from '../../lib/firebase';
+import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn, functions, db } from '../../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
+import { doc, onSnapshot } from 'firebase/firestore';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -183,6 +184,7 @@ export default function CampaignScreen() {
         setPendingChoice,
         pendingRoll,
         submitRollResult,
+        updateCurrentCampaign,
     } = useGameStore();
     const user = useUserStore((state) => state.user);
     const isUserLoading = useUserStore((state) => state.isLoading);
@@ -190,9 +192,6 @@ export default function CampaignScreen() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [menuVisible, setMenuVisible] = useState(false);
     const [panelVisible, setPanelVisible] = useState(false);
-    const [showQuestLog, setShowQuestLog] = useState(false);
-    const [suggestedQuests, setSuggestedQuests] = useState<any[]>([]);
-    const [isProcessingQuest, setIsProcessingQuest] = useState(false);
     const [isDesktop, setIsDesktop] = useState(() => {
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
             return window.innerWidth >= 768;
@@ -221,15 +220,22 @@ export default function CampaignScreen() {
         loadCampaign(id);
     }, [id, isUserLoading, user, loadCampaign]);
 
-    // Watch for suggested quests in game state
+    // Real-time listener for campaign updates (Quests, HP, etc.)
     useEffect(() => {
-        const state = currentCampaign?.moduleState as any;
-        if (state?.suggestedQuests) {
-            setSuggestedQuests(state.suggestedQuests);
-        } else {
-            setSuggestedQuests([]);
-        }
-    }, [currentCampaign?.moduleState]);
+        if (!id || !user?.id) return;
+
+        const campaignRef = doc(db, 'users', user.id, 'campaigns', id);
+        const unsubscribe = onSnapshot(campaignRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                updateCurrentCampaign(data);
+            }
+        });
+
+        return () => unsubscribe();
+    }, [id, user?.id]);
+
+    const [isProcessingQuest, setIsProcessingQuest] = useState(false);
 
     const handleAcceptQuest = async (questId: string) => {
         if (!id) return;
@@ -269,16 +275,20 @@ export default function CampaignScreen() {
             const result: any = await requestTrigger({ campaignId: id });
 
             if (result.data?.success) {
-                if (Platform.OS === 'web') {
-                    // @ts-ignore
-                    window.alert(`Quest Master: ${result.data.questsGenerated} new opportunities found!\n\n${result.data.reasoning}`);
-                } else {
-                    Alert.alert('New Quests!', `Quest Master: ${result.data.questsGenerated} new opportunities found.`);
-                }
+                // No more alerts - the real-time listener will update the Adventures panel
+                console.log(`Quest Master: ${result.data.questsGenerated} new opportunities found.`);
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error requesting quests:', error);
-            Alert.alert('Error', 'The Quest Master is currently unavailable. Try again later.');
+            // Extract meaningful message from Firebase error
+            const errorMessage = error.message || 'The Quest Master is currently unavailable.';
+            const displayMessage = errorMessage.replace('INTERNAL: ', '').replace('FAILED_PRECONDITION: ', '');
+
+            if (Platform.OS === 'web') {
+                console.warn(`Quest Master Error: ${displayMessage}`);
+            } else {
+                Alert.alert('Quest Master Error', displayMessage);
+            }
         } finally {
             setIsRequestingQuests(false);
         }
@@ -463,9 +473,18 @@ export default function CampaignScreen() {
                                 <View style={styles.headerRight}>
                                     <TouchableOpacity
                                         style={[styles.iconButton, { marginRight: spacing.sm }]}
-                                        onPress={() => setShowQuestLog(true)}
+                                        onPress={handleRequestQuests}
+                                        disabled={isRequestingQuests}
                                     >
-                                        <Ionicons name="map" size={24} color={((currentCampaign?.moduleState as any)?.questLog?.length ?? 0) > 0 ? colors.primary[400] : colors.text.muted} />
+                                        {isRequestingQuests ? (
+                                            <ActivityIndicator size="small" color={colors.primary[400]} />
+                                        ) : (
+                                            <Ionicons
+                                                name="sparkles"
+                                                size={24}
+                                                color={((currentCampaign?.moduleState as any)?.suggestedQuests?.length ?? 0) > 0 ? colors.primary[400] : colors.text.muted}
+                                            />
+                                        )}
                                     </TouchableOpacity>
                                     <TurnCounter />
                                     <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
@@ -474,104 +493,6 @@ export default function CampaignScreen() {
                                 </View>
                             </View>
 
-                            {/* QUEST LOG MODAL */}
-                            <Modal
-                                visible={showQuestLog}
-                                transparent={true}
-                                animationType="fade"
-                                onRequestClose={() => setShowQuestLog(false)}
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.questLogContainer}>
-                                        <View style={styles.modalHeader}>
-                                            <Text style={styles.modalTitle}>Quest Log</Text>
-                                            <TouchableOpacity onPress={() => setShowQuestLog(false)}>
-                                                <Ionicons name="close" size={24} color={colors.text.primary} />
-                                            </TouchableOpacity>
-                                        </View>
-
-                                        <RNScrollView style={styles.questLogScroll}>
-                                            {((currentCampaign?.moduleState as any)?.questLog?.length ?? 0) === 0 ? (
-                                                <Text style={styles.emptyText}>No active quests.</Text>
-                                            ) : (
-                                                (currentCampaign?.moduleState as any)?.questLog?.map((quest: any) => (
-                                                    <View key={quest.id} style={styles.questCard}>
-                                                        <Text style={styles.questTitle}>{quest.title}</Text>
-                                                        <Text style={styles.questDescription}>{quest.description}</Text>
-                                                        <View style={styles.questFooter}>
-                                                            <Text style={styles.questStatus}>{quest.status.toUpperCase()}</Text>
-                                                            <Text style={styles.questReward}>Reward: {quest.reward?.amount} {quest.reward?.type}</Text>
-                                                        </View>
-                                                    </View>
-                                                ))
-                                            )}
-                                        </RNScrollView>
-
-                                        <View style={styles.modalFooter}>
-                                            <TouchableOpacity
-                                                style={[styles.requestQuestsButton, isRequestingQuests && styles.disabledButton]}
-                                                onPress={handleRequestQuests}
-                                                disabled={isRequestingQuests}
-                                            >
-                                                {isRequestingQuests ? (
-                                                    <ActivityIndicator size="small" color="#000" />
-                                                ) : (
-                                                    <>
-                                                        <Ionicons name="sparkles" size={18} color="#000" style={{ marginRight: 8 }} />
-                                                        <Text style={styles.requestQuestsButtonText}>Request New Adventures</Text>
-                                                    </>
-                                                )}
-                                            </TouchableOpacity>
-                                        </View>
-                                    </View>
-                                </View>
-                            </Modal>
-
-                            {/* SUGGESTED QUESTS MODAL */}
-                            <Modal
-                                visible={suggestedQuests.length > 0}
-                                transparent={true}
-                                animationType="slide"
-                            >
-                                <View style={styles.modalOverlay}>
-                                    <View style={styles.suggestedQuestContainer}>
-                                        <Text style={styles.suggestedTitle}>Quest Opportunity!</Text>
-                                        <RNScrollView style={styles.suggestedScroll}>
-                                            {suggestedQuests.map((quest) => (
-                                                <View key={quest.id} style={styles.suggestedCard}>
-                                                    <Text style={styles.questTitle}>{quest.title}</Text>
-                                                    <View style={styles.questInhibitor}>
-                                                        <Text style={styles.questInhibitorText}>{quest.type.replace('_', ' ').toUpperCase()}</Text>
-                                                    </View>
-                                                    <Text style={styles.questDescription}>{quest.description}</Text>
-
-                                                    <View style={styles.rewardBox}>
-                                                        <Text style={styles.rewardTitle}>REWARD</Text>
-                                                        <Text style={styles.rewardText}>{quest.reward?.amount} {quest.reward?.type}</Text>
-                                                    </View>
-
-                                                    <View style={styles.suggestedActions}>
-                                                        <TouchableOpacity
-                                                            style={styles.declineButton}
-                                                            onPress={() => handleDeclineQuest(quest.id)}
-                                                            disabled={isProcessingQuest}
-                                                        >
-                                                            <Text style={styles.declineButtonText}>Decline</Text>
-                                                        </TouchableOpacity>
-                                                        <TouchableOpacity
-                                                            style={styles.acceptButton}
-                                                            onPress={() => handleAcceptQuest(quest.id)}
-                                                            disabled={isProcessingQuest}
-                                                        >
-                                                            <Text style={styles.acceptButtonText}>Accept Quest</Text>
-                                                        </TouchableOpacity>
-                                                    </View>
-                                                </View>
-                                            ))}
-                                        </RNScrollView>
-                                    </View>
-                                </View>
-                            </Modal>
 
                             {/* Inventory Button (Mobile) */}
                             {!isDesktop && (
@@ -736,6 +657,8 @@ export default function CampaignScreen() {
                     <CharacterPanel
                         moduleState={currentCampaign.moduleState}
                         worldModule={currentCampaign.worldModule}
+                        onAcceptQuest={handleAcceptQuest}
+                        onDeclineQuest={handleDeclineQuest}
                     />
                 </View>
                 )}

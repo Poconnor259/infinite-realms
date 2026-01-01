@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import type { NormalizedCharacter, NormalizedResource, NormalizedStat, NormalizedAbility, NormalizedItem } from '../../lib/normalizeCharacter';
@@ -7,9 +7,11 @@ import type { NormalizedCharacter, NormalizedResource, NormalizedStat, Normalize
 interface UnifiedCharacterPanelProps {
     character: NormalizedCharacter;
     worldType?: string;
+    onAcceptQuest?: (questId: string) => void;
+    onDeclineQuest?: (questId: string) => void;
 }
 
-export function UnifiedCharacterPanel({ character, worldType }: UnifiedCharacterPanelProps) {
+export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest }: UnifiedCharacterPanelProps) {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -92,6 +94,53 @@ export function UnifiedCharacterPanel({ character, worldType }: UnifiedCharacter
                     <Text style={styles.sectionTitle}>Abilities</Text>
                     {character.abilities.map((ability, index) => (
                         <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} />
+                    ))}
+                </View>
+            )}
+
+            {/* Quests Section */}
+            {(character.quests.length > 0 || character.suggestedQuests.length > 0) && (
+                <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Adventures</Text>
+
+                    {/* Suggested Quests (New Opportunities) */}
+                    {character.suggestedQuests.map((quest, index) => (
+                        <View key={`suggested-${quest.id || index}`} style={[styles.questCard, { borderColor: colors.primary[400], borderLeftWidth: 4 }]}>
+                            <View style={styles.questHeader}>
+                                <Text style={styles.questTitle}>{quest.title}</Text>
+                                <View style={styles.newBadge}>
+                                    <Text style={styles.newBadgeText}>NEW</Text>
+                                </View>
+                            </View>
+                            <Text style={styles.questDescription} numberOfLines={2}>{quest.description}</Text>
+                            <View style={styles.questActions}>
+                                <TouchableOpacity
+                                    style={[styles.questActionButton, { backgroundColor: colors.background.tertiary }]}
+                                    onPress={() => onDeclineQuest?.(quest.id)}
+                                >
+                                    <Text style={[styles.questActionText, { color: colors.text.muted }]}>Decline</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.questActionButton, { backgroundColor: colors.primary[400] }]}
+                                    onPress={() => onAcceptQuest?.(quest.id)}
+                                >
+                                    <Text style={[styles.questActionText, { color: '#000' }]}>Accept</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    ))}
+
+                    {/* Active Quests */}
+                    {character.quests.map((quest, index) => (
+                        <View key={`active-${quest.id || index}`} style={styles.questCard}>
+                            <Text style={styles.questTitle}>{quest.title}</Text>
+                            <Text style={styles.questDescription}>{quest.description}</Text>
+                            {quest.reward && (
+                                <Text style={styles.questRewardText}>
+                                    🎁 Reward: {quest.reward.amount} {quest.reward.type}
+                                </Text>
+                            )}
+                        </View>
                     ))}
                 </View>
             )}
@@ -337,6 +386,63 @@ const createStyles = (colors: any) => StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: spacing.sm,
+    },
+    // New Quest Styles
+    questCard: {
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginBottom: spacing.sm,
+    },
+    questHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    questTitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        flex: 1,
+    },
+    newBadge: {
+        backgroundColor: colors.primary[400],
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 2,
+        borderRadius: borderRadius.xs,
+    },
+    newBadgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: '#000',
+    },
+    questDescription: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        lineHeight: 18,
+    },
+    questRewardText: {
+        fontSize: 12,
+        color: colors.gold.main,
+        fontWeight: '600',
+        marginTop: spacing.xs,
+    },
+    questActions: {
+        flexDirection: 'row',
+        gap: spacing.sm,
+        marginTop: spacing.sm,
+    },
+    questActionButton: {
+        flex: 1,
+        paddingVertical: spacing.xs,
+        borderRadius: borderRadius.sm,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    questActionText: {
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 });
 

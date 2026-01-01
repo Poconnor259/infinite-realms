@@ -25,7 +25,6 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     const content = typeof message.content === 'string' ? message.content : String(message.content ?? '');
 
     const isBlueBox = content.includes('『') || content.includes('[DAILY QUEST]');
-    const alternatingColors = useSettingsStore((state) => state.alternatingColors);
 
     const { colors, isDark } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -135,7 +134,7 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
                 <View style={styles.roleIndicator}>
                     <Text style={styles.roleText}>
                         {message.role === 'narrator'
-                            ? `📜 Narrator${message.metadata?.voiceModel ? ` - ${AVAILABLE_MODELS.find(m => m.id === message.metadata.voiceModel)?.name || message.metadata.voiceModel}` : ''}`
+                            ? `📜 Narrator${message.metadata?.voiceModel ? ` - ${AVAILABLE_MODELS.find(m => m.id === message.metadata?.voiceModel)?.name || message.metadata?.voiceModel}` : ''}`
                             : '🎭 Character'}
                     </Text>
                     {message.role === 'narrator' && message.metadata?.turnCost !== undefined && (
@@ -241,6 +240,17 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
                                     </Text>
                                     <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
                                         {JSON.stringify(message.metadata.debug.reviewerResult, null, 2)}
+                                    </Text>
+                                </View>
+                            )}
+
+                            {message.metadata.debug.questResult && (
+                                <View style={styles.debugSection}>
+                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
+                                        Quest Master Response:
+                                    </Text>
+                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
+                                        {JSON.stringify(message.metadata.debug.questResult, null, 2)}
                                     </Text>
                                 </View>
                             )}
