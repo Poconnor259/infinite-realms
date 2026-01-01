@@ -24,6 +24,7 @@ export interface GameState {
     [key: string]: unknown;
     questLog?: Quest[];
     activeQuestId?: string;
+    suggestedQuests?: Quest[]; // Quests awaiting user approval
     cooldowns?: { [abilityName: string]: number };
     abilities?: string[];
     spells?: string[];
@@ -35,6 +36,10 @@ export interface GameState {
         essences?: string[];
         abilities?: string[];
         [key: string]: unknown;
+    };
+    questMaster?: {
+        lastGenerationTurn: number;
+        totalQuestsGenerated: number;
     };
 }
 
