@@ -217,7 +217,8 @@ export interface ClassicModuleState {
     character: ClassicCharacter;
     encounterActive: boolean;
     currentLocation: string;
-    questLog: Quest[];
+    questLog?: Quest[];
+    suggestedQuests?: Quest[];
 }
 
 // ==================== OUTWORLDER (HWFWM) ====================
@@ -258,6 +259,9 @@ export interface OutworlderAbility {
 export interface OutworlderModuleState {
     type: 'outworlder';
     character: OutworlderCharacter;
+    currentLocation: string;
+    questLog?: Quest[];
+    suggestedQuests?: Quest[];
     currentDungeon?: string;
     dungeonFloor?: number;
     lootAwarded: InventoryItem[];
@@ -321,6 +325,9 @@ export interface DailyQuest {
 export interface TacticalModuleState {
     type: 'tactical';
     character: TacticalCharacter;
+    currentLocation: string;
+    questLog?: Quest[];
+    suggestedQuests?: Quest[];
     dailyQuest?: DailyQuest;
     inDungeon: boolean;
     gateRank?: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
@@ -598,6 +605,20 @@ export const AVAILABLE_MODELS: ModelDefinition[] = [
     }
 ];
 
+export interface Quest {
+    id: string;
+    title: string;
+    description: string;
+    type: 'main' | 'side' | 'event' | 'bounty';
+    status: 'active' | 'completed' | 'failed' | 'abandoned';
+    reward?: {
+        type: string;
+        amount: number;
+    };
+    startedAt?: number;
+    completedAt?: number;
+}
+
 export interface GlobalConfig {
     subscriptionLimits: Record<SubscriptionTier, number>;
     subscriptionPermissions: Record<SubscriptionTier, { allowedModels: string[]; allowedTiers?: ('economical' | 'balanced' | 'premium')[] }>;
@@ -625,6 +646,22 @@ export interface GlobalConfig {
         economical: string; // ID for Low tier
         balanced: string; // ID for Mid tier
         premium: string; // ID for High tier
+    };
+    questMaster?: {
+        enabled: boolean;
+        autoTrigger: boolean;
+        modelId: string;
+        maxQuestsPerTrigger: number;
+        cooldownTurns: number;
+        triggerConditions: {
+            onLevelUp: boolean;
+            onLocationChange: boolean;
+            onQuestComplete: boolean;
+            onQuestQueueEmpty: boolean;
+        };
+        autoAcceptQuests: boolean;
+        enableQuestChains: boolean;
+        enableTimedQuests: boolean;
     };
 }
 

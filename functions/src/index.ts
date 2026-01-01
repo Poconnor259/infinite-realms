@@ -9,9 +9,11 @@ import { createCheckoutSession, handleStripeWebhook } from './stripe';
 // @ts-ignore - Used in processGameAction wrapper below
 import { processGameAction as processGameActionCore, GameRequest, GameResponse, resolveModelConfig } from './gameEngine';
 import { deepMergeState, decrementCooldowns } from './utils/stateHelpers';
+import { generateQuests } from './questMaster';
+import { shouldTriggerQuestMaster, addGeneratedQuests, acceptQuest, declineQuest, extractRecentEvents } from './utils/questMasterHelpers';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
-import { initPromptHelper, seedAIPrompts, getStateReviewerSettings } from './promptHelper';
+import { initPromptHelper, seedAIPrompts, getStateReviewerSettings, getQuestMasterPrompt } from './promptHelper';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 
 
@@ -694,7 +696,60 @@ export const processGameAction = onCall(
                 // Don't fail the whole request if reviewer fails
             }
 
-            // 7. Record Token Usage
+            // 7. Quest Master - Generate quests based on triggers
+            let questMasterSystemMessages: string[] = [];
+            try {
+                const globalConfigDoc = await db.collection('config').doc('global').get();
+                const configData = globalConfigDoc.data() || {};
+
+                const triggerResult = shouldTriggerQuestMaster(currentState, finalState, configData as any);
+
+                if (triggerResult.shouldTrigger) {
+                    console.log(`[QuestMaster] Triggered: ${triggerResult.reason}`);
+
+                    // Resolve Quest Master API key
+                    const questMasterModel = configData.questMaster?.modelId || 'gpt-4o-mini';
+                    const questMasterConfig = resolveModelConfig(questMasterModel, effectiveByokKeys, secrets);
+
+                    if (questMasterConfig.key) {
+                        const qmPrompt = await getQuestMasterPrompt(engineType);
+
+                        const questMasterResult = await generateQuests({
+                            worldModule: engineType as any,
+                            currentState: finalState,
+                            triggerReason: triggerResult.reason as any,
+                            recentEvents: extractRecentEvents(chatHistory, 5),
+                            apiKey: questMasterConfig.key,
+                            provider: questMasterConfig.provider as any,
+                            model: questMasterConfig.model,
+                            maxQuests: configData.questMaster?.maxQuestsPerTrigger || 2,
+                            customPrompt: qmPrompt
+                        });
+
+                        if (questMasterResult.success && questMasterResult.data) {
+                            console.log(`[QuestMaster] Generated ${questMasterResult.data.quests.length} quests`);
+
+                            const currentTurn = Math.floor(chatHistory.length / 2) + 1;
+                            finalState = addGeneratedQuests(
+                                finalState,
+                                questMasterResult.data.quests as any,
+                                configData.questMaster?.autoAcceptQuests || false,
+                                currentTurn
+                            );
+
+                            questMasterSystemMessages.push(`Quest Master: ${questMasterResult.data.reasoning}`);
+                        } else if (questMasterResult.error) {
+                            console.error('[QuestMaster] Generation failed:', questMasterResult.error);
+                        }
+                    } else {
+                        console.warn('[QuestMaster] No API key configured for Quest Master');
+                    }
+                }
+            } catch (qmError) {
+                console.error('[QuestMaster] Error:', qmError);
+            }
+
+            // 8. Record Token Usage
             if (auth?.uid) {
                 const updates: any = {};
 
@@ -842,7 +897,7 @@ export const processGameAction = onCall(
                 narrativeText: voiceResult.narrative || brainResult.data.narrativeCue,
                 stateUpdates: finalState,
                 diceRolls: brainResult.data.diceRolls,
-                systemMessages: brainResult.data.systemMessages,
+                systemMessages: [...(brainResult.data.systemMessages || []), ...questMasterSystemMessages],
                 remainingTurns: finalTurnsBalance,
                 turnCost: userTier !== 'legendary' ? turnCost : 0,
                 voiceModelId: voiceModelId,
@@ -1327,6 +1382,139 @@ export const updateGlobalConfig = onCall(
             console.error('[UpdateGlobalConfig] Error:', error);
             throw error instanceof HttpsError ? error : new HttpsError('internal', 'Failed to update global config');
         }
+    }
+);
+
+export const acceptQuestTrigger = onCall(
+    { cors: true, invoker: 'public' },
+    async (request) => {
+        const { campaignId, questId } = request.data;
+        const auth = request.auth;
+        if (!auth) throw new HttpsError('unauthenticated', 'User must be signed in');
+
+        const campaignRef = db.collection('users')
+            .doc(auth.uid)
+            .collection('campaigns')
+            .doc(campaignId);
+
+        const campaign = await campaignRef.get();
+        if (!campaign.exists) throw new HttpsError('not-found', 'Campaign not found');
+
+        const gameState = campaign.data()?.moduleState;
+        if (!gameState) throw new HttpsError('failed-precondition', 'Game state not found');
+
+        const updatedState = acceptQuest(gameState, questId);
+        await campaignRef.update({ moduleState: updatedState });
+
+        return { success: true };
+    }
+);
+
+export const declineQuestTrigger = onCall(
+    { cors: true, invoker: 'public' },
+    async (request) => {
+        const { campaignId, questId } = request.data;
+        const auth = request.auth;
+        if (!auth) throw new HttpsError('unauthenticated', 'User must be signed in');
+
+        const campaignRef = db.collection('users')
+            .doc(auth.uid)
+            .collection('campaigns')
+            .doc(campaignId);
+
+        const campaign = await campaignRef.get();
+        if (!campaign.exists) throw new HttpsError('not-found', 'Campaign not found');
+
+        const gameState = campaign.data()?.moduleState;
+        if (!gameState) throw new HttpsError('failed-precondition', 'Game state not found');
+
+        const updatedState = declineQuest(gameState, questId);
+        await campaignRef.update({ moduleState: updatedState });
+
+        return { success: true };
+    }
+);
+
+export const requestQuestsTrigger = onCall(
+    { cors: true, invoker: 'public' },
+    async (request) => {
+        const { campaignId } = request.data;
+        const auth = request.auth;
+        if (!auth) throw new HttpsError('unauthenticated', 'User must be signed in');
+
+        const campaignRef = db.collection('users')
+            .doc(auth.uid)
+            .collection('campaigns')
+            .doc(campaignId);
+
+        const campaign = await campaignRef.get();
+        if (!campaign.exists) throw new HttpsError('not-found', 'Campaign not found');
+
+        const campaignData = campaign.data();
+        const gameState = campaignData?.moduleState;
+        if (!gameState) throw new HttpsError('failed-precondition', 'Game state not found');
+
+        const engineType = campaignData?.worldModule || 'classic';
+
+        // Get config
+        const globalConfigDoc = await db.collection('config').doc('global').get();
+        const configData = globalConfigDoc.data() || {};
+
+        // Resolve API key for Quest Master
+        const questMasterModel = configData.questMaster?.modelId || 'gpt-4o-mini';
+
+        // Fetch secrets (system API keys)
+        const secrets = await getApiKeys();
+
+        // Use system keys for manual requests
+        const questMasterConfig = resolveModelConfig(questMasterModel, undefined, secrets);
+
+        if (!questMasterConfig.key) {
+            throw new HttpsError('failed-precondition', 'Quest Master API key not configured');
+        }
+
+        const qmPrompt = await getQuestMasterPrompt(engineType);
+
+        // Get chat history for context (last 5 messages)
+        const messagesSnapshot = await campaignRef.collection('messages')
+            .orderBy('timestamp', 'desc')
+            .limit(10)
+            .get();
+        const chatHistory = messagesSnapshot.docs
+            .map(doc => doc.data() as { role: string; content: string })
+            .reverse();
+
+        const questMasterResult = await generateQuests({
+            worldModule: engineType as any,
+            currentState: gameState,
+            triggerReason: 'manual',
+            recentEvents: extractRecentEvents(chatHistory, 5),
+            apiKey: questMasterConfig.key,
+            provider: questMasterConfig.provider as any,
+            model: questMasterConfig.model,
+            maxQuests: configData.questMaster?.maxQuestsPerTrigger || 2,
+            customPrompt: qmPrompt
+        });
+
+        if (!questMasterResult.success || !questMasterResult.data) {
+            throw new HttpsError('internal', questMasterResult.error || 'Failed to generate quests');
+        }
+
+        const currentTurn = (gameState as any).turnCount || 0;
+        const updatedState = addGeneratedQuests(
+            gameState,
+            questMasterResult.data.quests as any,
+            configData.questMaster?.autoAcceptQuests || false,
+            currentTurn
+        );
+
+        await campaignRef.update({ moduleState: updatedState });
+
+        return {
+            success: true,
+            questsGenerated: questMasterResult.data.quests.length,
+            reasoning: questMasterResult.data.reasoning
+        };
     }
 );
 

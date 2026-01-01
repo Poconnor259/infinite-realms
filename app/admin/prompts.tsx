@@ -16,6 +16,7 @@ interface AIPrompts {
     voicePrompt: string;
     stateReviewerPrompt: string;
     stateReportPrompt: string;
+    questMasterPrompt: string;
     stateReviewerEnabled: boolean;
     stateReviewerModel: string;
     stateReviewerFrequency: number;
@@ -26,6 +27,7 @@ interface WorldPromptOverride {
     brainPrompt: string | null;
     voicePrompt: string | null;
     stateReviewerPrompt: string | null;
+    questMasterPrompt: string | null;
 }
 
 type Scope = 'global' | 'classic' | 'outworlder' | 'tactical';
@@ -62,6 +64,7 @@ export default function AdminPromptsScreen() {
         voicePrompt: '',
         stateReviewerPrompt: '',
         stateReportPrompt: '',
+        questMasterPrompt: '',
         stateReviewerEnabled: true,
         stateReviewerModel: 'gpt-4o-mini',
         stateReviewerFrequency: 1,
@@ -75,6 +78,7 @@ export default function AdminPromptsScreen() {
         brainPrompt: false,
         voicePrompt: false,
         stateReviewerPrompt: false,
+        questMasterPrompt: false,
     });
 
     // Model dropdown open state
@@ -92,6 +96,7 @@ export default function AdminPromptsScreen() {
                 brainPrompt: override?.brainPrompt !== null && override?.brainPrompt !== undefined,
                 voicePrompt: override?.voicePrompt !== null && override?.voicePrompt !== undefined,
                 stateReviewerPrompt: override?.stateReviewerPrompt !== null && override?.stateReviewerPrompt !== undefined,
+                questMasterPrompt: override?.questMasterPrompt !== null && override?.questMasterPrompt !== undefined,
             });
         }
     }, [selectedScope, worldOverrides]);
@@ -108,6 +113,7 @@ export default function AdminPromptsScreen() {
                     voicePrompt: data.voicePrompt || '',
                     stateReviewerPrompt: data.stateReviewerPrompt || '',
                     stateReportPrompt: data.stateReportPrompt || '',
+                    questMasterPrompt: data.questMasterPrompt || '',
                     stateReviewerEnabled: data.stateReviewerEnabled ?? true,
                     stateReviewerModel: data.stateReviewerModel || 'gpt-4o-mini',
                     stateReviewerFrequency: data.stateReviewerFrequency ?? 1,
@@ -148,6 +154,7 @@ export default function AdminPromptsScreen() {
                     brainPrompt: overrideEnabled.brainPrompt ? getCurrentValue('brainPrompt') : null,
                     voicePrompt: overrideEnabled.voicePrompt ? getCurrentValue('voicePrompt') : null,
                     stateReviewerPrompt: overrideEnabled.stateReviewerPrompt ? getCurrentValue('stateReviewerPrompt') : null,
+                    questMasterPrompt: overrideEnabled.questMasterPrompt ? getCurrentValue('questMasterPrompt') : null,
                     updatedAt: serverTimestamp()
                 };
                 await setDoc(doc(db, 'aiPrompts', selectedScope), override);
@@ -178,7 +185,7 @@ export default function AdminPromptsScreen() {
         }
     };
 
-    const getCurrentValue = (field: 'brainPrompt' | 'voicePrompt' | 'stateReviewerPrompt'): string => {
+    const getCurrentValue = (field: 'brainPrompt' | 'voicePrompt' | 'stateReviewerPrompt' | 'questMasterPrompt'): string => {
         if (selectedScope === 'global') {
             return globalPrompts[field];
         }
@@ -189,7 +196,7 @@ export default function AdminPromptsScreen() {
         return globalPrompts[field];
     };
 
-    const setCurrentValue = (field: 'brainPrompt' | 'voicePrompt' | 'stateReviewerPrompt', value: string) => {
+    const setCurrentValue = (field: 'brainPrompt' | 'voicePrompt' | 'stateReviewerPrompt' | 'questMasterPrompt', value: string) => {
         if (selectedScope === 'global') {
             setGlobalPrompts(prev => ({ ...prev, [field]: value }));
         } else {
@@ -204,7 +211,7 @@ export default function AdminPromptsScreen() {
         }
     };
 
-    const toggleOverride = (field: 'brainPrompt' | 'voicePrompt' | 'stateReviewerPrompt') => {
+    const toggleOverride = (field: 'brainPrompt' | 'voicePrompt' | 'stateReviewerPrompt' | 'questMasterPrompt') => {
         if (selectedScope === 'global') return; // Can't toggle global
 
         const newEnabled = !overrideEnabled[field];

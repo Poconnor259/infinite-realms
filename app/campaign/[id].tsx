@@ -10,6 +10,8 @@ import {
     ActivityIndicator,
     Animated,
     Alert,
+    Modal,
+    ScrollView as RNScrollView,
 } from 'react-native';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn, functions } from '../../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
@@ -102,8 +104,8 @@ export default function CampaignScreen() {
         const HEARTBEAT_INTERVAL = 270000; // 4m 30s (safely before 5min cache expiry)
         const IDLE_TIMEOUT = 900000; // 15 minutes
 
-        let heartbeatInterval: NodeJS.Timeout | null = null;
-        let idleTimeout: NodeJS.Timeout | null = null;
+        let heartbeatInterval: any = null;
+        let idleTimeout: any = null;
         let lastActivity = Date.now();
         let isHeartbeatActive = true;
 
@@ -188,6 +190,9 @@ export default function CampaignScreen() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [menuVisible, setMenuVisible] = useState(false);
     const [panelVisible, setPanelVisible] = useState(false);
+    const [showQuestLog, setShowQuestLog] = useState(false);
+    const [suggestedQuests, setSuggestedQuests] = useState<any[]>([]);
+    const [isProcessingQuest, setIsProcessingQuest] = useState(false);
     const [isDesktop, setIsDesktop] = useState(() => {
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
             return window.innerWidth >= 768;
@@ -215,6 +220,69 @@ export default function CampaignScreen() {
         // Load campaign when id changes (but not when campaign object changes)
         loadCampaign(id);
     }, [id, isUserLoading, user, loadCampaign]);
+
+    // Watch for suggested quests in game state
+    useEffect(() => {
+        const state = currentCampaign?.moduleState as any;
+        if (state?.suggestedQuests) {
+            setSuggestedQuests(state.suggestedQuests);
+        } else {
+            setSuggestedQuests([]);
+        }
+    }, [currentCampaign?.moduleState]);
+
+    const handleAcceptQuest = async (questId: string) => {
+        if (!id) return;
+        setIsProcessingQuest(true);
+        try {
+            const acceptTrigger = httpsCallable(functions, 'acceptQuestTrigger');
+            await acceptTrigger({ campaignId: id, questId });
+            // The game store will update automatically via Firestore listener
+        } catch (error) {
+            console.error('Error accepting quest:', error);
+            Alert.alert('Error', 'Failed to accept quest');
+        } finally {
+            setIsProcessingQuest(false);
+        }
+    };
+
+    const handleDeclineQuest = async (questId: string) => {
+        if (!id) return;
+        setIsProcessingQuest(true);
+        try {
+            const declineTrigger = httpsCallable(functions, 'declineQuestTrigger');
+            await declineTrigger({ campaignId: id, questId });
+        } catch (error) {
+            console.error('Error declining quest:', error);
+            Alert.alert('Error', 'Failed to decline quest');
+        } finally {
+            setIsProcessingQuest(false);
+        }
+    };
+
+    const [isRequestingQuests, setIsRequestingQuests] = useState(false);
+    const handleRequestQuests = async () => {
+        if (!id) return;
+        setIsRequestingQuests(true);
+        try {
+            const requestTrigger = httpsCallable(functions, 'requestQuestsTrigger');
+            const result: any = await requestTrigger({ campaignId: id });
+
+            if (result.data?.success) {
+                if (Platform.OS === 'web') {
+                    // @ts-ignore
+                    window.alert(`Quest Master: ${result.data.questsGenerated} new opportunities found!\n\n${result.data.reasoning}`);
+                } else {
+                    Alert.alert('New Quests!', `Quest Master: ${result.data.questsGenerated} new opportunities found.`);
+                }
+            }
+        } catch (error) {
+            console.error('Error requesting quests:', error);
+            Alert.alert('Error', 'The Quest Master is currently unavailable. Try again later.');
+        } finally {
+            setIsRequestingQuests(false);
+        }
+    };
 
     const [hudExpanded, setHudExpanded] = useState(true);
     const hudAnimation = useRef(new Animated.Value(1)).current;
@@ -376,36 +444,134 @@ export default function CampaignScreen() {
                         {/* Header */}
                         <View style={styles.header}>
                             <Logo size={32} />
-                            <TouchableOpacity
-                                style={styles.headerButton}
-                                onPress={() => router.back()}
-                            >
-                                <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-                            </TouchableOpacity>
-
-                            <View style={styles.headerCenter}>
-                                <View style={styles.campaignHeader}>
-                                    <Text style={styles.worldIcon}>{worldInfo.icon}</Text>
+                            {/* HEADER */}
+                            <View style={styles.header}>
+                                <View style={styles.headerLeft}>
+                                    <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
+                                        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                                    </TouchableOpacity>
                                     <View>
-                                        <Text style={styles.campaignTitle} numberOfLines={1}>
-                                            {currentCampaign.name}
+                                        <Text style={styles.campaignName} numberOfLines={1}>
+                                            {currentCampaign?.name || 'Loading...'}
                                         </Text>
-                                        <Text style={styles.characterInfo}>
-                                            {character.name} • Lv.{character.level}
+                                        <Text style={styles.worldName}>
+                                            {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
                                         </Text>
                                     </View>
                                 </View>
+
+                                <View style={styles.headerRight}>
+                                    <TouchableOpacity
+                                        style={[styles.iconButton, { marginRight: spacing.sm }]}
+                                        onPress={() => setShowQuestLog(true)}
+                                    >
+                                        <Ionicons name="map" size={24} color={((currentCampaign?.moduleState as any)?.questLog?.length ?? 0) > 0 ? colors.primary[400] : colors.text.muted} />
+                                    </TouchableOpacity>
+                                    <TurnCounter />
+                                    <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
+                                        <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
 
-                            <TurnCounter />
-
-                            {/* Menu Button */}
-                            <TouchableOpacity
-                                style={styles.headerButton}
-                                onPress={() => setMenuVisible(!menuVisible)}
+                            {/* QUEST LOG MODAL */}
+                            <Modal
+                                visible={showQuestLog}
+                                transparent={true}
+                                animationType="fade"
+                                onRequestClose={() => setShowQuestLog(false)}
                             >
-                                <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
-                            </TouchableOpacity>
+                                <View style={styles.modalOverlay}>
+                                    <View style={styles.questLogContainer}>
+                                        <View style={styles.modalHeader}>
+                                            <Text style={styles.modalTitle}>Quest Log</Text>
+                                            <TouchableOpacity onPress={() => setShowQuestLog(false)}>
+                                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        <RNScrollView style={styles.questLogScroll}>
+                                            {((currentCampaign?.moduleState as any)?.questLog?.length ?? 0) === 0 ? (
+                                                <Text style={styles.emptyText}>No active quests.</Text>
+                                            ) : (
+                                                (currentCampaign?.moduleState as any)?.questLog?.map((quest: any) => (
+                                                    <View key={quest.id} style={styles.questCard}>
+                                                        <Text style={styles.questTitle}>{quest.title}</Text>
+                                                        <Text style={styles.questDescription}>{quest.description}</Text>
+                                                        <View style={styles.questFooter}>
+                                                            <Text style={styles.questStatus}>{quest.status.toUpperCase()}</Text>
+                                                            <Text style={styles.questReward}>Reward: {quest.reward?.amount} {quest.reward?.type}</Text>
+                                                        </View>
+                                                    </View>
+                                                ))
+                                            )}
+                                        </RNScrollView>
+
+                                        <View style={styles.modalFooter}>
+                                            <TouchableOpacity
+                                                style={[styles.requestQuestsButton, isRequestingQuests && styles.disabledButton]}
+                                                onPress={handleRequestQuests}
+                                                disabled={isRequestingQuests}
+                                            >
+                                                {isRequestingQuests ? (
+                                                    <ActivityIndicator size="small" color="#000" />
+                                                ) : (
+                                                    <>
+                                                        <Ionicons name="sparkles" size={18} color="#000" style={{ marginRight: 8 }} />
+                                                        <Text style={styles.requestQuestsButtonText}>Request New Adventures</Text>
+                                                    </>
+                                                )}
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                </View>
+                            </Modal>
+
+                            {/* SUGGESTED QUESTS MODAL */}
+                            <Modal
+                                visible={suggestedQuests.length > 0}
+                                transparent={true}
+                                animationType="slide"
+                            >
+                                <View style={styles.modalOverlay}>
+                                    <View style={styles.suggestedQuestContainer}>
+                                        <Text style={styles.suggestedTitle}>Quest Opportunity!</Text>
+                                        <RNScrollView style={styles.suggestedScroll}>
+                                            {suggestedQuests.map((quest) => (
+                                                <View key={quest.id} style={styles.suggestedCard}>
+                                                    <Text style={styles.questTitle}>{quest.title}</Text>
+                                                    <View style={styles.questInhibitor}>
+                                                        <Text style={styles.questInhibitorText}>{quest.type.replace('_', ' ').toUpperCase()}</Text>
+                                                    </View>
+                                                    <Text style={styles.questDescription}>{quest.description}</Text>
+
+                                                    <View style={styles.rewardBox}>
+                                                        <Text style={styles.rewardTitle}>REWARD</Text>
+                                                        <Text style={styles.rewardText}>{quest.reward?.amount} {quest.reward?.type}</Text>
+                                                    </View>
+
+                                                    <View style={styles.suggestedActions}>
+                                                        <TouchableOpacity
+                                                            style={styles.declineButton}
+                                                            onPress={() => handleDeclineQuest(quest.id)}
+                                                            disabled={isProcessingQuest}
+                                                        >
+                                                            <Text style={styles.declineButtonText}>Decline</Text>
+                                                        </TouchableOpacity>
+                                                        <TouchableOpacity
+                                                            style={styles.acceptButton}
+                                                            onPress={() => handleAcceptQuest(quest.id)}
+                                                            disabled={isProcessingQuest}
+                                                        >
+                                                            <Text style={styles.acceptButtonText}>Accept Quest</Text>
+                                                        </TouchableOpacity>
+                                                    </View>
+                                                </View>
+                                            ))}
+                                        </RNScrollView>
+                                    </View>
+                                </View>
+                            </Modal>
 
                             {/* Inventory Button (Mobile) */}
                             {!isDesktop && (
@@ -709,6 +875,222 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         fontWeight: '600',
     },
+    menuItemText: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.sm,
+        fontWeight: '500',
+    },
+    // Quest UI Styles
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    iconButton: {
+        padding: spacing.xs,
+    },
+    campaignName: {
+        color: colors.text.primary,
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+    },
+    worldName: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.xs,
+    },
+    questLogContainer: {
+        backgroundColor: colors.background.secondary,
+        width: '90%',
+        maxWidth: 500,
+        maxHeight: '80%',
+        borderRadius: borderRadius.lg,
+        padding: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 10,
+        elevation: 8,
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.md,
+        paddingBottom: spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+    },
+    modalTitle: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+    },
+    questLogScroll: {
+        flexGrow: 0,
+    },
+    emptyText: {
+        color: colors.text.muted,
+        textAlign: 'center',
+        paddingVertical: spacing.xl,
+        fontStyle: 'italic',
+    },
+    questCard: {
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        padding: spacing.md,
+        marginBottom: spacing.md,
+        borderLeftWidth: 4,
+        borderLeftColor: colors.primary[400],
+    },
+    questTitle: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        color: colors.text.primary,
+        marginBottom: spacing.xs,
+    },
+    questDescription: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        marginBottom: spacing.sm,
+        lineHeight: 20,
+    },
+    questFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: spacing.xs,
+        paddingTop: spacing.xs,
+        borderTopWidth: 1,
+        borderTopColor: colors.border.default + '40',
+    },
+    questStatus: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: 'bold',
+        color: colors.primary[400],
+    },
+    questReward: {
+        fontSize: typography.fontSize.xs,
+        color: colors.gold.main,
+        fontWeight: '600',
+    },
+    suggestedQuestContainer: {
+        backgroundColor: colors.background.secondary,
+        width: '95%',
+        maxWidth: 450,
+        maxHeight: '70%',
+        borderRadius: borderRadius.xl,
+        padding: spacing.lg,
+        borderWidth: 2,
+        borderColor: colors.primary[400],
+    },
+    suggestedTitle: {
+        fontSize: typography.fontSize.xxl,
+        fontWeight: 'bold',
+        color: colors.primary[400],
+        textAlign: 'center',
+        marginBottom: spacing.lg,
+    },
+    suggestedScroll: {
+        flexGrow: 0,
+    },
+    suggestedCard: {
+        gap: spacing.md,
+    },
+    questInhibitor: {
+        alignSelf: 'flex-start',
+        backgroundColor: colors.primary[400] + '20',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs / 2,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.primary[400] + '40',
+    },
+    questInhibitorText: {
+        color: colors.primary[400],
+        fontSize: 10,
+        fontWeight: 'bold',
+        letterSpacing: 1,
+    },
+    rewardBox: {
+        backgroundColor: colors.background.tertiary,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        alignItems: 'center',
+        marginVertical: spacing.sm,
+        borderWidth: 1,
+        borderColor: colors.gold.main + '40',
+    },
+    rewardTitle: {
+        fontSize: 10,
+        color: colors.gold.main,
+        fontWeight: 'bold',
+        letterSpacing: 2,
+        marginBottom: 4,
+    },
+    rewardText: {
+        fontSize: typography.fontSize.lg,
+        color: colors.text.primary,
+        fontWeight: 'bold',
+    },
+    suggestedActions: {
+        flexDirection: 'row',
+        gap: spacing.md,
+        marginTop: spacing.md,
+    },
+    declineButton: {
+        flex: 1,
+        paddingVertical: spacing.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: borderRadius.md,
+        backgroundColor: colors.background.tertiary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    declineButtonText: {
+        color: colors.text.secondary,
+        fontWeight: '600',
+    },
+    acceptButton: {
+        flex: 2,
+        paddingVertical: spacing.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: borderRadius.md,
+        backgroundColor: colors.primary[400],
+    },
+    acceptButtonText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: typography.fontSize.md,
+    },
+    modalFooter: {
+        paddingTop: spacing.md,
+        borderTopWidth: 1,
+        borderTopColor: colors.border.default,
+    },
+    requestQuestsButton: {
+        flexDirection: 'row',
+        backgroundColor: colors.primary[400],
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    requestQuestsButtonText: {
+        color: '#000',
+        fontWeight: 'bold',
+        fontSize: typography.fontSize.md,
+    },
+    disabledButton: {
+        opacity: 0.6,
+    },
     tacticalSquadPreview: {
         backgroundColor: colors.background.tertiary,
         padding: spacing.sm,
@@ -830,10 +1212,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         gap: spacing.sm,
         padding: spacing.md,
         borderRadius: borderRadius.sm,
-    },
-    menuItemText: {
-        fontSize: typography.fontSize.md,
-        fontWeight: '500' as const,
     },
     contentWrapper: {
         flex: 1,

@@ -10,6 +10,7 @@ export interface AIPrompts {
     stateReviewerEnabled: boolean;
     stateReviewerModel: string;
     stateReviewerFrequency: number;
+    questMasterPrompt: string; // Instructions for Quest Master AI
     updatedAt?: admin.firestore.Timestamp;
 }
 
@@ -18,6 +19,7 @@ export interface WorldPromptOverride {
     brainPrompt: string | null;  // null = use global
     voicePrompt: string | null;  // null = use global
     stateReviewerPrompt: string | null;  // null = use global
+    questMasterPrompt: string | null; // null = use global
     updatedAt?: admin.firestore.Timestamp;
 }
 
@@ -171,7 +173,22 @@ RULES:
 - If nothing changed, use empty object: {}
 - For "added" inventory: items PICKED UP, CRAFTED, RECEIVED, or PURCHASED
 - For "removed" inventory: items USED, DROPPED, SOLD, or DESTROYED
-- For resources: report the NEW values after changes (not the delta)`;
+- For resources: report the NEW values after changes (not the delta)
+`;
+
+const DEFAULT_QUEST_MASTER_PROMPT = `You are the Quest Master for an RPG campaign.
+
+## OBJECTIVE
+Generate contextual, world-appropriate quests that challenge the character and advance the plot.
+
+## PRINCIPLES
+- Consistency: Quests must align with the world's setting and current events.
+- Variety: Provide a mix of combat, exploration, and social objectives.
+- Meaning: Rewards should feel earned and impactful for the character's level/rank.
+- Continuity: Build on previous quest completions and recent narrative events.
+
+## FORMATTING
+Respond with JSON only, following the provided schema. Ensure 'reasoning' explains why these quests were chosen for this specific character and situation.`;
 
 // World-specific brain prompts
 // World-specific brain prompts
@@ -567,6 +584,37 @@ export async function getStateReportPrompt(): Promise<string> {
     return DEFAULT_STATE_REPORT_PROMPT;
 }
 
+/**
+ * Get the quest master prompt, prioritizing world-specific overrides
+ */
+export async function getQuestMasterPrompt(worldId: string): Promise<string> {
+    if (!db) {
+        return DEFAULT_QUEST_MASTER_PROMPT;
+    }
+
+    try {
+        // 1. Check for world override
+        const worldDoc = await db.collection('aiPrompts').doc(worldId).get();
+        if (worldDoc.exists) {
+            const data = worldDoc.data() as WorldPromptOverride;
+            if (data.questMasterPrompt) {
+                return data.questMasterPrompt;
+            }
+        }
+
+        // 2. Fallback to global default
+        const globalDoc = await db.collection('aiPrompts').doc('global').get();
+        if (globalDoc.exists) {
+            const data = globalDoc.data() as AIPrompts;
+            return data.questMasterPrompt || DEFAULT_QUEST_MASTER_PROMPT;
+        }
+    } catch (error) {
+        console.error(`[PromptHelper] Error fetching quest master prompt for ${worldId}:`, error);
+    }
+
+    return DEFAULT_QUEST_MASTER_PROMPT;
+}
+
 // ==================== SEED FUNCTION ====================
 
 /**
@@ -585,6 +633,7 @@ export async function seedAIPrompts(firestore: admin.firestore.Firestore): Promi
         stateReviewerEnabled: true,
         stateReviewerModel: 'gpt-4o-mini',
         stateReviewerFrequency: 1,
+        questMasterPrompt: DEFAULT_QUEST_MASTER_PROMPT,
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
@@ -595,6 +644,7 @@ export async function seedAIPrompts(firestore: admin.firestore.Firestore): Promi
             brainPrompt: WORLD_BRAIN_PROMPTS[worldId],
             voicePrompt: WORLD_VOICE_PROMPTS[worldId],
             stateReviewerPrompt: null,  // Use global
+            questMasterPrompt: null, // Use global
             updatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
     }

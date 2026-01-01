@@ -86,6 +86,7 @@ export default function AdminConfigScreen() {
     };
     const [brainDropdownOpen, setBrainDropdownOpen] = useState(false);
     const [voiceDropdownOpen, setVoiceDropdownOpen] = useState(false);
+    const [questMasterDropdownOpen, setQuestMasterDropdownOpen] = useState(false);
 
     // Model testing state
     const [brainTestInput, setBrainTestInput] = useState('What is your technical model name?');
@@ -120,7 +121,7 @@ export default function AdminConfigScreen() {
                 console.log('[Config] Initializing modelCosts with defaults');
                 const defaultModelCosts: Record<string, number> = {};
                 AVAILABLE_MODELS.forEach(model => {
-                    defaultModelCosts[model.id] = model.defaultTurnCost;
+                    defaultModelCosts[model.id] = model.defaultTurnCost ?? 1;
                 });
                 loadedConfig.modelCosts = defaultModelCosts;
             }
@@ -585,6 +586,54 @@ export default function AdminConfigScreen() {
                                             <Text style={styles.modelId}>{model.id}</Text>
                                         </View>
                                         {aiSettings.brainModel === model.id && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
+                    {/* Quest Master Model Dropdown */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <Ionicons name="map" size={18} color={colors.primary[400]} />
+                            <Text style={styles.fieldLabel}>Quest Master Model</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.dropdown}
+                            onPress={() => setQuestMasterDropdownOpen(!questMasterDropdownOpen)}
+                        >
+                            <Text style={styles.dropdownText}>
+                                {availableModels.find(m => m.id === (config?.questMaster?.modelId || 'gpt-4o-mini'))?.name || (config?.questMaster?.modelId || 'gpt-4o-mini')}
+                            </Text>
+                            <Ionicons name={questMasterDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                        {questMasterDropdownOpen && (
+                            <View style={styles.dropdownList}>
+                                {availableModels.filter(m => !showFavoritesOnly || config?.favoriteModels?.includes(m.id)).map(model => (
+                                    <TouchableOpacity
+                                        key={model.id}
+                                        style={[styles.dropdownItem, (config?.questMaster?.modelId || 'gpt-4o-mini') === model.id && styles.dropdownItemSelected]}
+                                        onPress={() => {
+                                            setConfig(prev => {
+                                                if (!prev) return null;
+                                                return {
+                                                    ...prev,
+                                                    questMaster: {
+                                                        ...(prev.questMaster || {}),
+                                                        modelId: model.id
+                                                    }
+                                                };
+                                            });
+                                            setQuestMasterDropdownOpen(false);
+                                        }}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                            <Text style={styles.modelId}>{model.id}</Text>
+                                        </View>
+                                        {(config?.questMaster?.modelId || 'gpt-4o-mini') === model.id && (
                                             <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
                                         )}
                                     </TouchableOpacity>
@@ -1226,6 +1275,159 @@ export default function AdminConfigScreen() {
                     </View>
                 </View>
             </View >
+
+            {/* Quest Master Settings */}
+            <View style={styles.section}>
+                <Text style={styles.sectionTitle}>Quest Master Configuration</Text>
+                <View style={styles.card}>
+                    <View style={styles.switchRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Enable Quest Master</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Automatically generate contextual quests for players
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.questMaster?.enabled ?? false}
+                            onValueChange={(val) => setConfig(prev => ({
+                                ...prev!,
+                                questMaster: {
+                                    ...(prev?.questMaster || {
+                                        enabled: false,
+                                        autoTrigger: true,
+                                        modelId: 'gpt-4o-mini',
+                                        maxQuestsPerTrigger: 2,
+                                        cooldownTurns: 5,
+                                        triggerConditions: {
+                                            onLevelUp: true,
+                                            onLocationChange: true,
+                                            onQuestComplete: true,
+                                            onQuestQueueEmpty: true
+                                        },
+                                        autoAcceptQuests: false,
+                                        enableQuestChains: true,
+                                        enableTimedQuests: false
+                                    }),
+                                    enabled: val
+                                }
+                            }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+
+                    <View style={styles.switchRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Auto-Trigger Quests</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Checked conditions will fire quests automatically
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.questMaster?.autoTrigger ?? true}
+                            onValueChange={(val) => setConfig(prev => ({ ...prev!, questMaster: { ...(prev?.questMaster as any), autoTrigger: val } }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+
+                    <View style={styles.switchRow}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Quest Trigger Cooldown (Turns)</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                Minimum turns between automatic quest generations
+                            </Text>
+                        </View>
+                        <TextInput
+                            style={[styles.input, { width: 80, textAlign: 'center' }]}
+                            value={String(config?.questMaster?.cooldownTurns ?? 5)}
+                            keyboardType="numeric"
+                            onChangeText={(v) => {
+                                const num = parseInt(v) || 0;
+                                setConfig(prev => ({ ...prev!, questMaster: { ...(prev?.questMaster as any), cooldownTurns: num } }));
+                            }}
+                            placeholder="5"
+                            placeholderTextColor={colors.text.muted}
+                        />
+                    </View>
+
+                    <Text style={[styles.configLabel, { marginTop: spacing.md, marginBottom: spacing.sm, fontWeight: 'bold' }]}>Trigger Conditions:</Text>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingVertical: spacing.sm }]}>
+                        <Text style={[styles.configLabel, { fontSize: 13 }]}>On Level Up</Text>
+                        <Switch
+                            value={config?.questMaster?.triggerConditions?.onLevelUp ?? true}
+                            onValueChange={(val) => setConfig(prev => ({
+                                ...prev!,
+                                questMaster: {
+                                    ...(prev?.questMaster as any),
+                                    triggerConditions: { ...(prev?.questMaster?.triggerConditions || {}), onLevelUp: val }
+                                }
+                            }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.7 }] } : undefined}
+                        />
+                    </View>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingVertical: spacing.sm }]}>
+                        <Text style={[styles.configLabel, { fontSize: 13 }]}>On Location Change</Text>
+                        <Switch
+                            value={config?.questMaster?.triggerConditions?.onLocationChange ?? true}
+                            onValueChange={(val) => setConfig(prev => ({
+                                ...prev!,
+                                questMaster: {
+                                    ...(prev?.questMaster as any),
+                                    triggerConditions: { ...(prev?.questMaster?.triggerConditions || {}), onLocationChange: val }
+                                }
+                            }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.7 }] } : undefined}
+                        />
+                    </View>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingVertical: spacing.sm }]}>
+                        <Text style={[styles.configLabel, { fontSize: 13 }]}>On Quest Complete</Text>
+                        <Switch
+                            value={config?.questMaster?.triggerConditions?.onQuestComplete ?? true}
+                            onValueChange={(val) => setConfig(prev => ({
+                                ...prev!,
+                                questMaster: {
+                                    ...(prev?.questMaster as any),
+                                    triggerConditions: { ...(prev?.questMaster?.triggerConditions || {}), onQuestComplete: val }
+                                }
+                            }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.7 }] } : undefined}
+                        />
+                    </View>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0, paddingVertical: spacing.sm }]}>
+                        <Text style={[styles.configLabel, { fontSize: 13 }]}>On Quest Queue Empty</Text>
+                        <Switch
+                            value={config?.questMaster?.triggerConditions?.onQuestQueueEmpty ?? true}
+                            onValueChange={(val) => setConfig(prev => ({
+                                ...prev!,
+                                questMaster: {
+                                    ...(prev?.questMaster as any),
+                                    triggerConditions: { ...(prev?.questMaster?.triggerConditions || {}), onQuestQueueEmpty: val }
+                                }
+                            }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.7 }] } : undefined}
+                        />
+                    </View>
+
+                    <Text style={[styles.configLabel, { marginTop: spacing.md, marginBottom: spacing.sm, fontWeight: 'bold' }]}>Behavior:</Text>
+
+                    <View style={[styles.switchRow, { borderBottomWidth: 0 }]}>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.configLabel}>Auto-Accept Quests</Text>
+                            <Text style={[styles.configLabel, { fontSize: 11, color: colors.text.muted, fontWeight: 'normal' }]}>
+                                If OFF, players must approve suggested quests
+                            </Text>
+                        </View>
+                        <Switch
+                            value={config?.questMaster?.autoAcceptQuests ?? false}
+                            onValueChange={(val) => setConfig(prev => ({ ...prev!, questMaster: { ...(prev?.questMaster as any), autoAcceptQuests: val } }))}
+                            style={Platform.OS === 'web' ? { transform: [{ scale: 0.8 }] } : undefined}
+                        />
+                    </View>
+                </View>
+            </View>
 
             {/* SAVE ALL BUTTON */}
             < View style={{ marginBottom: spacing.xxl }
