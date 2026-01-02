@@ -44,8 +44,8 @@ export function TacticalCharacterCreation({ characterName, onComplete, onBack }:
             title: undefined,
             stats: { ...stats },
             statPoints: 0,
-            mana: { current: 10 + (stats.intelligence - 10) * 2, max: 10 + (stats.intelligence - 10) * 2 },
-            fatigue: { current: 0, max: 100 },
+            nanites: { current: 10, max: 100 },
+            stamina: { current: 100, max: 100 },
             skills: [],
             tacticalSquad: [],
         };

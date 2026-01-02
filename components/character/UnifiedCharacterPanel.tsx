@@ -136,6 +136,37 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                                 </View>
                             </View>
                             <Text style={styles.questDescription} numberOfLines={2}>{quest.description}</Text>
+
+                            {/* Objectives */}
+                            {quest.objectives && quest.objectives.length > 0 && (
+                                <View style={styles.questSection}>
+                                    <Text style={styles.questSectionLabel}>Objectives:</Text>
+                                    {quest.objectives.map((obj: any, i: number) => (
+                                        <Text key={obj.id || i} style={[styles.questObjective, obj.isCompleted && styles.questObjectiveCompleted]}>
+                                            {obj.isCompleted ? '✓ ' : '• '}{obj.text}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+
+                            {/* Detailed Rewards */}
+                            {quest.rewards && (
+                                <View style={styles.questSection}>
+                                    <Text style={styles.questSectionLabel}>Rewards:</Text>
+                                    <View style={styles.rewardsList}>
+                                        {quest.rewards.experience > 0 && (
+                                            <Text style={styles.rewardTag}>✨ {quest.rewards.experience} XP</Text>
+                                        )}
+                                        {quest.rewards.gold > 0 && (
+                                            <Text style={styles.rewardTag}>💰 {quest.rewards.gold} Gold</Text>
+                                        )}
+                                        {quest.rewards.items && quest.rewards.items.map((item: string, i: number) => (
+                                            <Text key={i} style={styles.rewardTag}>📦 {item}</Text>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
                             <View style={styles.questActions}>
                                 <TouchableOpacity
                                     style={[styles.questActionButton, { backgroundColor: colors.background.tertiary }]}
@@ -158,7 +189,39 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                         <View key={`active-${quest.id || index}`} style={styles.questCard}>
                             <Text style={styles.questTitle}>{quest.title}</Text>
                             <Text style={styles.questDescription}>{quest.description}</Text>
-                            {quest.reward && (
+
+                            {/* Objectives */}
+                            {quest.objectives && quest.objectives.length > 0 && (
+                                <View style={styles.questSection}>
+                                    <Text style={styles.questSectionLabel}>Objectives:</Text>
+                                    {quest.objectives.map((obj: any, i: number) => (
+                                        <Text key={obj.id || i} style={[styles.questObjective, obj.isCompleted && styles.questObjectiveCompleted]}>
+                                            {obj.isCompleted ? '✓ ' : '• '}{obj.text}
+                                        </Text>
+                                    ))}
+                                </View>
+                            )}
+
+                            {/* Detailed Rewards (New Format) */}
+                            {quest.rewards && (
+                                <View style={styles.questSection}>
+                                    <Text style={styles.questSectionLabel}>Rewards:</Text>
+                                    <View style={styles.rewardsList}>
+                                        {quest.rewards.experience > 0 && (
+                                            <Text style={styles.rewardTag}>✨ {quest.rewards.experience} XP</Text>
+                                        )}
+                                        {quest.rewards.gold > 0 && (
+                                            <Text style={styles.rewardTag}>💰 {quest.rewards.gold} Gold</Text>
+                                        )}
+                                        {quest.rewards.items && quest.rewards.items.map((item: string, i: number) => (
+                                            <Text key={i} style={styles.rewardTag}>📦 {item}</Text>
+                                        ))}
+                                    </View>
+                                </View>
+                            )}
+
+                            {/* Legacy Reward Fallback */}
+                            {!quest.rewards && quest.reward && (
                                 <Text style={styles.questRewardText}>
                                     🎁 Reward: {quest.reward.amount} {quest.reward.type}
                                 </Text>
@@ -233,7 +296,14 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
 
             {/* World-Specific Extras */}
             {Object.keys(character.extras).length > 0 && (
-                <ExtrasSection extras={character.extras} worldType={worldType} colors={colors} />
+                <ExtrasSection
+                    extras={character.extras}
+                    worldType={worldType}
+                    colors={colors}
+                    styles={styles}
+                    updates={updates}
+                    onClearUpdate={() => clearUpdate('extras')}
+                />
             )}
         </ScrollView>
     );
@@ -398,14 +468,27 @@ function AbilityItem({ ability, colors }: { ability: NormalizedAbility; colors: 
     );
 }
 
-function ExtrasSection({ extras, worldType, colors }: { extras: Record<string, any>; worldType?: string; colors: any }) {
+function ExtrasSection({ extras, worldType, colors, styles, updates, onClearUpdate }: {
+    extras: Record<string, any>;
+    worldType?: string;
+    colors: any;
+    styles: any;
+    updates?: Record<string, boolean>;
+    onClearUpdate?: () => void;
+}) {
     // Outworlder Essences
     if (extras.essences && Array.isArray(extras.essences) && extras.essences.length > 0) {
+        // Confluence IS the 4th essence (auto-created when you get 3rd)
+        const count = extras.essences.length + (extras.confluence ? 1 : 0);
+
         return (
-            <View style={[subStyles.section, { borderBottomColor: colors.border.default }]}>
-                <Text style={[subStyles.sectionTitle, { color: colors.text.primary }]}>
-                    Essences ({extras.essences.length}/4)
-                </Text>
+            <CollapsibleSection
+                title={`Essences (${count}/4)`}
+                colors={colors}
+                styles={styles}
+                hasUpdate={updates?.['extras']}
+                onExpand={onClearUpdate}
+            >
                 {extras.essences.map((essence: string, idx: number) => (
                     <View key={idx} style={[subStyles.essenceItem, { backgroundColor: colors.background.tertiary }]}>
                         <Text style={[subStyles.essenceName, { color: colors.text.primary }]}>{essence}</Text>
@@ -417,7 +500,7 @@ function ExtrasSection({ extras, worldType, colors }: { extras: Record<string, a
                         <Text style={[subStyles.confluenceName, { color: colors.gold.main }]}>{extras.confluence}</Text>
                     </View>
                 )}
-            </View>
+            </CollapsibleSection>
         );
     }
 
@@ -591,6 +674,43 @@ const createStyles = (colors: any) => StyleSheet.create({
     questActionText: {
         fontSize: 12,
         fontWeight: 'bold',
+    },
+    // New Quest Detailed Styles
+    questSection: {
+        marginTop: spacing.sm,
+        marginBottom: spacing.xs,
+    },
+    questSectionLabel: {
+        fontSize: 11,
+        color: colors.text.muted,
+        fontWeight: '600',
+        marginBottom: 4,
+        textTransform: 'uppercase',
+    },
+    questObjective: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        marginBottom: 2,
+        marginLeft: spacing.xs,
+    },
+    questObjectiveCompleted: {
+        color: colors.text.muted,
+        textDecorationLine: 'line-through',
+    },
+    rewardsList: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+    },
+    rewardTag: {
+        fontSize: 11,
+        color: colors.text.primary,
+        backgroundColor: colors.background.tertiary,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: colors.border.default,
     },
 });
 

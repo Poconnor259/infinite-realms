@@ -137,7 +137,8 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
     const mana = extractResource(char, ['mana', 'mp', 'nanites', 'energy', 'nc']);
     if (mana) {
         const worldLower = worldType.toLowerCase();
-        const manaName = worldLower === 'tactical' || worldLower === 'praxis' ? 'Nanites' : 'Mana';
+        const manaName = worldLower === 'tactical' || worldLower === 'praxis' ? 'Nanites' :
+            (char.nanites ? 'Nanites' : 'Mana'); // Fallback to key usage
         resources.push({
             ...mana,
             name: manaName,
@@ -146,15 +147,12 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
         });
     }
 
-    // Stamina/Spirit/Focus
     const stamina = extractResource(char, ['stamina', 'spirit', 'focus', 'fatigue']);
     if (stamina) {
-        const worldLower = worldType.toLowerCase();
-        const staminaName = worldLower === 'outworlder' ? 'Stamina' :
-            worldLower === 'tactical' || worldLower === 'praxis' ? 'Focus' : 'Stamina';
+        // All world types use "Stamina" as the label
         resources.push({
             ...stamina,
-            name: staminaName,
+            name: 'Stamina',
             color: '#22c55e', // Green
             icon: '⚡',
         });
@@ -163,14 +161,14 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
     // Check for resources object (generic engine format)
     if (char.resources && typeof char.resources === 'object') {
         for (const [key, value] of Object.entries(char.resources)) {
-            // Skip if we already have this resource
+            // Skip if we already have this resource (by name check)
             if (resources.some(r => r.name.toLowerCase() === key.toLowerCase())) continue;
 
             const res = value as any;
-            if (res && typeof res.current === 'number' && typeof res.max === 'number') {
+            if (res && typeof res.current === 'number') {
                 resources.push({
                     current: res.current,
-                    max: res.max,
+                    max: res.max || res.current, // Fallback max to current if missing
                     name: capitalizeFirst(key),
                     color: res.color || '#8b5cf6',
                 });
@@ -184,10 +182,20 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
 function extractResource(char: any, possibleKeys: string[]): { current: number; max: number } | null {
     for (const key of possibleKeys) {
         const value = char[key];
-        if (value && typeof value === 'object' && 'current' in value && 'max' in value) {
+
+        // precise object match { current, max }
+        if (value && typeof value === 'object' && 'current' in value) {
             return {
                 current: value.current ?? 0,
                 max: value.max ?? 100,
+            };
+        }
+
+        // numeric match (e.g. mana: 50) -> assumes max 100 or implicitly handled elsewhere
+        if (typeof value === 'number') {
+            return {
+                current: value,
+                max: 100, // Default max if simple number provided
             };
         }
     }

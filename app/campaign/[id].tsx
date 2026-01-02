@@ -453,46 +453,42 @@ export default function CampaignScreen() {
                     >
                         {/* Header */}
                         <View style={styles.header}>
-                            <Logo size={32} />
-                            {/* HEADER */}
-                            <View style={styles.header}>
-                                <View style={styles.headerLeft}>
-                                    <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
-                                        <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
-                                    </TouchableOpacity>
-                                    <View>
-                                        <Text style={styles.campaignName} numberOfLines={1}>
-                                            {currentCampaign?.name || 'Loading...'}
-                                        </Text>
-                                        <Text style={styles.worldName}>
-                                            {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
-                                        </Text>
-                                    </View>
-                                </View>
-
-                                <View style={styles.headerRight}>
-                                    <TouchableOpacity
-                                        style={[styles.iconButton, { marginRight: spacing.sm }]}
-                                        onPress={handleRequestQuests}
-                                        disabled={isRequestingQuests}
-                                    >
-                                        {isRequestingQuests ? (
-                                            <ActivityIndicator size="small" color={colors.primary[400]} />
-                                        ) : (
-                                            <Ionicons
-                                                name="sparkles"
-                                                size={24}
-                                                color={((currentCampaign?.moduleState as any)?.suggestedQuests?.length ?? 0) > 0 ? colors.primary[400] : colors.text.muted}
-                                            />
-                                        )}
-                                    </TouchableOpacity>
-                                    <TurnCounter />
-                                    <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
-                                        <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
-                                    </TouchableOpacity>
+                            <View style={styles.headerLeft}>
+                                <Logo size={32} />
+                                <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
+                                    <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                                </TouchableOpacity>
+                                <View>
+                                    <Text style={styles.campaignName} numberOfLines={1}>
+                                        {currentCampaign?.name || 'Loading...'}
+                                    </Text>
+                                    <Text style={styles.worldName}>
+                                        {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
+                                    </Text>
                                 </View>
                             </View>
 
+                            <View style={styles.headerRight}>
+                                <TouchableOpacity
+                                    style={[styles.iconButton, { marginRight: spacing.sm }]}
+                                    onPress={handleRequestQuests}
+                                    disabled={isRequestingQuests}
+                                >
+                                    {isRequestingQuests ? (
+                                        <ActivityIndicator size="small" color={colors.primary[400]} />
+                                    ) : (
+                                        <Ionicons
+                                            name="sparkles"
+                                            size={24}
+                                            color={((currentCampaign?.moduleState as any)?.suggestedQuests?.length ?? 0) > 0 ? colors.primary[400] : colors.text.muted}
+                                        />
+                                    )}
+                                </TouchableOpacity>
+                                <TurnCounter />
+                                <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
+                                    <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
+                                </TouchableOpacity>
+                            </View>
 
                             {/* Inventory Button (Mobile) */}
                             {!isDesktop && (
@@ -641,28 +637,30 @@ export default function CampaignScreen() {
                 </View>
 
                 {/* Character Panel - Desktop Sidebar / Mobile Drawer */}
-                {(isDesktop || panelVisible) && currentCampaign && (<View style={[
-                    styles.panelContainer,
-                    !isDesktop && styles.panelMobile
-                ]}>
-                    {/* Close button for mobile */}
-                    {!isDesktop && (
-                        <TouchableOpacity
-                            style={styles.closePanelButton}
-                            onPress={() => setPanelVisible(false)}
-                        >
-                            <Ionicons name="close" size={24} color={colors.text.primary} />
-                        </TouchableOpacity>
-                    )}
-                    <CharacterPanel
-                        moduleState={currentCampaign.moduleState}
-                        worldModule={currentCampaign.worldModule}
-                        onAcceptQuest={handleAcceptQuest}
-                        onDeclineQuest={handleDeclineQuest}
-                    />
-                </View>
-                )}
-            </View>
+                {
+                    (isDesktop || panelVisible) && currentCampaign && (<View style={[
+                        styles.panelContainer,
+                        !isDesktop && styles.panelMobile
+                    ]}>
+                        {/* Close button for mobile */}
+                        {!isDesktop && (
+                            <TouchableOpacity
+                                style={styles.closePanelButton}
+                                onPress={() => setPanelVisible(false)}
+                            >
+                                <Ionicons name="close" size={24} color={colors.text.primary} />
+                            </TouchableOpacity>
+                        )}
+                        <CharacterPanel
+                            moduleState={currentCampaign.moduleState}
+                            worldModule={currentCampaign.worldModule}
+                            onAcceptQuest={handleAcceptQuest}
+                            onDeclineQuest={handleDeclineQuest}
+                        />
+                    </View>
+                    )
+                }
+            </View >
         </SafeAreaView >
     );
 }
@@ -678,6 +676,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
         paddingHorizontal: spacing.sm,
         paddingVertical: spacing.sm,
         borderBottomWidth: 1,

@@ -507,9 +507,11 @@ export const processGameAction = onCall(
                     for (const [key, value] of Object.entries(voiceResult.stateReport.resources)) {
                         if (value && typeof value === 'object') {
                             const currentResource = ((finalState as any).character[key] as any) || { current: 100, max: 100 };
+                            // IMPORTANT: Voice AI cannot change max values - only current
+                            // Max values should only change on level up (handled separately)
                             (finalState as any).character[key] = {
-                                current: value.current ?? currentResource.current,
-                                max: value.max ?? currentResource.max
+                                current: Math.min(value.current ?? currentResource.current, currentResource.max),
+                                max: currentResource.max // Preserve original max
                             };
                         }
                     }

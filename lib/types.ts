@@ -187,6 +187,14 @@ export interface ClassicCharacter extends Character {
         WIS: number;
         CHA: number;
     };
+    mana: {
+        current: number;
+        max: number;
+    };
+    stamina: {
+        current: number;
+        max: number;
+    };
     ac: number;
     proficiencyBonus: number;
     inventory: InventoryItem[];
@@ -281,15 +289,11 @@ export interface TacticalCharacter extends Character {
         perception: number;
     };
     statPoints: number;
-    mana: {
+    nanites: {
         current: number;
         max: number;
     };
-    fatigue: {
-        current: number;
-        max: number;
-    };
-    nanites?: {
+    stamina: {
         current: number;
         max: number;
     };

@@ -110,6 +110,8 @@ export function ClassicCharacterCreation({ characterName, onComplete, onBack }: 
             race: selectedRace,
             class: selectedClass,
             stats: { ...stats },
+            mana: { current: 100, max: 100 },
+            stamina: { current: 100, max: 100 },
             ac: 10 + Math.floor((stats.DEX - 10) / 2),
             proficiencyBonus: 2,
             inventory,

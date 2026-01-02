@@ -133,13 +133,32 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
             character.stats = statsObj;
         }
 
-        // Add resources
-        if (engine.resources) {
-            engine.resources.forEach(resource => {
+        // Add default resources based on engine type FIRST (Option C)
+        // This ensures resources are always present, then engine.resources can override
+        const engineId = (engine.id || (engine as any).type || '').toLowerCase();
+        console.log('[DynamicCharacterCreation] Engine ID:', engineId, 'Engine:', engine.id, (engine as any).type);
+
+        if (engineId === 'classic' || engineId.includes('classic')) {
+            character.mana = { current: 100, max: 100 };
+            character.stamina = { current: 100, max: 100 };
+        } else if (engineId === 'tactical' || engineId === 'praxis' || engineId.includes('tactical') || engineId.includes('praxis')) {
+            character.nanites = { current: 10, max: 100 };
+            character.stamina = { current: 100, max: 100 };
+        } else if (engineId === 'outworlder' || engineId.includes('outworlder')) {
+            // Outworlder adds resources in the essence section below
+        } else {
+            // Unknown engine - add generic resources
+            character.mana = { current: 100, max: 100 };
+            character.stamina = { current: 100, max: 100 };
+        }
+
+        // Override with engine.resources if defined
+        if (engine.resources && engine.resources.length > 0) {
+            engine.resources.forEach((resource: any) => {
                 if (resource.id !== 'hp') { // HP already added
                     character[resource.id] = {
-                        current: 100,
-                        max: 100,
+                        current: resource.defaultValue ?? 100,
+                        max: resource.maxValue ?? 100,
                     };
                 }
             });
