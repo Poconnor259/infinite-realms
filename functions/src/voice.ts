@@ -162,13 +162,16 @@ CRITICAL RESOURCE RULES FOR OUTWORLDER:
         if (input.characterProfile) {
             const char = input.characterProfile;
             const essences = char.essences && Array.isArray(char.essences) ? char.essences.join(', ') : 'None';
+            const abilities = char.abilities && Array.isArray(char.abilities) ? char.abilities.join(', ') : 'None yet';
             const rank = char.rank || 'Unknown';
             characterContext = `
 CHARACTER CONTEXT:
 - Rank: ${rank}
 - Essences: ${essences}
+- Abilities: ${abilities}
 CRITICAL: You must ONLY grant abilities that correspond to the character's existing Essences (${essences}).
 - Do NOT grant abilities for 'Technology' or other essences unless the character possesses that specific essence.
+- When describing combat or actions, you may reference the character's known abilities (${abilities}) to make the narrative more immersive.
 `;
         }
 

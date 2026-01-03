@@ -152,17 +152,35 @@ ${customRules}
             // Skip essence prompt if essences were pre-selected (chosen or imported)
             // OR if essences exist but no selection mode (legacy/imported data)
             if (essenceSelection === 'chosen' || essenceSelection === 'imported' || !essenceSelection) {
+                // Check if character already has abilities
+                const hasAbilities = character.abilities && Array.isArray(character.abilities) && character.abilities.length > 0;
+
+                // Build the base override section
                 essenceOverrideSection = `
 
 🚨 CRITICAL OVERRIDE - ESSENCE ALREADY SELECTED 🚨
 The character has already selected their foundational essence during character creation.
 - Selected Essences: ${character.essences.join(', ')}
 - Rank: ${character.rank || 'Iron'}
+- Existing Abilities: ${(character.abilities || []).join(', ') || 'None yet'}
 
 DO NOT present essence selection options (A, B, C, D).
 DO NOT run the "COMPENSATION PACKAGE — ESSENCE SELECTION" sequence.
 DO NOT ask the player to choose an essence - they already have one.
-The character is ALREADY awakened with the ${character.essences[0]} essence.
+`;
+
+                // Only add the "DO NOT GRANT" instruction if they already have abilities
+                if (hasAbilities) {
+                    essenceOverrideSection += `DO NOT grant any "Intrinsic" abilities or "Confluence" abilities - the character ALREADY possesses their full ability set.
+`;
+                    console.log('[Brain] Character has abilities - blocking ability grants');
+                } else {
+                    essenceOverrideSection += `The character has essences but NO abilities yet. You SHOULD grant their intrinsic abilities as they awaken.
+`;
+                    console.log('[Brain] Character has NO abilities - allowing ability grants');
+                }
+
+                essenceOverrideSection += `The character is ALREADY awakened with the ${character.essences[0]} essence.
 Skip directly to their adventure beginning with their essence already active.
 Acknowledge their essence in narrative but do not offer selection.
 `;
