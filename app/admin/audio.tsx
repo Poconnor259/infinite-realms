@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { uploadAmbianceAudio } from '../../lib/audioStorage';
 import { spacing, borderRadius, typography } from '../../lib/theme';
@@ -15,6 +15,7 @@ interface AmbianceType {
     keywords: string[];
     volume: number;
     priority: number;
+    gameEngines?: string[]; // IDs of game engines this ambiance is available for
 }
 
 interface AmbianceSettings {
@@ -25,6 +26,11 @@ interface AmbianceSettings {
         fadeOutMs: number;
     };
     types: Record<string, AmbianceType>;
+}
+
+interface GameEngine {
+    id: string;
+    name: string;
 }
 
 const AMBIANCE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -48,10 +54,26 @@ export default function AudioManagement() {
     const [testNarrative, setTestNarrative] = useState('');
     const [detectedType, setDetectedType] = useState<string | null>(null);
     const [uploadingType, setUploadingType] = useState<string | null>(null);
+    const [gameEngines, setGameEngines] = useState<GameEngine[]>([]);
 
     useEffect(() => {
         loadSettings();
+        loadGameEngines();
     }, []);
+
+    const loadGameEngines = async () => {
+        try {
+            const enginesCol = collection(db, 'gameEngines');
+            const snapshot = await getDocs(enginesCol);
+            const engines = snapshot.docs.map(doc => ({
+                id: doc.id,
+                name: doc.data().name || doc.id
+            }));
+            setGameEngines(engines);
+        } catch (error) {
+            console.error('Error loading game engines:', error);
+        }
+    };
 
     const loadSettings = async () => {
         try {
@@ -105,6 +127,35 @@ export default function AudioManagement() {
         }
 
         setDetectedType(bestMatch?.type || null);
+    };
+
+    const addNewAmbianceType = () => {
+        const typeName = prompt('Enter new ambiance type name (e.g., "marketplace", "temple"):');
+        if (!typeName || !settings) return;
+
+        const normalizedName = typeName.toLowerCase().trim().replace(/\s+/g, '_');
+
+        if (settings.types[normalizedName]) {
+            alert('This ambiance type already exists!');
+            return;
+        }
+
+        setSettings({
+            ...settings,
+            types: {
+                ...settings.types,
+                [normalizedName]: {
+                    url: '',
+                    filename: '',
+                    enabled: true,
+                    keywords: [normalizedName],
+                    volume: 0.5,
+                    priority: 5,
+                }
+            }
+        });
+
+        alert(`✅ Added new ambiance type: "${normalizedName}"\n\nDon't forget to:\n1. Upload an audio file\n2. Add keywords\n3. Click "Save All Changes"`);
     };
 
     const getDefaultSettings = (): AmbianceSettings => ({
@@ -273,6 +324,15 @@ export default function AudioManagement() {
                     </View>
                 </View>
 
+                {/* Add New Ambiance Type Button */}
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: colors.status.success }]}
+                    onPress={addNewAmbianceType}
+                >
+                    <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                    <Text style={[styles.addButtonText, { color: '#fff' }]}>Add New Ambiance Type</Text>
+                </TouchableOpacity>
+
                 {/* Ambiance Types */}
                 {Object.entries(settings.types).map(([type, config]) => (
                     <View key={type} style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
@@ -283,16 +343,30 @@ export default function AudioManagement() {
                                     {type.charAt(0).toUpperCase() + type.slice(1)}
                                 </Text>
                             </View>
-                            <Switch
-                                value={config.enabled}
-                                onValueChange={(value) => setSettings({
-                                    ...settings,
-                                    types: {
-                                        ...settings.types,
-                                        [type]: { ...config, enabled: value }
-                                    }
-                                })}
-                            />
+                            <View style={styles.typeHeaderRight}>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        if (confirm(`Delete "${type}" ambiance type?`)) {
+                                            const newTypes = { ...settings.types };
+                                            delete newTypes[type];
+                                            setSettings({ ...settings, types: newTypes });
+                                        }
+                                    }}
+                                    style={styles.deleteButton}
+                                >
+                                    <Ionicons name="trash-outline" size={20} color={colors.status.error} />
+                                </TouchableOpacity>
+                                <Switch
+                                    value={config.enabled}
+                                    onValueChange={(value) => setSettings({
+                                        ...settings,
+                                        types: {
+                                            ...settings.types,
+                                            [type]: { ...config, enabled: value }
+                                        }
+                                    })}
+                                />
+                            </View>
                         </View>
 
                         {/* Audio Player */}
@@ -378,12 +452,104 @@ export default function AudioManagement() {
                             </Text>
                         </TouchableOpacity>
 
-                        <View style={styles.row}>
-                            <Text style={[styles.label, { color: colors.text.primary }]}>Keywords</Text>
+
+                        {/* Keywords Editor */}
+                        <View style={styles.keywordsSection}>
+                            <View style={styles.row}>
+                                <Text style={[styles.label, { color: colors.text.primary }]}>Keywords</Text>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        const keyword = prompt('Enter new keyword:');
+                                        if (keyword && keyword.trim()) {
+                                            const normalizedKeyword = keyword.toLowerCase().trim();
+                                            if (!config.keywords.includes(normalizedKeyword)) {
+                                                setSettings({
+                                                    ...settings,
+                                                    types: {
+                                                        ...settings.types,
+                                                        [type]: {
+                                                            ...config,
+                                                            keywords: [...config.keywords, normalizedKeyword]
+                                                        }
+                                                    }
+                                                });
+                                            } else {
+                                                alert('Keyword already exists!');
+                                            }
+                                        }
+                                    }}
+                                    style={styles.addKeywordButton}
+                                >
+                                    <Ionicons name="add-circle-outline" size={18} color={colors.primary[500]} />
+                                </TouchableOpacity>
+                            </View>
+                            <View style={styles.keywordChips}>
+                                {config.keywords.map((keyword, index) => (
+                                    <View key={index} style={[styles.keywordChip, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                                        <Text style={[styles.keywordText, { color: colors.text.primary }]}>{keyword}</Text>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                setSettings({
+                                                    ...settings,
+                                                    types: {
+                                                        ...settings.types,
+                                                        [type]: {
+                                                            ...config,
+                                                            keywords: config.keywords.filter((_, i) => i !== index)
+                                                        }
+                                                    }
+                                                });
+                                            }}
+                                        >
+                                            <Ionicons name="close-circle" size={16} color={colors.text.muted} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ))}
+                            </View>
                         </View>
-                        <Text style={[styles.keywords, { color: colors.text.secondary }]}>
-                            {config.keywords.join(', ')}
-                        </Text>
+
+                        {/* Game Engine Selection */}
+                        <View style={styles.gameEnginesSection}>
+                            <Text style={[styles.label, { color: colors.text.primary, marginBottom: spacing.xs }]}>Available in Game Engines</Text>
+                            <View style={styles.engineChips}>
+                                {gameEngines.map((engine) => {
+                                    const isSelected = config.gameEngines?.includes(engine.id) ?? true; // Default to all if not set
+                                    return (
+                                        <TouchableOpacity
+                                            key={engine.id}
+                                            style={[
+                                                styles.engineChip,
+                                                {
+                                                    backgroundColor: isSelected ? colors.primary[500] : colors.background.tertiary,
+                                                    borderColor: isSelected ? colors.primary[500] : colors.border.default,
+                                                }
+                                            ]}
+                                            onPress={() => {
+                                                const currentEngines = config.gameEngines || gameEngines.map(e => e.id);
+                                                const newEngines = isSelected
+                                                    ? currentEngines.filter(id => id !== engine.id)
+                                                    : [...currentEngines, engine.id];
+
+                                                setSettings({
+                                                    ...settings,
+                                                    types: {
+                                                        ...settings.types,
+                                                        [type]: {
+                                                            ...config,
+                                                            gameEngines: newEngines
+                                                        }
+                                                    }
+                                                });
+                                            }}
+                                        >
+                                            <Text style={[styles.engineChipText, { color: isSelected ? '#fff' : colors.text.primary }]}>
+                                                {engine.name}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        </View>
 
                         <View style={styles.row}>
                             <Text style={[styles.label, { color: colors.text.primary }]}>Volume</Text>
@@ -502,6 +668,27 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
+    typeHeaderRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    deleteButton: {
+        padding: spacing.xs,
+    },
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: spacing.md,
+        borderRadius: borderRadius.lg,
+        marginBottom: spacing.md,
+        gap: spacing.sm,
+    },
+    addButtonText: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
+    },
     row: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -515,10 +702,47 @@ const styles = StyleSheet.create({
         fontSize: typography.fontSize.sm,
         marginBottom: spacing.sm,
     },
-    keywords: {
+    keywordsSection: {
+        marginBottom: spacing.md,
+    },
+    keywordChips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+        marginTop: spacing.xs,
+    },
+    keywordChip: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacing.sm,
+        paddingVertical: spacing.xs,
+        borderRadius: borderRadius.full,
+        borderWidth: 1,
+        gap: spacing.xs,
+    },
+    keywordText: {
         fontSize: typography.fontSize.sm,
-        marginBottom: spacing.sm,
-        fontStyle: 'italic',
+    },
+    addKeywordButton: {
+        padding: spacing.xs,
+    },
+    gameEnginesSection: {
+        marginBottom: spacing.md,
+    },
+    engineChips: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+    },
+    engineChip: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+    },
+    engineChipText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
     },
     input: {
         borderWidth: 1,
