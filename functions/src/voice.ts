@@ -157,22 +157,42 @@ CRITICAL RESOURCE RULES FOR OUTWORLDER:
 `;
         }
 
-        // Build character context section
+        // Build character context section dynamically from all available fields
         let characterContext = '';
         if (input.characterProfile) {
             const char = input.characterProfile;
-            const essences = char.essences && Array.isArray(char.essences) ? char.essences.join(', ') : 'None';
-            const abilities = char.abilities && Array.isArray(char.abilities) ? char.abilities.join(', ') : 'None yet';
-            const rank = char.rank || 'Unknown';
-            characterContext = `
-CHARACTER CONTEXT:
-- Rank: ${rank}
-- Essences: ${essences}
-- Abilities: ${abilities}
+
+            // Build a dynamic list of character attributes
+            const contextLines: string[] = ['CHARACTER CONTEXT:'];
+
+            // Add all character fields dynamically (excluding internal/technical fields)
+            const excludedFields = ['id', 'userId', 'campaignId', 'createdAt', 'updatedAt', 'moduleState', 'essenceSelection'];
+
+            for (const [key, value] of Object.entries(char)) {
+                if (excludedFields.includes(key) || value === undefined || value === null) continue;
+
+                // Format the field name (camelCase to Title Case)
+                const fieldName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+
+                // Handle different value types
+                if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        contextLines.push(`- ${fieldName}: ${value.join(', ')}`);
+                    }
+                } else if (typeof value === 'object') {
+                    // Skip complex nested objects
+                    continue;
+                } else {
+                    contextLines.push(`- ${fieldName}: ${value}`);
+                }
+            }
+
+            characterContext = contextLines.join('\n') + `
 CRITICAL: You are the NARRATOR, not the game logic engine.
 - Do NOT modify game state or grant abilities - that is handled by the Brain AI.
-- When describing combat or actions, you may reference the character's known abilities (${abilities}) to make the narrative more immersive.
+- When describing combat or actions, you may reference the character's known abilities to make the narrative more immersive.
 - If the character uses an ability, describe it vividly, but do NOT add new abilities to their sheet.
+- Use the character's name, class, race, background, and other identity details to personalize the narrative.
 `;
         }
 
