@@ -6,6 +6,8 @@
  */
 
 import { Platform } from 'react-native';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from './firebase';
 
 export type AmbianceType =
     | 'none'
@@ -20,32 +22,73 @@ export type AmbianceType =
     | 'night'       // Night crickets, owl hoots, quiet
     | 'rain';       // Rain falling, storm ambiance
 
-// CDN URLs for royalty-free ambient audio
-// Sources: Pixabay (Pixabay License - free for commercial use)
-// All audio is loopable ambient background
-const AMBIANCE_URLS: Record<AmbianceType, string | null> = {
+// Default fallback URLs (used if Firestore fails to load)
+const DEFAULT_AMBIANCE_URLS: Record<AmbianceType, string | null> = {
     none: null,
-    // Tavern: Medieval tavern with crowd chatter and clinking glasses
     tavern: 'https://cdn.pixabay.com/audio/2024/02/08/audio_ac56737be4.mp3',
-    // Forest: Birds chirping and wind in trees
     forest: 'https://cdn.pixabay.com/audio/2022/03/09/audio_c7acb35bca.mp3',
-    // Dungeon: Dark eerie ambiance with dripping water
     dungeon: 'https://cdn.pixabay.com/audio/2022/11/17/audio_fe4aaeecb0.mp3',
-    // City: Marketplace bustle and urban sounds
     city: 'https://cdn.pixabay.com/audio/2021/09/02/audio_95e4dc3d6f.mp3',
-    // Combat: Tense battle-ready percussion
     combat: 'https://cdn.pixabay.com/audio/2023/10/24/audio_7fd0df0e06.mp3',
-    // Castle: Grand hall ambiance with echoes
     castle: 'https://cdn.pixabay.com/audio/2022/05/27/audio_f5462cdede.mp3',
-    // Cave: Underground echoes and dripping
     cave: 'https://cdn.pixabay.com/audio/2022/06/01/audio_c067fb28ea.mp3',
-    // Ocean: Waves and seagulls
     ocean: 'https://cdn.pixabay.com/audio/2022/02/22/audio_ea1a0c0a91.mp3',
-    // Night: Crickets and night sounds
     night: 'https://cdn.pixabay.com/audio/2022/05/31/audio_32e41c0bc6.mp3',
-    // Rain: Steady rainfall ambiance
     rain: 'https://cdn.pixabay.com/audio/2022/03/24/audio_bae35a2adf.mp3',
 };
+
+// Cached settings from Firestore
+let cachedSettings: any = null;
+let settingsLoaded = false;
+
+/**
+ * Load ambiance settings from Firestore
+ */
+async function loadAmbianceSettings() {
+    if (settingsLoaded) return cachedSettings;
+
+    try {
+        const docRef = doc(db, 'settings', 'ambiance');
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+            cachedSettings = docSnap.data();
+            settingsLoaded = true;
+            console.log('[Ambiance] Settings loaded from Firestore');
+        } else {
+            console.log('[Ambiance] No settings found, using defaults');
+        }
+    } catch (error) {
+        console.error('[Ambiance] Failed to load settings:', error);
+    }
+
+    return cachedSettings;
+}
+
+/**
+ * Get URL for ambiance type (from Firestore or fallback)
+ */
+function getAmbianceUrl(type: AmbianceType): string | null {
+    if (type === 'none') return null;
+
+    // Try cached settings first
+    if (cachedSettings?.types?.[type]?.enabled && cachedSettings?.types?.[type]?.url) {
+        return cachedSettings.types[type].url;
+    }
+
+    // Fallback to defaults
+    return DEFAULT_AMBIANCE_URLS[type];
+}
+
+/**
+ * Get volume for ambiance type (from Firestore or fallback)
+ */
+function getAmbianceVolume(type: AmbianceType): number {
+    if (cachedSettings?.types?.[type]?.volume !== undefined) {
+        return cachedSettings.types[type].volume;
+    }
+    return cachedSettings?.global?.defaultVolume || 0.3;
+}
 
 let currentAmbiance: AmbianceType = 'none';
 // Use 'any' to avoid referencing HTMLAudioElement during SSR
@@ -96,11 +139,17 @@ export async function setAmbiance(type: AmbianceType): Promise<void> {
 
     if (type === 'none') return;
 
-    const url = AMBIANCE_URLS[type];
+    // Load settings if not already loaded
+    await loadAmbianceSettings();
+
+    const url = getAmbianceUrl(type);
     if (!url) {
         console.log(`[Ambiance] No audio file for type: ${type}`);
         return;
     }
+
+    // Get volume for this type
+    const typeVolume = getAmbianceVolume(type);
 
     try {
         currentAudio = new Audio(url);
@@ -108,8 +157,8 @@ export async function setAmbiance(type: AmbianceType): Promise<void> {
         currentAudio.volume = 0; // Start at 0 for fade in
         await currentAudio.play();
 
-        // Fade in
-        await fadeIn(currentVolume);
+        // Fade in with type-specific volume
+        await fadeIn(typeVolume);
 
         console.log(`[Ambiance] Playing: ${type}`);
     } catch (error) {

@@ -61,6 +61,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // Settings (admin read/write, public read for ambiance)
+    match /settings/{settingId} {
+      allow read: if true; // Public read for ambiance settings
+      allow write: if isAdmin();
+    }
+    
     // System stats (admin read/write)
     match /systemStats/{statId} {
       allow read: if isAdmin();

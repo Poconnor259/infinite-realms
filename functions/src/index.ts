@@ -18,6 +18,7 @@ import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 
 
 export { createCheckoutSession, handleStripeWebhook };
+export { seedAmbianceSettings } from './seedAmbiance';
 
 
 // Initialize Firebase Admin

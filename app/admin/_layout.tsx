@@ -57,6 +57,8 @@ export default function AdminLayout() {
             <Stack.Screen name="training" options={{ title: 'Knowledge Base' }} />
             <Stack.Screen name="metrics" options={{ title: 'System Metrics' }} />
             <Stack.Screen name="config" options={{ title: 'Global Config' }} />
+            <Stack.Screen name="prompts" options={{ title: 'AI Prompts' }} />
+            <Stack.Screen name="audio" options={{ title: 'Audio Management' }} />
         </Stack>
     );
 }

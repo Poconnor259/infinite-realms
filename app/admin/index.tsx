@@ -63,6 +63,12 @@ export default function AdminDashboard() {
             onPress: () => router.push('/admin/prompts')
         },
         {
+            title: "Audio Management",
+            description: "Configure background ambiance and sound effects",
+            icon: "musical-notes-outline" as const,
+            onPress: () => router.push('/admin/audio')
+        },
+        {
             title: "System Metrics",
             description: "View usage stats and system health",
             icon: "stats-chart" as const,
