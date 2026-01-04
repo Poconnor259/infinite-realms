@@ -9,6 +9,7 @@ import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 import { getStateReviewerSettings } from './promptHelper';
+import { deepMergeState, GameState } from './utils/stateHelpers';
 
 // ==================== TYPES ====================
 
@@ -383,7 +384,7 @@ export async function processGameAction(
             };
         }
 
-        const finalState = { ...currentState, ...(brainResult.data?.stateUpdates || {}) };
+        const finalState = deepMergeState(currentState as GameState, brainResult.data?.stateUpdates || {});
 
         console.log('[Voice] Generating narrative...');
         const voiceResult = await generateNarrative({

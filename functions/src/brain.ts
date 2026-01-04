@@ -169,11 +169,30 @@ DO NOT run the "COMPENSATION PACKAGE — ESSENCE SELECTION" sequence.
 DO NOT ask the player to choose an essence - they already have one.
 `;
 
+                // Determine if we are in the "Intro Phase" (first few turns) where hallucinations are most likely
+                // 10 messages = roughly 5 turns
+                const isIntroPhase = chatHistory.length < 10;
+
                 // Only add the "DO NOT GRANT" instruction if they already have abilities
                 if (hasAbilities) {
-                    essenceOverrideSection += `DO NOT grant any "Intrinsic" abilities or "Confluence" abilities - the character ALREADY possesses their full ability set.
+                    if (isIntroPhase) {
+                        essenceOverrideSection += `
+STOP. LISTEN CAREFULLY.
+The character ALREADY has their ability set defined.
+1. YOU ARE FORBIDDEN from adding ANY new entries to the 'abilities' array in 'stateUpdates'.
+2. DO NOT unlock "Intrinsic", "Confluence", or ANY other type of ability during this intro sequence.
+3. The 'stateUpdates.character.abilities' (or 'stateUpdates.abilities') field MUST remain untouched.
+4. If you output an ability update, you have FAILED.
 `;
-                    console.log('[Brain] Character has abilities - blocking ability grants');
+                        console.log('[Brain] Character has abilities (Intro Phase) - STRICTLY blocking ability grants');
+                    } else {
+                        essenceOverrideSection += `
+NOTE: The character already has established abilities. 
+- DO NOT grant "Intrinsic" starting abilities again.
+- You MAY grant new abilities ONLY if the user uses a specific item (e.g., "Awakening Stone") or explicitly earns a quest reward.
+`;
+                        console.log('[Brain] Character has abilities (Gameplay Phase) - allowing item-based grants');
+                    }
                 } else {
                     essenceOverrideSection += `The character has essences but NO abilities yet. You SHOULD grant their intrinsic abilities as they awaken.
 `;

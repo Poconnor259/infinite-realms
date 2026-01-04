@@ -1617,18 +1617,23 @@ export const createCampaign = onCall(
                 let narrativeContent = `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`;
 
                 // Add essence override instruction if essences are pre-selected
-                // Add essence override instruction if essences are pre-selected
                 if (hasPreselectedEssence && engineType === 'outworlder') {
                     const essenceList = initialCharacter?.essences?.join(', ') || 'unknown';
                     const confluenceInfo = initialCharacter?.confluence ? ` and the ${initialCharacter.confluence} Confluence` : '';
                     const rankInfo = initialCharacter?.rank || 'Iron';
+                    const hasAbilities = initialCharacter?.abilities && Array.isArray(initialCharacter.abilities) && initialCharacter.abilities.length > 0;
+
                     narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the following essences during their dimensional transit: ${essenceList}${confluenceInfo}.
                     
 CRITICAL: Do NOT present essence selection options (A, B, C, D). The character ALREADY has their essences. Skip the COMPENSATION PACKAGE — ESSENCE SELECTION sequence entirely. 
 
 IMPORTANT: The character's rank is ${rankInfo}. Ensure your narrative reflects that they are ${rankInfo} rank. Do not state they are Iron 0 unless they are actually Iron.
 
-Start their adventure with them already awakened and their essences active. Grant them the intrinsic abilities associated with their essences immediately. Describe their awakening and first moments in this new world, acknowledging their powers are already part of them.`;
+${hasAbilities
+                            ? `The character ALREADY has their ability set defined. DO NOT grant any new abilities. Their powers are already established and active.`
+                            : `The character has essences but NO abilities yet. Grant them the intrinsic abilities associated with their essences as they awaken.`}
+
+Start their adventure with them already awakened and their essences active. Describe their awakening and first moments in this new world, acknowledging their powers are already part of them.`;
                 }
 
                 // If essences are pre-selected, modify customRules to exclude essence selection

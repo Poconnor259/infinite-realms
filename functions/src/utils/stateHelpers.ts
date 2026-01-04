@@ -85,6 +85,27 @@ export function deepMergeState(
             continue;
         }
 
+        // Handle protected array fields (inventory, partyMembers) - require explicit add/remove
+        if (['inventory', 'partyMembers'].includes(key)) {
+            if (typeof value === 'object' && value !== null && 'added' in value) {
+                // Handle { added: [...], removed: [...] } format
+                const current = (result[key] as string[]) || [];
+                const { added = [], removed = [] } = value as { added?: string[]; removed?: string[] };
+
+                // Apply add/remove operations
+                const newSet = new Set([...current, ...added]);
+                removed.forEach(item => newSet.delete(item));
+                result[key] = Array.from(newSet);
+            } else if (Array.isArray(value)) {
+                // PROTECTION: If AI sends plain array, treat as ADD-ONLY (don't replace)
+                console.warn(`[deepMergeState] Received plain array for protected field '${key}'. Treating as add-only to prevent data loss.`);
+                const current = (result[key] as string[]) || [];
+                const newSet = new Set([...current, ...value]);
+                result[key] = Array.from(newSet);
+            }
+            continue;
+        }
+
         // Handle keyNpcs (protected - can add/update but not delete)
         if (key === 'keyNpcs' && typeof value === 'object' && value !== null) {
             const currentNpcs = (result.keyNpcs as Record<string, any>) || {};
@@ -132,6 +153,21 @@ export function deepMergeState(
                     result.character.abilities = Array.from(new Set([...currentAbilities, ...added]));
                 } else if (Array.isArray(updates.abilities)) {
                     result.character.abilities = Array.from(new Set([...currentAbilities, ...updates.abilities]));
+                }
+            }
+
+            // Handle character inventory specially (protected - explicit add/remove only)
+            if (updates.inventory) {
+                const currentInventory = currentChar.inventory || [];
+                if (typeof updates.inventory === 'object' && 'added' in updates.inventory) {
+                    const { added = [], removed = [] } = updates.inventory as { added?: string[]; removed?: string[] };
+                    const newSet = new Set([...currentInventory, ...added]);
+                    removed.forEach(item => newSet.delete(item));
+                    result.character.inventory = Array.from(newSet);
+                } else if (Array.isArray(updates.inventory)) {
+                    // PROTECTION: Treat plain array as add-only
+                    console.warn('[deepMergeState] Received plain array for character.inventory. Treating as add-only.');
+                    result.character.inventory = Array.from(new Set([...currentInventory, ...updates.inventory]));
                 }
             }
             continue;

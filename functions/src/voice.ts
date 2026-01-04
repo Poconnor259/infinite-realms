@@ -169,9 +169,10 @@ CHARACTER CONTEXT:
 - Rank: ${rank}
 - Essences: ${essences}
 - Abilities: ${abilities}
-CRITICAL: You must ONLY grant abilities that correspond to the character's existing Essences (${essences}).
-- Do NOT grant abilities for 'Technology' or other essences unless the character possesses that specific essence.
+CRITICAL: You are the NARRATOR, not the game logic engine.
+- Do NOT modify game state or grant abilities - that is handled by the Brain AI.
 - When describing combat or actions, you may reference the character's known abilities (${abilities}) to make the narrative more immersive.
+- If the character uses an ability, describe it vividly, but do NOT add new abilities to their sheet.
 `;
         }
 
