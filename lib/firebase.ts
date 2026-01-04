@@ -31,6 +31,7 @@ import {
     limit,
     onSnapshot
 } from 'firebase/firestore';
+import { getStorage } from 'firebase/storage';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase configuration - with fallback for static export
@@ -70,9 +71,17 @@ try {
     console.warn('[Firebase] Functions initialization warning:', error.message);
 }
 
+let _storage: any;
+try {
+    _storage = getStorage(app);
+} catch (error: any) {
+    console.warn('[Firebase] Storage initialization warning:', error.message);
+}
+
 export const auth = _auth;
 export const db = _db;
 export const functions = _functions;
+export const storage = _storage;
 
 // ==================== AUTH HELPERS ====================
 

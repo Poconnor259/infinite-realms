@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
+import { uploadAmbianceAudio } from '../../lib/audioStorage';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 
@@ -46,6 +47,7 @@ export default function AudioManagement() {
     const [saving, setSaving] = useState(false);
     const [testNarrative, setTestNarrative] = useState('');
     const [detectedType, setDetectedType] = useState<string | null>(null);
+    const [uploadingType, setUploadingType] = useState<string | null>(null);
 
     useEffect(() => {
         loadSettings();
@@ -327,23 +329,53 @@ export default function AudioManagement() {
 
                         {/* Upload Button */}
                         <TouchableOpacity
-                            style={[styles.uploadButton, { backgroundColor: colors.primary[500] }]}
-                            onPress={() => {
+                            style={[styles.uploadButton, { backgroundColor: uploadingType === type ? colors.text.muted : colors.primary[500] }]}
+                            onPress={async () => {
+                                if (uploadingType) return; // Prevent multiple uploads
+
                                 const input = document.createElement('input');
                                 input.type = 'file';
                                 input.accept = 'audio/*';
                                 input.onchange = async (e: any) => {
                                     const file = e.target.files[0];
-                                    if (file) {
-                                        // For now, just show alert - Firebase Storage upload will be added
-                                        alert(`File selected: ${file.name}\n\nFirebase Storage upload coming soon!\n\nFor now, upload your file to a CDN and paste the URL above.`);
+                                    if (!file) return;
+
+                                    try {
+                                        setUploadingType(type);
+                                        console.log(`[Upload] Starting upload for ${type}: ${file.name}`);
+
+                                        // Upload to Firebase Storage
+                                        const downloadURL = await uploadAmbianceAudio(file, type);
+
+                                        // Update settings with new URL
+                                        setSettings({
+                                            ...settings,
+                                            types: {
+                                                ...settings.types,
+                                                [type]: {
+                                                    ...config,
+                                                    url: downloadURL,
+                                                    filename: file.name
+                                                }
+                                            }
+                                        });
+
+                                        alert(`✅ Upload successful!\n\nFile: ${file.name}\nClick "Save All Changes" to persist.`);
+                                    } catch (error: any) {
+                                        console.error('[Upload] Failed:', error);
+                                        alert(`❌ Upload failed: ${error.message}`);
+                                    } finally {
+                                        setUploadingType(null);
                                     }
                                 };
                                 input.click();
                             }}
+                            disabled={uploadingType !== null}
                         >
-                            <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
-                            <Text style={[styles.uploadButtonText, { color: '#fff' }]}>Upload Audio File</Text>
+                            <Ionicons name={uploadingType === type ? "hourglass-outline" : "cloud-upload-outline"} size={16} color="#fff" />
+                            <Text style={[styles.uploadButtonText, { color: '#fff' }]}>
+                                {uploadingType === type ? 'Uploading...' : 'Upload Audio File'}
+                            </Text>
                         </TouchableOpacity>
 
                         <View style={styles.row}>
