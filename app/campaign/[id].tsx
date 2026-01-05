@@ -1,4 +1,5 @@
-import React, { useRef, useEffect, useState, useMemo } from 'react';
+import * as React from 'react';
+import { useRef, useEffect, useState, useMemo } from 'react';
 import {
     View,
     Text,
@@ -165,7 +166,7 @@ export default function CampaignScreen() {
             flatListRef.current?.scrollToIndex({
                 index: lastNarratorIndexReversed,
                 animated: true,
-                viewPosition: 0,
+                viewPosition: 1, // Aligns IT to the top of the screen
             });
         }
     };
@@ -306,6 +307,18 @@ export default function CampaignScreen() {
         });
         return () => unsubscribe();
     }, [id, user?.id]);
+
+    // Auto-scroll to top of narrator response when it finishes loading
+    const prevIsLoading = useRef(isLoading);
+    useEffect(() => {
+        if (prevIsLoading.current && !isLoading && lastNarratorIndexReversed !== -1) {
+            // Give the list a moment to layout the new content
+            requestAnimationFrame(() => {
+                scrollToLastResponse();
+            });
+        }
+        prevIsLoading.current = isLoading;
+    }, [isLoading, lastNarratorIndexReversed]);
 
     // Smart Idle Detection for Cache Heartbeat
     useEffect(() => {
