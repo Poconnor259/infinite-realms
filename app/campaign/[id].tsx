@@ -89,6 +89,10 @@ function TurnCounter() {
 
 export default function CampaignScreen() {
     const { id } = useLocalSearchParams<{ id: string }>();
+    const router = useRouter();
+    const flatListRef = useRef<FlatList>(null);
+    const hasScrolledInitial = useRef(false);
+    const hudAnimation = useRef(new Animated.Value(1)).current;
 
     // Client-only render guard to prevent SSR/hydration mismatch
     const [isMounted, setIsMounted] = useState(false);
@@ -96,80 +100,6 @@ export default function CampaignScreen() {
         setIsMounted(true);
     }, []);
 
-
-    // Smart Idle Detection for Cache Heartbeat
-    useEffect(() => {
-        // Only run on web and when document is available (skip SSR)
-        if (!id || Platform.OS !== 'web' || typeof document === 'undefined') return;
-
-        const HEARTBEAT_INTERVAL = 270000; // 4m 30s (safely before 5min cache expiry)
-        const IDLE_TIMEOUT = 900000; // 15 minutes
-
-        let heartbeatInterval: any = null;
-        let idleTimeout: any = null;
-        let lastActivity = Date.now();
-        let isHeartbeatActive = true;
-
-        const keepAlive = httpsCallable(functions, 'keepVoiceCacheAlive');
-
-        // Reset idle timer on any activity
-        const resetIdleTimer = () => {
-            lastActivity = Date.now();
-
-            // Clear existing idle timeout
-            if (idleTimeout) clearTimeout(idleTimeout);
-
-            // Restart heartbeat if it was stopped
-            if (!isHeartbeatActive) {
-                console.log('[Heartbeat] Resuming after activity');
-                isHeartbeatActive = true;
-                startHeartbeat();
-            }
-
-            // Set new idle timeout
-            idleTimeout = setTimeout(() => {
-                console.log('[Heartbeat] Idle timeout reached (15m). Stopping heartbeat.');
-                isHeartbeatActive = false;
-                if (heartbeatInterval) {
-                    clearInterval(heartbeatInterval);
-                    heartbeatInterval = null;
-                }
-            }, IDLE_TIMEOUT);
-        };
-
-        // Start heartbeat pings
-        const startHeartbeat = () => {
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-
-            heartbeatInterval = setInterval(() => {
-                if (isHeartbeatActive) {
-                    console.log('[Heartbeat] Pinging Voice Cache...');
-                    keepAlive({ campaignId: id }).catch(e => console.warn('[Heartbeat] Fail:', e));
-                }
-            }, HEARTBEAT_INTERVAL);
-        };
-
-        // Activity event listeners (only on client)
-        const activityEvents = ['mousedown', 'keydown', 'touchstart', 'click'];
-        activityEvents.forEach(event => {
-            document.addEventListener(event, resetIdleTimer);
-        });
-
-        // Initialize
-        resetIdleTimer();
-        startHeartbeat();
-
-        // Cleanup
-        return () => {
-            if (heartbeatInterval) clearInterval(heartbeatInterval);
-            if (idleTimeout) clearTimeout(idleTimeout);
-            activityEvents.forEach(event => {
-                document.removeEventListener(event, resetIdleTimer);
-            });
-        };
-    }, [id]);
-    const router = useRouter();
-    const flatListRef = useRef<FlatList>(null);
     const { colors, isDark } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -186,12 +116,16 @@ export default function CampaignScreen() {
         submitRollResult,
         updateCurrentCampaign,
     } = useGameStore();
+
     const user = useUserStore((state) => state.user);
     const isUserLoading = useUserStore((state) => state.isLoading);
 
     const [isDeleting, setIsDeleting] = useState(false);
     const [menuVisible, setMenuVisible] = useState(false);
     const [panelVisible, setPanelVisible] = useState(false);
+    const [hudExpanded, setHudExpanded] = useState(true);
+    const [isProcessingQuest, setIsProcessingQuest] = useState(false);
+    const [isRequestingQuests, setIsRequestingQuests] = useState(false);
     const [isDesktop, setIsDesktop] = useState(() => {
         if (Platform.OS === 'web' && typeof window !== 'undefined') {
             return window.innerWidth >= 768;
@@ -199,43 +133,54 @@ export default function CampaignScreen() {
         return false;
     });
 
-    // Handle window resize for responsive panel
-    useEffect(() => {
-        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    // 1. Memoized Values (Defined before effects)
+    const reversedMessages = useMemo(() => [...messages].reverse(), [messages]);
 
-        const handleResize = () => {
-            if (typeof window !== 'undefined') {
-                setIsDesktop(window.innerWidth >= 768);
-            }
-        };
+    const lastNarratorIndexReversed = useMemo(() => {
+        for (let i = 0; i < reversedMessages.length; i++) {
+            if (reversedMessages[i].role === 'narrator') return i;
+        }
+        return -1;
+    }, [reversedMessages]);
 
-        window.addEventListener('resize', handleResize);
-        return () => window.removeEventListener('resize', handleResize);
-    }, []);
+    const lastUserMessageIndexReversed = useMemo(() => {
+        for (let i = 0; i < reversedMessages.length; i++) {
+            if (reversedMessages[i].role === 'user') return i;
+        }
+        return -1;
+    }, [reversedMessages]);
 
-    useEffect(() => {
-        if (!id || isUserLoading || !user) return;
-
-        // Load campaign when id changes (but not when campaign object changes)
-        loadCampaign(id);
-    }, [id, isUserLoading, user, loadCampaign]);
-
-    // Real-time listener for campaign updates (Quests, HP, etc.)
-    useEffect(() => {
-        if (!id || !user?.id) return;
-
-        const campaignRef = doc(db, 'users', user.id, 'campaigns', id);
-        const unsubscribe = onSnapshot(campaignRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const data = snapshot.data();
-                updateCurrentCampaign(data);
+    // 2. Helper Handlers (Defined before effects)
+    const scrollToBottom = () => {
+        requestAnimationFrame(() => {
+            // In an inverted list, index 0 is the bottom
+            if (reversedMessages.length > 0) {
+                flatListRef.current?.scrollToIndex({ index: 0, animated: true });
             }
         });
+    };
 
-        return () => unsubscribe();
-    }, [id, user?.id]);
+    const scrollToLastResponse = () => {
+        if (lastNarratorIndexReversed !== -1) {
+            flatListRef.current?.scrollToIndex({
+                index: lastNarratorIndexReversed,
+                animated: true,
+                viewPosition: 0,
+            });
+        }
+    };
 
-    const [isProcessingQuest, setIsProcessingQuest] = useState(false);
+    const handleSend = async (text: string) => {
+        await processUserInput(text);
+    };
+
+    const toggleHud = () => {
+        Animated.spring(hudAnimation, {
+            toValue: hudExpanded ? 0 : 1,
+            useNativeDriver: false,
+        }).start();
+        setHudExpanded(!hudExpanded);
+    };
 
     const handleAcceptQuest = async (questId: string) => {
         if (!id) return;
@@ -243,7 +188,6 @@ export default function CampaignScreen() {
         try {
             const acceptTrigger = httpsCallable(functions, 'acceptQuestTrigger');
             await acceptTrigger({ campaignId: id, questId });
-            // The game store will update automatically via Firestore listener
         } catch (error) {
             console.error('Error accepting quest:', error);
             Alert.alert('Error', 'Failed to accept quest');
@@ -266,24 +210,19 @@ export default function CampaignScreen() {
         }
     };
 
-    const [isRequestingQuests, setIsRequestingQuests] = useState(false);
     const handleRequestQuests = async () => {
         if (!id) return;
         setIsRequestingQuests(true);
         try {
             const requestTrigger = httpsCallable(functions, 'requestQuestsTrigger');
             const result: any = await requestTrigger({ campaignId: id });
-
             if (result.data?.success) {
-                // No more alerts - the real-time listener will update the Adventures panel
                 console.log(`Quest Master: ${result.data.questsGenerated} new opportunities found.`);
             }
         } catch (error: any) {
             console.error('Error requesting quests:', error);
-            // Extract meaningful message from Firebase error
             const errorMessage = error.message || 'The Quest Master is currently unavailable.';
             const displayMessage = errorMessage.replace('INTERNAL: ', '').replace('FAILED_PRECONDITION: ', '');
-
             if (Platform.OS === 'web') {
                 console.warn(`Quest Master Error: ${displayMessage}`);
             } else {
@@ -294,71 +233,8 @@ export default function CampaignScreen() {
         }
     };
 
-    const [hudExpanded, setHudExpanded] = useState(true);
-    const hudAnimation = useRef(new Animated.Value(1)).current;
-
-    // Toggle HUD visibility
-    const toggleHud = () => {
-        Animated.spring(hudAnimation, {
-            toValue: hudExpanded ? 0 : 1,
-            useNativeDriver: false,
-        }).start();
-        setHudExpanded(!hudExpanded);
-    };
-
-    // Auto-scroll disabled - users need to read from the top
-    // useEffect(() => {
-    //     if (messages.length > 0) {
-    //         setTimeout(() => {
-    //             flatListRef.current?.scrollToEnd({ animated: true });
-    //         }, 100);
-    //     }
-    // }, [messages.length]);
-
-    const handleSend = async (text: string) => {
-        await processUserInput(text);
-    };
-
-    const lastNarratorIndex = useMemo(() => {
-        for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i].role === 'narrator') {
-                return i;
-            }
-        }
-        return -1;
-    }, [messages]);
-
-    // Find last user message index for edit button (must be before conditionals for Rules of Hooks)
-    const lastUserMessageIndex = useMemo(() => {
-        for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i].role === 'user') {
-                return i;
-            }
-        }
-        return -1;
-    }, [messages]);
-
-    const scrollToBottom = () => {
-        // Use requestAnimationFrame to ensure content is rendered before scrolling
-        requestAnimationFrame(() => {
-            flatListRef.current?.scrollToEnd({ animated: true });
-        });
-    };
-
-    const scrollToLastResponse = () => {
-        if (lastNarratorIndex !== -1) {
-            flatListRef.current?.scrollToIndex({
-                index: lastNarratorIndex,
-                animated: true,
-                viewPosition: 0,
-            });
-        }
-    };
-
     const handleDeleteCampaign = async () => {
         setMenuVisible(false);
-
-        // Use window.confirm for web compatibility
         let confirmed = false;
         if (Platform.OS === 'web') {
             // @ts-ignore
@@ -395,6 +271,89 @@ export default function CampaignScreen() {
             setIsDeleting(false);
         }
     };
+
+    // 3. Side Effects (Dependencies are now initialized above)
+
+    // Auto-scroll removed - Inverted list naturally loads at the bottom (index 0)
+
+    // Handle window resize for responsive panel
+    useEffect(() => {
+        if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+        const handleResize = () => {
+            if (typeof window !== 'undefined') {
+                setIsDesktop(window.innerWidth >= 768);
+            }
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
+    // Load campaign
+    useEffect(() => {
+        if (!id || isUserLoading || !user) return;
+        loadCampaign(id);
+    }, [id, isUserLoading, user, loadCampaign]);
+
+    // Real-time listener for campaign updates
+    useEffect(() => {
+        if (!id || !user?.id) return;
+        const campaignRef = doc(db, 'users', user.id, 'campaigns', id);
+        const unsubscribe = onSnapshot(campaignRef, (snapshot) => {
+            if (snapshot.exists()) {
+                const data = snapshot.data();
+                updateCurrentCampaign(data);
+            }
+        });
+        return () => unsubscribe();
+    }, [id, user?.id]);
+
+    // Smart Idle Detection for Cache Heartbeat
+    useEffect(() => {
+        if (!id || Platform.OS !== 'web' || typeof document === 'undefined') return;
+        const HEARTBEAT_INTERVAL = 270000;
+        const IDLE_TIMEOUT = 900000;
+        let heartbeatInterval: any = null;
+        let idleTimeout: any = null;
+        let lastActivity = Date.now();
+        let isHeartbeatActive = true;
+        const keepAlive = httpsCallable(functions, 'keepVoiceCacheAlive');
+
+        const resetIdleTimer = () => {
+            lastActivity = Date.now();
+            if (idleTimeout) clearTimeout(idleTimeout);
+            if (!isHeartbeatActive) {
+                isHeartbeatActive = true;
+                startHeartbeat();
+            }
+            idleTimeout = setTimeout(() => {
+                isHeartbeatActive = false;
+                if (heartbeatInterval) {
+                    clearInterval(heartbeatInterval);
+                    heartbeatInterval = null;
+                }
+            }, IDLE_TIMEOUT);
+        };
+
+        const startHeartbeat = () => {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            heartbeatInterval = setInterval(() => {
+                if (isHeartbeatActive) {
+                    keepAlive({ campaignId: id }).catch(e => console.warn('[Heartbeat] Fail:', e));
+                }
+            }, HEARTBEAT_INTERVAL);
+        };
+
+        const activityEvents = ['mousedown', 'keydown', 'touchstart', 'click'];
+        activityEvents.forEach(event => document.addEventListener(event, resetIdleTimer));
+        resetIdleTimer();
+        startHeartbeat();
+
+        return () => {
+            if (heartbeatInterval) clearInterval(heartbeatInterval);
+            if (idleTimeout) clearTimeout(idleTimeout);
+            activityEvents.forEach(event => document.removeEventListener(event, resetIdleTimer));
+        };
+    }, [id]);
 
     // Show loading state until client is hydrated and campaign is loaded
     if (!isMounted || ((isLoading || isUserLoading) && !currentCampaign)) {
@@ -437,7 +396,7 @@ export default function CampaignScreen() {
         <MessageBubble
             message={item}
             index={index}
-            isLastUserMessage={index === lastUserMessageIndex}
+            isLastUserMessage={index === lastUserMessageIndexReversed}
         />
     );
 
@@ -524,9 +483,10 @@ export default function CampaignScreen() {
                         {/* Chat Messages */}
                         <FlatList
                             ref={flatListRef}
-                            data={messages}
+                            data={reversedMessages}
                             renderItem={renderMessage}
                             keyExtractor={(item) => item.id}
+                            inverted={true}
                             contentContainerStyle={styles.messageList}
                             showsVerticalScrollIndicator={false}
                             onScrollToIndexFailed={(info) => {
@@ -536,7 +496,7 @@ export default function CampaignScreen() {
                                 });
                             }}
                             ListEmptyComponent={
-                                <View style={styles.emptyChat}>
+                                <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
                                     <Text style={styles.emptyChatIcon}>📜</Text>
                                     <Text style={styles.emptyChatText}>Your adventure awaits...</Text>
                                     <Text style={styles.emptyChatHint}>
@@ -599,7 +559,7 @@ export default function CampaignScreen() {
                         {/* Navigation Buttons */}
                         {messages.length > 0 && (
                             <View style={styles.navButtons}>
-                                {lastNarratorIndex !== -1 && (
+                                {lastNarratorIndexReversed !== -1 && (
                                     <TouchableOpacity
                                         style={styles.navButton}
                                         onPress={scrollToLastResponse}

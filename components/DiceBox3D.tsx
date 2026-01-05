@@ -18,42 +18,47 @@ export const DiceBox3D = ({ notation, onRollComplete, onRollStarted, theme = 'de
     const [isInitialized, setIsInitialized] = useState(false);
 
     useEffect(() => {
-        if (Platform.OS !== 'web' || !containerRef.current) return;
+        if (Platform.OS !== 'web') return;
 
-        // Initialize Dice Box
-        const diceBox = new DiceBox({
-            container: containerRef.current,
-            assetPath: '/assets/dice-box/', // This matches where we copied the assets
-            gravity: 1,
-            friction: 0.8,
-            restitution: 0.5,
-            theme: theme,
-            startingHeight: 8,
-            spinStrength: 5,
-            throwStrength: 5,
-            settleTimeout: 5000,
-        });
+        // Initialize Dice Box with a small delay to ensure DOM is ready
+        const timer = setTimeout(() => {
+            const diceBox = new DiceBox({
+                container: '#dice-box-container', // Use CSS selector instead of ref
+                assetPath: '/assets/dice-box/',
+                gravity: 1,
+                friction: 0.8,
+                restitution: 0.5,
+                theme: theme,
+                startingHeight: 8,
+                spinStrength: 5,
+                throwStrength: 5,
+                settleTimeout: 5000,
+                enableSound: false, // Disable audio to prevent 404 errors
+            });
 
-        diceBox.init().then(() => {
-            boxRef.current = diceBox;
-            setIsInitialized(true);
+            diceBox.init().then(() => {
+                boxRef.current = diceBox;
+                setIsInitialized(true);
 
-            // Listen for roll complete
-            diceBox.onRollComplete = (results: any) => {
-                const totalRoll = results.totalValue;
-                onRollComplete({
-                    roll: totalRoll,
-                    total: totalRoll + modifier
-                });
-            };
-        }).catch((err: any) => {
-            console.error('[DiceBox3D] Initialization failed:', err);
-        });
+                // Listen for roll complete
+                diceBox.onRollComplete = (results: any) => {
+                    const totalRoll = results.totalValue;
+                    onRollComplete({
+                        roll: totalRoll,
+                        total: totalRoll + modifier
+                    });
+                };
+            }).catch((err: any) => {
+                console.error('[DiceBox3D] Initialization failed:', err);
+            });
+        }, 100);
 
         return () => {
-            // Cleanup: clear the canvas if possible (dice-box cleanup is sometimes messy)
-            if (containerRef.current) {
-                containerRef.current.innerHTML = '';
+            clearTimeout(timer);
+            // Cleanup: clear the canvas if possible
+            const container = document.getElementById('dice-box-container');
+            if (container) {
+                container.innerHTML = '';
             }
         };
     }, []);
@@ -77,6 +82,7 @@ export const DiceBox3D = ({ notation, onRollComplete, onRollStarted, theme = 'de
         <View style={styles.container}>
             {/* dice-box needs a DOM element, so we use a div on web */}
             <div
+                id="dice-box-container"
                 ref={containerRef}
                 style={{
                     width: '100%',

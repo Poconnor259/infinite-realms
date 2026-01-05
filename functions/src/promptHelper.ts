@@ -25,6 +25,32 @@ export interface WorldPromptOverride {
 
 // ==================== DEFAULT PROMPTS ====================
 
+// ==================== SHARED RULES ====================
+
+const SHARED_ROLL_RULES = `
+INTERACTIVE ROLL MECHANICS (D&D 5E STYLE):
+1. MANDATORY PAUSE: Whenever a roll is required (loot, spell, skill check, attack), you MUST:
+   - Provide a "pendingRoll" object in your JSON
+   - Set "requiresUserInput": true
+   - STOP further narrative until the roll is received
+
+2. LOOT ROLLS: 
+   - When a player loots (searches a body/room), request a d20 Investigation (thorough) or Perception (quick) check.
+   - DC 10 (common), DC 15 (hidden), DC 20 (rare).
+   - Results: 1-9 (minimal), 10-14 (standard), 15-19 (above-average), 20+ (excellent).
+   - Nat 1: Nothing or Trap. Nat 20: Max loot + Special.
+
+3. SPELL & ABILITY ROLLS:
+   - When a player casts a spell or uses an active ability that isn't auto-hit:
+   - For attacks: Request a d20 + [Mental Stat] modifier.
+   - For effects: Request an appropriate Ability Check (e.g., "Spirit" or "Wisdom") vs a DC.
+   - For saves: If an enemy casts on the player, request a Saving Throw (d20 + Stat).
+
+4. SKILL CHECKS:
+   - Ambiguous actions (e.g., "I try to climb," "I scan for danger") MUST trigger a roll.
+   - Use d20 + relevant stat modifier.
+`;
+
 const DEFAULT_BRAIN_PROMPT = `You are the LOGIC ENGINE for a tabletop RPG.
 
 CORE RESPONSIBILITIES:
@@ -48,6 +74,8 @@ CRITICAL INSTRUCTIONS:
 8. {{SUGGESTED_CHOICES_RULES}}
 {{ROLL_RESULT_RULE}}
 
+${SHARED_ROLL_RULES}
+
 WHEN TO PAUSE FOR INPUT:
 Set requiresUserInput: true and provide pendingChoice when:
 - Player input is ambiguous (e.g., "I attack" without specifying a target)
@@ -70,7 +98,22 @@ WHEN TO PROCEED AUTOMATICALLY:
 - Clear, specific actions ("I attack the goblin with my sword")
 - Movement to named locations ("I go to the tavern")
 - Using specific items ("I drink the health potion")
-- Simple skill checks ("I search the room")
+
+LOOT ROLLS (D&D 5E):
+When a player attempts to loot (search a body, container, room, etc.):
+1. Request a d20 Investigation check (INT-based) for thorough searches, or Perception check (WIS-based) for quick scans
+2. Set appropriate DC based on context:
+   - DC 10: Common loot (defeated enemy, obvious chest)
+   - DC 15: Hidden or well-protected loot
+   - DC 20: Rare or magically concealed items
+3. Loot quality scales with roll result:
+   - 1-9: Minimal/common items only (few copper, basic supplies)
+   - 10-14: Standard loot for the encounter (expected gold/items)
+   - 15-19: Above-average loot + bonus item (extra gold, uncommon item)
+   - 20+: Excellent loot + rare item or significant gold bonus
+4. Natural 1 (critical fail): Player finds nothing, or triggers a trap/curse
+5. Natural 20 (critical success): Maximum loot + special bonus (rare item, hidden treasure)
+6. Use pendingRoll to request the check, then award loot based on the result
 
 RULES:
 - Calculate all dice rolls with proper randomization (unless in interactive mode)
@@ -259,6 +302,8 @@ CRITICAL INSTRUCTIONS:
 8. {{SUGGESTED_CHOICES_RULES}}
 {{ROLL_RESULT_RULE}}
 
+${SHARED_ROLL_RULES}
+
 WHEN TO PAUSE FOR INPUT:
 Set requiresUserInput: true and provide pendingChoice when:
 - Player input is ambiguous
@@ -306,6 +351,8 @@ CRITICAL INSTRUCTIONS:
 8. {{SUGGESTED_CHOICES_RULES}}
 {{ROLL_RESULT_RULE}}
 
+${SHARED_ROLL_RULES}
+
 WHEN TO PAUSE FOR INPUT:
 Set requiresUserInput: true and provide pendingChoice when:
 - Player input is ambiguous
@@ -352,6 +399,8 @@ CRITICAL INSTRUCTIONS:
 7. If reference materials or custom rules are provided, use them for world-consistent responses.
 8. {{SUGGESTED_CHOICES_RULES}}
 {{ROLL_RESULT_RULE}}
+
+${SHARED_ROLL_RULES}
 
 WHEN TO PAUSE FOR INPUT:
 Set requiresUserInput: true and provide pendingChoice when:

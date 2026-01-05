@@ -426,7 +426,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
 
             // Check if we have a pending dice roll (no narrator message yet)
-            if (result.data.pendingRoll && result.data.requiresUserInput) {
+            if (result.data.pendingRoll) {
                 console.log('[Game] Pending dice roll detected:', result.data.pendingRoll);
                 set({
                     isLoading: false,
