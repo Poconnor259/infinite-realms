@@ -594,16 +594,7 @@ export default function CampaignScreen() {
                             </View>
                         )}
 
-                        {/* Dice Roller Display */}
-                        {!isLoading && pendingRoll && (
-                            <DiceRoller
-                                pendingRoll={pendingRoll}
-                                onRollComplete={(result) => {
-                                    console.log('[Campaign] Dice roll complete:', result);
-                                    submitRollResult(result.total);
-                                }}
-                            />
-                        )}
+
 
                         {/* Navigation Buttons */}
                         {messages.length > 0 && (
@@ -656,6 +647,11 @@ export default function CampaignScreen() {
                             worldModule={currentCampaign.worldModule}
                             onAcceptQuest={handleAcceptQuest}
                             onDeclineQuest={handleDeclineQuest}
+                            pendingRoll={pendingRoll}
+                            onRollComplete={(result) => {
+                                console.log('[Campaign] Dice roll complete:', result);
+                                submitRollResult(result.total);
+                            }}
                         />
                     </View>
                     )

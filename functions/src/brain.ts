@@ -104,7 +104,11 @@ const BrainResponseSchema = z.object({
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
     const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true, interactiveDiceRolls = false, rollResult } = input;
 
+    console.log(`[Brain] ========== NEW REQUEST ==========`);
     console.log(`[Brain] interactiveDiceRolls=${interactiveDiceRolls}, rollResult=${rollResult}`);
+    console.log(`[Brain] provider=${provider}, model=${model}`);
+    console.log(`[Brain] userInput="${userInput.substring(0, 100)}..."`);
+    console.log(`[Brain] =====================================`);
 
     try {
         // Build knowledge base section if documents exist
@@ -209,17 +213,32 @@ Acknowledge their essence in narrative but do not offer selection.
 
         // Define dynamic instruction blocks
         const diceRules = interactiveDiceRolls
-            ? `INTERACTIVE DICE MODE ENABLED - MANDATORY RULES:
-   - When ANY dice roll is needed (attack rolls, damage rolls, skill checks, saving throws, ability checks), you MUST:
-     a) Set "requiresUserInput": true
-     b) Set "pendingRoll" with: type (e.g., "d20", "2d6"), purpose (e.g., "Attack Roll vs Goblin", "Stealth Check"), modifier (number), stat (optional), difficulty (DC if known)
-     c) Leave "diceRolls" as an EMPTY array - do NOT auto-roll
-     d) In "narrativeCues", describe the setup but NOT the outcome (e.g., "You swing your sword..." not "You hit/miss")
-   - EXAMPLES when to pause for dice:
-     * Combat attacks: pendingRoll: { type: "d20", purpose: "Attack Roll", modifier: 3, stat: "Strength" }
-     * Skill checks: pendingRoll: { type: "d20", purpose: "Perception Check", modifier: 2, stat: "Wisdom", difficulty: 15 }
-     * Damage: pendingRoll: { type: "2d6", purpose: "Damage Roll (Longsword)", modifier: 3 }
-   - Do NOT resolve the outcome until the user provides the roll result.`
+            ? `⚠️ CRITICAL - INTERACTIVE DICE MODE IS ACTIVE ⚠️
+This is a MANDATORY requirement. When ANY situation requires a dice roll, you MUST:
+
+1. Set "requiresUserInput": true
+2. Set "pendingRoll" with the exact structure shown below
+3. Leave "diceRolls" as an EMPTY array []
+4. In "narrativeCues", describe ONLY the setup, NOT the outcome
+
+REQUIRED pendingRoll JSON structure:
+{
+  "type": "d20",           // Required: "d20", "2d6", "d100", etc.
+  "purpose": "Attack Roll vs Goblin",  // Required: Clear description
+  "modifier": 5,           // Optional: Number bonus/penalty
+  "stat": "Strength",      // Optional: Related stat
+  "difficulty": 15         // Optional: DC if known
+}
+
+TRIGGERS for pendingRoll (ANY of these = MUST use pendingRoll):
+- Combat attacks (melee, ranged, spell)
+- Skill checks (stealth, perception, persuasion, etc.)
+- Saving throws (reflex, will, fortitude)
+- Ability checks (strength, dexterity, etc.)
+- Damage rolls (only AFTER hit confirmed by previous roll)
+
+DO NOT resolve outcomes. Wait for user's roll result.
+DO NOT auto-roll. Leave diceRolls as [].`
             : 'Calculate all dice rolls using proper randomization simulation and include them in diceRolls array.';
 
         const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
@@ -237,6 +256,13 @@ Acknowledge their essence in narrative but do not offer selection.
         systemPrompt = systemPrompt.replace('{{INTERACTIVE_DICE_RULES}}', diceRules);
         systemPrompt = systemPrompt.replace('{{SUGGESTED_CHOICES_RULES}}', choicesRule);
         systemPrompt = systemPrompt.replace('{{ROLL_RESULT_RULE}}', rollResultRule);
+
+        // Log if dice rules were injected
+        if (interactiveDiceRolls) {
+            console.log(`[Brain] 🎲 DICE RULES INJECTED:`);
+            console.log(`[Brain] Instructions length: ${diceRules.length} chars`);
+            console.log(`[Brain] First 200 chars: ${diceRules.substring(0, 200)}...`);
+        }
 
         // BACKWARD COMPATIBILITY: If placeholders are missing (old prompt version), append the logic
         if (!systemPrompt.includes(diceRules) && !brainPrompt.includes('{{INTERACTIVE_DICE_RULES}}')) {
@@ -292,6 +318,11 @@ Respond with JSON only. No markdown, no explanation.`;
             description: "Game logic engine output",
             type: SchemaType.OBJECT,
             properties: {
+                stateUpdates: {
+                    type: SchemaType.OBJECT,
+                    description: "Updated game state fields",
+                    nullable: true
+                },
                 narrativeCues: {
                     type: SchemaType.ARRAY,
                     description: "List of narrative cues for the storyteller",
@@ -332,7 +363,45 @@ Respond with JSON only. No markdown, no explanation.`;
                     description: "System messages for the player",
                     items: { type: SchemaType.STRING }
                 },
-                narrativeCue: { type: SchemaType.STRING, description: "Fallback narrative summary", nullable: true }
+                narrativeCue: { type: SchemaType.STRING, description: "Fallback narrative summary", nullable: true },
+                requiresUserInput: {
+                    type: SchemaType.BOOLEAN,
+                    description: "True if player needs to roll dice or make a choice",
+                    nullable: true
+                },
+                pendingRoll: {
+                    type: SchemaType.OBJECT,
+                    description: "Dice roll request for interactive mode",
+                    properties: {
+                        type: { type: SchemaType.STRING, description: "Dice type, e.g., 'd20' or '2d6'" },
+                        purpose: { type: SchemaType.STRING, description: "What the roll is for" },
+                        modifier: { type: SchemaType.NUMBER, nullable: true, description: "Modifier to add" },
+                        stat: { type: SchemaType.STRING, nullable: true, description: "Related stat name" },
+                        difficulty: { type: SchemaType.NUMBER, nullable: true, description: "DC/Target number" }
+                    },
+                    required: ['type', 'purpose'],
+                    nullable: true
+                },
+                pendingChoice: {
+                    type: SchemaType.OBJECT,
+                    description: "Choice prompt for player",
+                    properties: {
+                        prompt: { type: SchemaType.STRING, description: "Question to ask" },
+                        options: {
+                            type: SchemaType.ARRAY,
+                            items: { type: SchemaType.STRING },
+                            nullable: true,
+                            description: "Suggested choices"
+                        },
+                        choiceType: {
+                            type: SchemaType.STRING,
+                            enum: ['action', 'target', 'dialogue', 'direction', 'item', 'decision'],
+                            description: "Category of choice"
+                        }
+                    },
+                    required: ['prompt', 'choiceType'],
+                    nullable: true
+                }
             },
             required: ['narrativeCues', 'diceRolls', 'systemMessages']
         };
@@ -492,20 +561,42 @@ Respond with JSON only. No markdown, no explanation.`;
             };
         }
 
+        // Log the raw parsed response
+        console.log(`[Brain] 📦 RAW RESPONSE:`);
+        console.log(`[Brain] - requiresUserInput: ${parsed.requiresUserInput}`);
+        console.log(`[Brain] - pendingRoll exists: ${!!parsed.pendingRoll}`);
+        console.log(`[Brain] - pendingChoice exists: ${!!parsed.pendingChoice}`);
+        if (parsed.pendingRoll) {
+            console.log(`[Brain] - pendingRoll data:`, JSON.stringify(parsed.pendingRoll));
+        }
+
+        // Normalize common AI response quirks before validation
+        if (parsed.narrativeCues && typeof parsed.narrativeCues === 'string') {
+            console.log('[Brain] Normalizing narrativeCues from string to array');
+            parsed.narrativeCues = [{ type: 'description', content: parsed.narrativeCues }];
+        }
+        if (parsed.systemMessages && typeof parsed.systemMessages === 'string') {
+            parsed.systemMessages = [parsed.systemMessages];
+        }
+
         // Validate with Zod
         const validated = BrainResponseSchema.safeParse(parsed);
 
         if (!validated.success) {
-            console.error('Brain response validation failed:', validated.error);
-            // Attempt partial recovery
+            console.warn('Brain response validation failed, attempting robust recovery:', validated.error.message);
+
+            // ROBUST RECOVERY: Preserve as much as possible even if validation fails
             return {
                 success: true,
                 data: {
                     stateUpdates: parsed.stateUpdates || {},
-                    narrativeCues: [],
-                    narrativeCue: parsed.narrativeCue || 'The action was processed.',
-                    diceRolls: [],
-                    systemMessages: [],
+                    narrativeCues: Array.isArray(parsed.narrativeCues) ? parsed.narrativeCues : [],
+                    narrativeCue: parsed.narrativeCue || (typeof parsed.narrativeCues === 'string' ? parsed.narrativeCues : 'The action was processed.'),
+                    diceRolls: Array.isArray(parsed.diceRolls) ? parsed.diceRolls : [],
+                    systemMessages: Array.isArray(parsed.systemMessages) ? parsed.systemMessages : [],
+                    requiresUserInput: !!parsed.requiresUserInput,
+                    pendingChoice: parsed.pendingChoice || undefined,
+                    pendingRoll: parsed.pendingRoll || undefined,
                 },
                 usage
             };

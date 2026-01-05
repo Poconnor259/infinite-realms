@@ -1,18 +1,29 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, LayoutAnimation, Platform, UIManager, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import type { NormalizedCharacter, NormalizedResource, NormalizedStat, NormalizedAbility, NormalizedItem } from '../../lib/normalizeCharacter';
+import { DiceRoller } from '../DiceRoller';
+
+interface PendingRoll {
+    type: string;
+    purpose: string;
+    modifier?: number;
+    stat?: string;
+    difficulty?: number;
+}
 
 interface UnifiedCharacterPanelProps {
     character: NormalizedCharacter;
     worldType?: string;
     onAcceptQuest?: (questId: string) => void;
     onDeclineQuest?: (questId: string) => void;
+    pendingRoll?: PendingRoll | null;
+    onRollComplete?: (result: { roll: number; total: number; success?: boolean }) => void;
 }
 
-export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest }: UnifiedCharacterPanelProps) {
+export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest, pendingRoll, onRollComplete }: UnifiedCharacterPanelProps) {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -20,6 +31,29 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
         UIManager.setLayoutAnimationEnabledExperimental(true);
     }
+
+    // Animated height for dice roller section
+    const diceHeightAnim = useRef(new Animated.Value(0)).current;
+    const [showDice, setShowDice] = useState(false);
+
+    // Animate dice section in/out when pendingRoll changes
+    useEffect(() => {
+        if (pendingRoll) {
+            setShowDice(true);
+            Animated.spring(diceHeightAnim, {
+                toValue: 1,
+                useNativeDriver: false,
+                tension: 50,
+                friction: 8,
+            }).start();
+        } else {
+            Animated.timing(diceHeightAnim, {
+                toValue: 0,
+                duration: 300,
+                useNativeDriver: false,
+            }).start(() => setShowDice(false));
+        }
+    }, [pendingRoll, diceHeightAnim]);
 
     // Previous Character Ref for simple change detection
     const prevCharacter = useRef(character);
@@ -96,6 +130,35 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
 
     return (
         <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+            {/* Animated Dice Roller Section - Appears at top when needed */}
+            {showDice && pendingRoll && (
+                <Animated.View style={[
+                    styles.diceSection,
+                    {
+                        opacity: diceHeightAnim,
+                        maxHeight: diceHeightAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 500],
+                        }),
+                        overflow: 'hidden',
+                        borderBottomWidth: diceHeightAnim.interpolate({
+                            inputRange: [0, 1],
+                            outputRange: [0, 1],
+                        }),
+                        borderBottomColor: colors.border.default,
+                    }
+                ]}>
+                    <DiceRoller
+                        pendingRoll={pendingRoll}
+                        onRollComplete={(result) => {
+                            if (onRollComplete) {
+                                onRollComplete(result);
+                            }
+                        }}
+                    />
+                </Animated.View>
+            )}
+
             {/* Character Header */}
             <View style={styles.header}>
                 <Text style={styles.characterName}>{safeName}</Text>
@@ -586,6 +649,9 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.fontSize.sm,
         color: colors.text.muted,
         fontStyle: 'italic',
+    },
+    diceSection: {
+        backgroundColor: colors.background.secondary,
     },
     sectionContainer: {
         borderBottomWidth: 1,

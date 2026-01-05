@@ -169,6 +169,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         const state = get();
         if (!state.currentCampaign || !state.pendingRoll) return;
 
+        // IMPORTANT: Capture pendingRoll data BEFORE clearing state
+        // This prevents race condition where we try to access null pendingRoll later
+        const capturedRoll = { ...state.pendingRoll };
+
         // Clear the pending roll and set loading
         set({ pendingRoll: null, isLoading: true, error: null });
 
@@ -213,7 +217,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 metadata: {
                     voiceModel: result.data.voiceModelId,
                     turnCost: result.data.turnCost,
-                    diceRolls: [{ type: state.pendingRoll?.type || 'd20', result: rollResult, total: rollResult + (state.pendingRoll?.modifier || 0), purpose: state.pendingRoll?.purpose }],
+                    diceRolls: [{ type: capturedRoll.type || 'd20', result: rollResult, total: rollResult + (capturedRoll.modifier || 0), purpose: capturedRoll.purpose }],
                     debug: result.data.debug,
                 },
             };
@@ -554,7 +558,7 @@ interface SettingsState {
     backgroundAmbiance: boolean;
     showFavoritesOnly: boolean;
     themeMode: 'light' | 'dark' | 'system';
-    diceRollMode: 'auto' | 'digital' | 'physical';
+    diceRollMode: 'auto' | 'digital' | 'physical' | '3d';
 
     // Actions
     setApiKey: (provider: 'openai' | 'anthropic' | 'google', key: string | null) => void;

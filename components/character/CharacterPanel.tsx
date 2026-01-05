@@ -4,14 +4,24 @@ import type { ModuleState, WorldModuleType } from '../../lib/types';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
 import { UnifiedCharacterPanel } from './UnifiedCharacterPanel';
 
+interface PendingRoll {
+    type: string;
+    purpose: string;
+    modifier?: number;
+    stat?: string;
+    difficulty?: number;
+}
+
 interface CharacterPanelProps {
     moduleState: ModuleState;
     worldModule: WorldModuleType | string;
     onAcceptQuest?: (questId: string) => void;
     onDeclineQuest?: (questId: string) => void;
+    pendingRoll?: PendingRoll | null;
+    onRollComplete?: (result: { roll: number; total: number; success?: boolean }) => void;
 }
 
-export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDeclineQuest }: CharacterPanelProps) {
+export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDeclineQuest, pendingRoll, onRollComplete }: CharacterPanelProps) {
     // Extract character data from moduleState
     const rawCharacter = (moduleState as any).character;
 
@@ -30,6 +40,8 @@ export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDecl
                 worldType={worldModule}
                 onAcceptQuest={onAcceptQuest}
                 onDeclineQuest={onDeclineQuest}
+                pendingRoll={pendingRoll}
+                onRollComplete={onRollComplete}
             />
         </View>
     );

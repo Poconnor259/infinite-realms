@@ -2254,7 +2254,7 @@ export const keepVoiceCacheAlive = onCall(async (request) => {
 
     try {
         const db = admin.firestore();
-        const campaignRef = db.collection('campaigns').doc(campaignId);
+        const campaignRef = db.collection('users').doc(userId).collection('campaigns').doc(campaignId);
         const campaignDoc = await campaignRef.get();
         if (!campaignDoc.exists) throw new HttpsError('not-found', 'Campaign not found.');
 
