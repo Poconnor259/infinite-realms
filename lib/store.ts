@@ -53,6 +53,16 @@ export const storage = createStorage();
 
 // ==================== GAME STORE ====================
 
+export interface RollHistoryEntry {
+    type: string;           // "d20", "2d6", etc.
+    purpose: string;        // "Attack Roll", "Saving Throw", etc.
+    roll: number;           // Raw dice result
+    total: number;          // Result + modifier
+    success?: boolean;      // If there was a DC check
+    mode: 'auto' | 'digital' | '3d' | 'physical';  // How the roll was made
+    timestamp: number;      // When the roll occurred
+}
+
 interface GameState {
     // Current session
     currentCampaign: Campaign | null;
@@ -71,6 +81,7 @@ interface GameState {
         stat?: string;
         difficulty?: number;
     } | null;
+    rollHistory: RollHistoryEntry[];
 
     // Edit & Retry
     editingMessage: string | null; // Text of message being edited
@@ -88,6 +99,7 @@ interface GameState {
     setPendingChoice: (choice: { prompt: string; options?: string[]; choiceType: string } | null) => void;
     setPendingRoll: (roll: { type: string; purpose: string; modifier?: number; stat?: string; difficulty?: number } | null) => void;
     submitRollResult: (rollResult: number) => Promise<void>;
+    addRollToHistory: (entry: RollHistoryEntry) => void;
 
     // Edit & Retry Actions
     setEditingMessage: (text: string | null) => void;
@@ -100,6 +112,27 @@ interface GameState {
     loadCampaign: (id: string) => Promise<void>;
 }
 
+// Initialize roll history from localStorage
+const loadRollHistory = (): RollHistoryEntry[] => {
+    try {
+        const stored = storage.getString('rollHistory');
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {
+        console.warn('Failed to load roll history from storage');
+    }
+    return [];
+};
+
+const saveRollHistory = (history: RollHistoryEntry[]) => {
+    try {
+        storage.set('rollHistory', JSON.stringify(history));
+    } catch (e) {
+        console.warn('Failed to save roll history to storage');
+    }
+};
+
 export const useGameStore = create<GameState>((set, get) => ({
     currentCampaign: null,
     messages: [],
@@ -107,6 +140,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     error: null,
     pendingChoice: null,
     pendingRoll: null,
+    rollHistory: loadRollHistory(),
     editingMessage: null,
     lastFailedRequest: null,
 
@@ -165,6 +199,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     setPendingRoll: (roll) => set({ pendingRoll: roll }),
 
+    addRollToHistory: (entry) => {
+        set((state) => {
+            const newHistory = [entry, ...state.rollHistory].slice(0, 10);
+            saveRollHistory(newHistory);
+            return { rollHistory: newHistory };
+        });
+    },
+
     submitRollResult: async (rollResult: number) => {
         const state = get();
         if (!state.currentCampaign || !state.pendingRoll) return;
@@ -172,6 +214,10 @@ export const useGameStore = create<GameState>((set, get) => ({
         // IMPORTANT: Capture pendingRoll data BEFORE clearing state
         // This prevents race condition where we try to access null pendingRoll later
         const capturedRoll = { ...state.pendingRoll };
+
+        // Determine the dice mode used for history
+        const settings = useSettingsStore.getState();
+        const diceMode = settings.diceRollMode || 'digital';
 
         // Clear the pending roll and set loading
         set({ pendingRoll: null, isLoading: true, error: null });
@@ -240,6 +286,19 @@ export const useGameStore = create<GameState>((set, get) => ({
                         ? result.data.pendingChoice
                         : null,
                 };
+            });
+
+            // Add roll to history
+            const total = rollResult + (capturedRoll.modifier || 0);
+            const success = capturedRoll.difficulty ? total >= capturedRoll.difficulty : undefined;
+            get().addRollToHistory({
+                type: capturedRoll.type,
+                purpose: capturedRoll.purpose,
+                roll: rollResult,
+                total,
+                success,
+                mode: diceMode as 'auto' | 'digital' | '3d' | 'physical',
+                timestamp: Date.now(),
             });
 
             // Sync turns balance if provided

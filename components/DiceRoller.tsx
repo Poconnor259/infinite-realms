@@ -16,6 +16,7 @@ import {
     Animated,
     Easing,
     Platform,
+    ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../lib/hooks/useTheme';
@@ -34,12 +35,23 @@ interface PendingRoll {
     difficulty?: number;    // DC/Target number (optional)
 }
 
+interface RollHistoryEntry {
+    type: string;
+    purpose: string;
+    roll: number;
+    total: number;
+    success?: boolean;
+    mode: 'auto' | 'digital' | '3d' | 'physical';
+    timestamp: number;
+}
+
 interface DiceRollerProps {
-    pendingRoll: PendingRoll;
+    pendingRoll?: PendingRoll | null;
+    rollHistory?: RollHistoryEntry[];
     onRollComplete: (result: { roll: number; total: number; success?: boolean }) => void;
 }
 
-export function DiceRoller({ pendingRoll, onRollComplete }: DiceRollerProps) {
+export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: DiceRollerProps) {
     const { colors } = useThemeColors();
     const diceRollMode = useSettingsStore((state) => state.diceRollMode);
 
@@ -52,6 +64,11 @@ export function DiceRoller({ pendingRoll, onRollComplete }: DiceRollerProps) {
     const rollAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const displayNumber = useRef(new Animated.Value(1)).current;
+
+    // If no pending roll, show history
+    if (!pendingRoll) {
+        return <RollHistory history={rollHistory} colors={colors} />;
+    }
 
     // Parse dice type (e.g., "d20" -> 20, "2d6" -> 6)
     const parseDiceType = (type: string): { count: number; sides: number } => {
@@ -525,3 +542,177 @@ export function DiceRoller({ pendingRoll, onRollComplete }: DiceRollerProps) {
         </Animated.View>
     );
 }
+
+// ==================== ROLL HISTORY COMPONENT ====================
+
+interface RollHistoryProps {
+    history: RollHistoryEntry[];
+    colors: any;
+}
+
+function RollHistory({ history, colors }: RollHistoryProps) {
+    const getModeIcon = (mode: string) => {
+        switch (mode) {
+            case 'auto': return '⚡';
+            case 'digital': return '🎲';
+            case '3d': return '🎮';
+            case 'physical': return '🎯';
+            default: return '🎲';
+        }
+    };
+
+    const getModeLabel = (mode: string) => {
+        switch (mode) {
+            case 'auto': return 'Auto';
+            case 'digital': return 'Digital';
+            case '3d': return '3D';
+            case 'physical': return 'Physical';
+            default: return mode;
+        }
+    };
+
+    if (history.length === 0) {
+        return (
+            <View style={historyStyles.emptyContainer}>
+                <Text style={[historyStyles.emptyText, { color: colors.text.muted }]}>
+                    No rolls yet. Make your first roll!
+                </Text>
+            </View>
+        );
+    }
+
+    return (
+        <View style={historyStyles.container}>
+            <Text style={[historyStyles.title, { color: colors.text.primary }]}>
+                🎲 Roll History
+            </Text>
+            <ScrollView style={historyStyles.scrollView} showsVerticalScrollIndicator={false}>
+                {history.map((entry, index) => (
+                    <View
+                        key={`${entry.timestamp}-${index}`}
+                        style={[
+                            historyStyles.historyItem,
+                            { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }
+                        ]}
+                    >
+                        <View style={historyStyles.itemHeader}>
+                            <Text style={[historyStyles.purpose, { color: colors.text.secondary }]}>
+                                {entry.purpose}
+                            </Text>
+                            <View style={historyStyles.modeTag}>
+                                <Text style={[historyStyles.modeIcon, { color: colors.text.muted }]}>
+                                    {getModeIcon(entry.mode)}
+                                </Text>
+                                <Text style={[historyStyles.modeText, { color: colors.text.muted }]}>
+                                    {getModeLabel(entry.mode)}
+                                </Text>
+                            </View>
+                        </View>
+                        <View style={historyStyles.itemBody}>
+                            <Text style={[historyStyles.diceType, { color: colors.text.primary }]}>
+                                {entry.type.toUpperCase()}
+                            </Text>
+                            <Text style={[historyStyles.result, { color: colors.primary[400] }]}>
+                                {entry.total}
+                            </Text>
+                            {entry.success !== undefined && (
+                                <View style={[
+                                    historyStyles.successBadge,
+                                    { backgroundColor: entry.success ? colors.status.success + '20' : colors.status.error + '20' }
+                                ]}>
+                                    <Text style={[
+                                        historyStyles.successText,
+                                        { color: entry.success ? colors.status.success : colors.status.error }
+                                    ]}>
+                                        {entry.success ? '✓' : '✗'}
+                                    </Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                ))}
+            </ScrollView>
+        </View>
+    );
+}
+
+const historyStyles = StyleSheet.create({
+    container: {
+        padding: spacing.md,
+    },
+    title: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: '700',
+        marginBottom: spacing.sm,
+        textAlign: 'center',
+    },
+    scrollView: {
+        maxHeight: 300,
+    },
+    historyItem: {
+        borderRadius: borderRadius.md,
+        padding: spacing.sm,
+        marginBottom: spacing.xs,
+        borderWidth: 1,
+    },
+    itemHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    purpose: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+        flex: 1,
+    },
+    modeTag: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingHorizontal: spacing.xs,
+        paddingVertical: 2,
+        borderRadius: borderRadius.xs,
+    },
+    modeIcon: {
+        fontSize: 12,
+    },
+    modeText: {
+        fontSize: 10,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+    },
+    itemBody: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+    },
+    diceType: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    result: {
+        fontSize: typography.fontSize.xl,
+        fontWeight: '800',
+        flex: 1,
+    },
+    successBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    successText: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '700',
+    },
+    emptyContainer: {
+        padding: spacing.lg,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: typography.fontSize.sm,
+        fontStyle: 'italic',
+    },
+});

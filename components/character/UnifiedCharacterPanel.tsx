@@ -5,6 +5,7 @@ import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import type { NormalizedCharacter, NormalizedResource, NormalizedStat, NormalizedAbility, NormalizedItem } from '../../lib/normalizeCharacter';
 import { DiceRoller } from '../DiceRoller';
+import { useGameStore } from '../../lib/store';
 
 interface PendingRoll {
     type: string;
@@ -36,9 +37,13 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
     const diceHeightAnim = useRef(new Animated.Value(0)).current;
     const [showDice, setShowDice] = useState(false);
 
-    // Animate dice section in/out when pendingRoll changes
+    // Get roll history from store
+    const rollHistory = useGameStore((state) => state.rollHistory);
+
+    // Animate dice section in/out when pendingRoll changes or history exists
     useEffect(() => {
-        if (pendingRoll) {
+        // Show dice section if there's a pending roll OR if there's roll history
+        if (pendingRoll || (rollHistory && rollHistory.length > 0)) {
             setShowDice(true);
             Animated.spring(diceHeightAnim, {
                 toValue: 1,
@@ -53,7 +58,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                 useNativeDriver: false,
             }).start(() => setShowDice(false));
         }
-    }, [pendingRoll, diceHeightAnim]);
+    }, [pendingRoll, rollHistory, diceHeightAnim]);
 
     // Previous Character Ref for simple change detection
     const prevCharacter = useRef(character);
@@ -150,6 +155,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                 ]}>
                     <DiceRoller
                         pendingRoll={pendingRoll}
+                        rollHistory={rollHistory}
                         onRollComplete={(result) => {
                             if (onRollComplete) {
                                 onRollComplete(result);
