@@ -43,6 +43,9 @@ const audioCache: Map<SoundEffect, HTMLAudioElement> = new Map();
 // Default volume for sound effects
 const DEFAULT_VOLUME = 0.5;
 
+// Track failed loads to avoid repeated console noise/crashes
+const failedLoads: Set<SoundEffect> = new Set();
+
 /**
  * Check if sound effects are enabled in settings
  */
@@ -55,15 +58,22 @@ function isSoundEnabled(): boolean {
  */
 export function preloadSound(sound: SoundEffect): void {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
-    if (audioCache.has(sound)) return;
+    if (audioCache.has(sound) || failedLoads.has(sound)) return;
 
     try {
         const audio = new Audio(SOUND_URLS[sound]);
         audio.preload = 'auto';
         audio.volume = DEFAULT_VOLUME;
+
+        audio.onerror = () => {
+            console.warn(`[Sounds] Failed to preload: ${sound} (Blocked or invalid)`);
+            failedLoads.add(sound);
+        };
+
         audioCache.set(sound, audio);
     } catch (e) {
-        console.warn(`[Sounds] Failed to preload: ${sound}`, e);
+        console.warn(`[Sounds] Preload error: ${sound}`, e);
+        failedLoads.add(sound);
     }
 }
 
@@ -82,6 +92,9 @@ export function preloadCommonSounds(): void {
 export async function playSound(sound: SoundEffect): Promise<void> {
     // Check if sounds are enabled
     if (!isSoundEnabled()) return;
+
+    // Check if this sound has already failed to prevent repeated errors
+    if (failedLoads.has(sound)) return;
 
     if (Platform.OS !== 'web' || typeof window === 'undefined') {
         // Mobile audio not yet implemented
@@ -102,9 +115,17 @@ export async function playSound(sound: SoundEffect): Promise<void> {
         }
 
         audio.volume = DEFAULT_VOLUME;
+
+        // Catch load errors
+        audio.onerror = () => {
+            console.warn(`[Sounds] Source blocked or invalid: ${sound}`);
+            failedLoads.add(sound);
+        };
+
         await audio.play();
     } catch (error) {
         console.warn(`[Sounds] Failed to play: ${sound}`, error);
+        failedLoads.add(sound);
     }
 }
 

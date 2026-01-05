@@ -369,15 +369,14 @@ export default function SettingsScreen() {
                             sublabel={
                                 diceRollMode === 'auto' ? "AI auto-rolls dice for you" :
                                     diceRollMode === 'digital' ? "Tap to roll animated digital dice" :
-                                        diceRollMode === '3d' ? "Tap to roll physics-based 3D dice (Web only)" :
-                                            "Roll real dice and enter your result"
+                                        "Roll real dice and enter your result"
                             }
                             icon="dice-outline"
                             iconColor="#8b5cf6"
                             rightElement={
                                 <TouchableOpacity
                                     onPress={() => {
-                                        const modes: ('auto' | 'digital' | '3d' | 'physical')[] = ['auto', 'digital', '3d', 'physical'];
+                                        const modes: ('auto' | 'digital' | 'physical')[] = ['auto', 'digital', 'physical'];
                                         const currentIndex = modes.indexOf(diceRollMode);
                                         const nextMode = modes[(currentIndex + 1) % modes.length];
                                         setPreference('diceRollMode', nextMode);
@@ -395,8 +394,7 @@ export default function SettingsScreen() {
                                         name={
                                             diceRollMode === 'auto' ? 'flash' :
                                                 diceRollMode === 'digital' ? 'phone-portrait' :
-                                                    diceRollMode === '3d' ? 'cube' :
-                                                        'hand-left'
+                                                    'hand-left'
                                         }
                                         size={16}
                                         color={colors.primary[400]}
@@ -405,8 +403,7 @@ export default function SettingsScreen() {
                                     <Text style={{ color: colors.text.primary, fontSize: 14, fontWeight: '500' }}>
                                         {diceRollMode === 'auto' ? 'Auto' :
                                             diceRollMode === 'digital' ? 'Digital' :
-                                                diceRollMode === '3d' ? '3D Physics' :
-                                                    'Physical'}
+                                                'Physical'}
                                     </Text>
                                 </TouchableOpacity>
                             }

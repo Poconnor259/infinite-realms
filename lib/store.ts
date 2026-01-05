@@ -59,7 +59,7 @@ export interface RollHistoryEntry {
     roll: number;           // Raw dice result
     total: number;          // Result + modifier
     success?: boolean;      // If there was a DC check
-    mode: 'auto' | 'digital' | '3d' | 'physical';  // How the roll was made
+    mode: 'auto' | 'digital' | 'physical';  // How the roll was made
     timestamp: number;      // When the roll occurred
 }
 
@@ -297,7 +297,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                 roll: rollResult,
                 total,
                 success,
-                mode: diceMode as 'auto' | 'digital' | '3d' | 'physical',
+                mode: diceMode as 'auto' | 'digital' | 'physical',
                 timestamp: Date.now(),
             });
 
@@ -617,7 +617,7 @@ interface SettingsState {
     backgroundAmbiance: boolean;
     showFavoritesOnly: boolean;
     themeMode: 'light' | 'dark' | 'system';
-    diceRollMode: 'auto' | 'digital' | 'physical' | '3d';
+    diceRollMode: 'auto' | 'digital' | 'physical';
 
     // Actions
     setApiKey: (provider: 'openai' | 'anthropic' | 'google', key: string | null) => void;

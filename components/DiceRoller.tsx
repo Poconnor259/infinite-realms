@@ -25,7 +25,6 @@ import { AnimatedPressable } from './ui/Animated';
 import { playDiceRoll, playSuccess, playError } from '../lib/sounds';
 import { mediumHaptic, successHaptic, errorHaptic } from '../lib/haptics';
 import { spacing, borderRadius, typography } from '../lib/theme';
-import { DiceBox3D } from './DiceBox3D';
 
 interface PendingRoll {
     type: string;           // "d20", "2d6", etc.
@@ -41,7 +40,7 @@ interface RollHistoryEntry {
     roll: number;
     total: number;
     success?: boolean;
-    mode: 'auto' | 'digital' | '3d' | 'physical';
+    mode: 'auto' | 'digital' | 'physical';
     timestamp: number;
 }
 
@@ -59,7 +58,6 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
     const [result, setResult] = useState<number | null>(null);
     const [physicalInput, setPhysicalInput] = useState('');
     const [showResult, setShowResult] = useState(false);
-    const [rolling3D, setRolling3D] = useState(false);
 
     const rollAnim = useRef(new Animated.Value(0)).current;
     const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -158,38 +156,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
         }, 80);
     };
 
-    // Handle 3D roll complete
-    const handle3DRollComplete = (rollResult: { roll: number; total: number }) => {
-        setResult(rollResult.roll);
-        setIsRolling(false);
-        setRolling3D(false);
-        setShowResult(true);
 
-        const isSuccess = pendingRoll.difficulty ? rollResult.total >= pendingRoll.difficulty : undefined;
-        if (isSuccess) {
-            playSuccess();
-            successHaptic();
-        } else if (pendingRoll.difficulty) {
-            playError();
-            errorHaptic();
-        }
-
-        if (onRollComplete) {
-            onRollComplete({
-                roll: rollResult.roll,
-                total: rollResult.total,
-                success: isSuccess
-            });
-        }
-    };
-
-    const start3DRoll = () => {
-        if (isRolling || showResult) return;
-        setIsRolling(true);
-        setRolling3D(true);
-        playDiceRoll();
-        mediumHaptic();
-    };
 
     // Submit physical dice result
     const submitPhysicalResult = () => {
@@ -334,52 +301,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             color: colors.text.muted,
             marginTop: spacing.xs,
         },
-        // New styles for 3D mode
-        digitalContainer: {
-            width: '100%',
-            alignItems: 'center',
-            justifyContent: 'center',
-            minHeight: 150, // Ensure enough space for 3D dice
-        },
-        rollContainer: {
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: '100%',
-            flex: 1,
-        },
-        rollCircle: {
-            width: 120,
-            height: 120,
-            borderRadius: 60,
-            borderWidth: 2,
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: spacing.xs,
-        },
-        tapToRoll: {
-            fontSize: typography.fontSize.sm,
-            fontWeight: '600',
-        },
-        resultText: {
-            fontSize: 64,
-            fontWeight: '800',
-        },
-        totalContainer: {
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.xs,
-            borderRadius: borderRadius.sm,
-            marginTop: spacing.sm,
-        },
-        totalText: {
-            fontSize: typography.fontSize.xl,
-            fontWeight: '700',
-        },
-        successBadge: {
-            paddingHorizontal: spacing.md,
-            paddingVertical: spacing.xs,
-            borderRadius: borderRadius.sm,
-            marginTop: spacing.sm,
-        },
+
     });
 
     return (
@@ -425,58 +347,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             )}
 
             {/* Content based on mode */}
-            {diceRollMode === '3d' && Platform.OS === 'web' ? (
-                <View style={styles.digitalContainer}>
-                    {showResult ? (
-                        <View style={styles.resultContainer}>
-                            <Text style={[styles.resultText, { color: colors.text.primary }]}>
-                                {result}
-                            </Text>
-                            {modifier !== 0 && (
-                                <Text style={[styles.modifierText, { color: colors.text.muted }]}>
-                                    {modifier > 0 ? '+' : ''}{modifier}
-                                </Text>
-                            )}
-                            <View style={[styles.totalContainer, { backgroundColor: colors.background.tertiary }]}>
-                                <Text style={[styles.totalText, { color: colors.primary[400] }]}>
-                                    Total: {result! + modifier}
-                                </Text>
-                            </View>
-                            {pendingRoll.difficulty !== undefined && (
-                                <View style={[
-                                    styles.successBadge,
-                                    { backgroundColor: (result! + modifier >= pendingRoll.difficulty) ? colors.status.success + '20' : colors.status.error + '20' }
-                                ]}>
-                                    <Text style={[
-                                        styles.successText,
-                                        { color: (result! + modifier >= pendingRoll.difficulty) ? colors.status.success : colors.status.error }
-                                    ]}>
-                                        {(result! + modifier >= pendingRoll.difficulty) ? 'SUCCESS' : 'FAILURE'}
-                                    </Text>
-                                </View>
-                            )}
-                        </View>
-                    ) : (
-                        <View style={styles.rollContainer}>
-                            {rolling3D ? (
-                                <DiceBox3D
-                                    notation={pendingRoll.type}
-                                    modifier={modifier}
-                                    onRollComplete={handle3DRollComplete}
-                                />
-                            ) : (
-                                <AnimatedPressable
-                                    onPress={start3DRoll}
-                                    style={[styles.rollCircle, { borderColor: colors.primary[400] }]}
-                                >
-                                    <Ionicons name="cube-outline" size={40} color={colors.primary[400]} />
-                                    <Text style={[styles.tapToRoll, { color: colors.text.muted }]}>Tap to Roll</Text>
-                                </AnimatedPressable>
-                            )}
-                        </View>
-                    )}
-                </View>
-            ) : diceRollMode === 'physical' && !showResult && (
+            {diceRollMode === 'physical' && !showResult && (
                 <View style={styles.physicalContainer}>
                     <Text style={styles.physicalLabel}>
                         Roll your {pendingRoll.type} and enter the result:
@@ -555,7 +426,6 @@ function RollHistory({ history, colors }: RollHistoryProps) {
         switch (mode) {
             case 'auto': return '⚡';
             case 'digital': return '🎲';
-            case '3d': return '🎮';
             case 'physical': return '🎯';
             default: return '🎲';
         }
@@ -565,7 +435,6 @@ function RollHistory({ history, colors }: RollHistoryProps) {
         switch (mode) {
             case 'auto': return 'Auto';
             case 'digital': return 'Digital';
-            case '3d': return '3D';
             case 'physical': return 'Physical';
             default: return mode;
         }
