@@ -706,7 +706,31 @@ export const processGameAction = onCall(
                 const globalConfigDoc = await db.collection('config').doc('global').get();
                 const configData = globalConfigDoc.data() || {};
 
-                const triggerResult = shouldTriggerQuestMaster(currentState, finalState, configData as any);
+                // Calculate turn count from chat history
+                const currentTurn = Math.floor(chatHistory.length / 2) + 1;
+
+                // Add turnCount to both states for Quest Master trigger logic
+                const currentStateWithTurn = { ...currentState, turnCount: currentTurn };
+                const finalStateWithTurn = { ...finalState, turnCount: currentTurn };
+
+                // Debug logging: trace Quest Master config and state
+                console.log('[QuestMaster] Config:', {
+                    enabled: configData.questMaster?.enabled,
+                    autoTrigger: configData.questMaster?.autoTrigger,
+                    cooldownTurns: configData.questMaster?.cooldownTurns || 5,
+                    triggerConditions: configData.questMaster?.triggerConditions,
+                });
+                console.log('[QuestMaster] State:', {
+                    currentTurn,
+                    lastGenerationTurn: (finalStateWithTurn as any).questMaster?.lastGenerationTurn || 0,
+                    activeQuests: ((finalStateWithTurn as any).questLog || []).filter((q: any) => q.status === 'active').length,
+                    currentRank: (currentStateWithTurn as any).character?.rank,
+                    newRank: (finalStateWithTurn as any).character?.rank,
+                });
+
+                const triggerResult = shouldTriggerQuestMaster(currentStateWithTurn, finalStateWithTurn, configData as any);
+
+                console.log('[QuestMaster] Trigger Result:', triggerResult);
 
                 if (triggerResult.shouldTrigger) {
                     console.log(`[QuestMaster] Triggered: ${triggerResult.reason}`);
@@ -733,7 +757,6 @@ export const processGameAction = onCall(
                         if (questMasterResult.success && questMasterResult.data) {
                             console.log(`[QuestMaster] Generated ${questMasterResult.data.quests.length} quests`);
 
-                            const currentTurn = Math.floor(chatHistory.length / 2) + 1;
                             finalState = addGeneratedQuests(
                                 finalState,
                                 questMasterResult.data.quests as any,

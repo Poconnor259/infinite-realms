@@ -1,4 +1,4 @@
-import React from 'react';
+import * as React from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { ModuleState, WorldModuleType } from '../../lib/types';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
@@ -17,11 +17,13 @@ interface CharacterPanelProps {
     worldModule: WorldModuleType | string;
     onAcceptQuest?: (questId: string) => void;
     onDeclineQuest?: (questId: string) => void;
+    onRequestQuests?: () => void;
+    isRequestingQuests?: boolean;
     pendingRoll?: PendingRoll | null;
     onRollComplete?: (result: { roll: number; total: number; success?: boolean }) => void;
 }
 
-export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDeclineQuest, pendingRoll, onRollComplete }: CharacterPanelProps) {
+export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, pendingRoll, onRollComplete }: CharacterPanelProps) {
     // Extract character data from moduleState
     const rawCharacter = (moduleState as any).character;
 
@@ -40,6 +42,8 @@ export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDecl
                 worldType={worldModule}
                 onAcceptQuest={onAcceptQuest}
                 onDeclineQuest={onDeclineQuest}
+                onRequestQuests={onRequestQuests}
+                isRequestingQuests={isRequestingQuests}
                 pendingRoll={pendingRoll}
                 onRollComplete={onRollComplete}
             />

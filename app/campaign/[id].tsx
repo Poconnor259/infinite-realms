@@ -116,6 +116,7 @@ export default function CampaignScreen() {
         pendingRoll,
         submitRollResult,
         updateCurrentCampaign,
+        clearRollHistory,
     } = useGameStore();
 
     const user = useUserStore((state) => state.user);
@@ -289,11 +290,15 @@ export default function CampaignScreen() {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // Load campaign
+    // 2. Effects (Ordered by dependency)
+    // 2.1 Load campaign on mount or ID change
     useEffect(() => {
-        if (!id || isUserLoading || !user) return;
-        loadCampaign(id);
-    }, [id, isUserLoading, user, loadCampaign]);
+        if (id && isMounted) {
+            loadCampaign(id);
+            // Clear roll history when switching campaigns
+            clearRollHistory();
+        }
+    }, [id, isMounted, loadCampaign, clearRollHistory]);
 
     // Real-time listener for campaign updates
     useEffect(() => {
@@ -319,6 +324,13 @@ export default function CampaignScreen() {
         }
         prevIsLoading.current = isLoading;
     }, [isLoading, lastNarratorIndexReversed]);
+
+    // Auto-show panel on mobile when dice roll is required
+    useEffect(() => {
+        if (pendingRoll && !isDesktop && !panelVisible) {
+            setPanelVisible(true);
+        }
+    }, [pendingRoll, isDesktop, panelVisible]);
 
     // Smart Idle Detection for Cache Heartbeat
     useEffect(() => {
@@ -441,21 +453,6 @@ export default function CampaignScreen() {
                             </View>
 
                             <View style={styles.headerRight}>
-                                <TouchableOpacity
-                                    style={[styles.iconButton, { marginRight: spacing.sm }]}
-                                    onPress={handleRequestQuests}
-                                    disabled={isRequestingQuests}
-                                >
-                                    {isRequestingQuests ? (
-                                        <ActivityIndicator size="small" color={colors.primary[400]} />
-                                    ) : (
-                                        <Ionicons
-                                            name="sparkles"
-                                            size={24}
-                                            color={((currentCampaign?.moduleState as any)?.suggestedQuests?.length ?? 0) > 0 ? colors.primary[400] : colors.text.muted}
-                                        />
-                                    )}
-                                </TouchableOpacity>
                                 <TurnCounter />
                                 <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
                                     <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
@@ -620,6 +617,8 @@ export default function CampaignScreen() {
                             worldModule={currentCampaign.worldModule}
                             onAcceptQuest={handleAcceptQuest}
                             onDeclineQuest={handleDeclineQuest}
+                            onRequestQuests={handleRequestQuests}
+                            isRequestingQuests={isRequestingQuests}
                             pendingRoll={pendingRoll}
                             onRollComplete={(result) => {
                                 console.log('[Campaign] Dice roll complete:', result);

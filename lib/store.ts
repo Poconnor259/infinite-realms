@@ -100,6 +100,7 @@ interface GameState {
     setPendingRoll: (roll: { type: string; purpose: string; modifier?: number; stat?: string; difficulty?: number } | null) => void;
     submitRollResult: (rollResult: number) => Promise<void>;
     addRollToHistory: (entry: RollHistoryEntry) => void;
+    clearRollHistory: () => void;
 
     // Edit & Retry Actions
     setEditingMessage: (text: string | null) => void;
@@ -205,6 +206,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             saveRollHistory(newHistory);
             return { rollHistory: newHistory };
         });
+    },
+
+    clearRollHistory: () => {
+        set({ rollHistory: [] });
+        saveRollHistory([]);
     },
 
     submitRollResult: async (rollResult: number) => {
