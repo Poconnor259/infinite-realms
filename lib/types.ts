@@ -228,6 +228,7 @@ export interface ClassicModuleState {
     currentLocation: string;
     questLog?: Quest[];
     suggestedQuests?: Quest[];
+    fateEngine?: FateEngineState;
 }
 
 // ==================== OUTWORLDER (HWFWM) ====================
@@ -274,6 +275,7 @@ export interface OutworlderModuleState {
     currentDungeon?: string;
     dungeonFloor?: number;
     lootAwarded: InventoryItem[];
+    fateEngine?: FateEngineState;
 }
 
 // ==================== TACTICAL (PRAXIS) ====================
@@ -337,6 +339,7 @@ export interface TacticalModuleState {
     inDungeon: boolean;
     gateRank?: 'E' | 'D' | 'C' | 'B' | 'A' | 'S';
     penaltyZoneActive: boolean;
+    fateEngine?: FateEngineState;
 }
 
 // ==================== UNION TYPES ====================
@@ -364,6 +367,53 @@ export interface Quest {
 export interface QuestObjective {
     description: string;
     completed: boolean;
+}
+
+// ==================== FATE ENGINE (v1.3) ====================
+
+export interface FateEngineState {
+    momentum_counter: number;      // Bad luck protection (0-10)
+    last_crit_turn_count: number;  // Turns since last critical hit
+    director_mode_cooldown: boolean; // Once per Long Rest
+}
+
+export type DifficultyTier = 'trivial' | 'very_easy' | 'easy' | 'moderate' | 'hard' | 'heroic';
+
+export type AdvantageState = 'advantage' | 'disadvantage' | 'straight';
+
+export interface ModifierBreakdown {
+    stat_mod: number;           // (Stat - 10) / 2
+    proficiency: number;        // Proficiency bonus if applicable
+    item_bonus: number;         // +1 Sword, etc.
+    situational_mod: number;    // Cover, Flanking, etc.
+    momentum_mod: number;       // Karmic adjustment
+    total: number;              // Sum of all modifiers
+}
+
+export interface FateEngineDiceRoll extends DiceRoll {
+    // Existing fields from DiceRoll
+    // type, result, modifier, total, purpose
+
+    // Fate Engine additions
+    rollType?: 'attack' | 'save' | 'skill' | 'ability' | 'damage';
+    raw_rolls?: number[];       // Array implies Advantage/Disadvantage
+    selected_base?: number;     // Which roll was kept
+    state_flags?: {
+        advantage: boolean;
+        disadvantage: boolean;
+        is_crit: boolean;
+        is_fumble: boolean;
+        streak_breaker_active: boolean;
+        fumble_rerolled: boolean;
+    };
+    math?: ModifierBreakdown;
+    outcome?: {
+        target_dc?: number;
+        difficulty_tier?: DifficultyTier;
+        success: boolean;
+        margin?: number;        // final_total - target_dc
+        narrative_tag?: string; // "Solid_Hit", "Graze", etc.
+    };
 }
 
 // ==================== AI RESPONSE TYPES ====================

@@ -253,6 +253,8 @@ export const useGameStore = create<GameState>((set, get) => ({
                 },
                 interactiveDiceRolls: false, // Don't pause again
                 rollResult: rollResult,
+                // Send captured pendingRoll data for Fate Engine processing
+                pendingRoll: capturedRoll,
             });
 
             if (!result.data.success) {

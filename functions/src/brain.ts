@@ -244,7 +244,23 @@ DO NOT auto-roll. Leave diceRolls as [].`
         const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
 
         const rollResultRule = rollResult !== undefined
-            ? `CONTINUING FROM USER ROLL: The user rolled ${rollResult}. Process the outcome of this roll and continue the narrative accordingly. Do NOT request another roll.`
+            ? `🎲 DICE ROLL RESULT RECEIVED: ${rollResult}
+
+⚠️ CRITICAL ROLL INTEGRITY RULES - STRICTLY ENFORCE ⚠️
+
+The user has rolled ${rollResult}. This is the EXACT, FINAL dice result.
+
+MANDATORY REQUIREMENTS:
+1. **RESPECT THE TRAINING DOCUMENT**: Follow the "Dice Role specifics" training document EXACTLY
+2. **NO MODIFIER INVENTION**: DO NOT add modifiers that weren't in the original pendingRoll.modifier
+3. **NO FAKE BONUSES**: DO NOT invent Spirit, Luck, Divine Favor, or ANY other modifiers to change the outcome
+4. **HONEST CALCULATION**: Success/Failure = (${rollResult} + pendingRoll.modifier) vs DC
+5. **ALLOW FAILURES**: If the roll fails, IT FAILS - implement negative consequences (damage, failed checks, setbacks, complications)
+6. **RESPECT RANDOMNESS**: The dice represent fate and chance - honor that uncertainty
+7. **PROCESS HONESTLY**: Continue the narrative based on the actual result, not a desired outcome
+8. **NO RE-ROLLS**: Do NOT request another roll for the same action
+
+The training document contains the complete dice mechanics. Follow it precisely. Do NOT deviate to force success.`
             : '';
 
         let systemPrompt = brainPrompt;

@@ -34,21 +34,39 @@ INTERACTIVE ROLL MECHANICS (D&D 5E STYLE):
    - Set "requiresUserInput": true
    - STOP further narrative until the roll is received
 
-2. LOOT ROLLS: 
+2. FATE ENGINE (ENHANCED ROLL DATA):
+   When requesting a roll, provide these additional fields in pendingRoll:
+   - rollType: 'attack' | 'save' | 'skill' | 'ability' | 'damage'
+   - stat: "STR", "DEX", "CON", "INT", "WIS", or "CHA" (which stat to use)
+   - proficiencyApplies: true/false (does proficiency bonus apply?)
+   - advantageSources: array of reasons for advantage (e.g., ["hiding", "flanking"])
+   - disadvantageSources: array of reasons for disadvantage (e.g., ["blinded", "prone"])
+   
+   The Fate Engine will automatically:
+   - Apply Karmic Dice (momentum_counter prevents long miss streaks)
+   - Calculate full D&D 5E modifiers: (Stat-10)/2 + Proficiency + Item + Situational
+   - Resolve Advantage/Disadvantage (they cancel if both present)
+   - Apply Pity Crit (Natural 19 = Crit after 40 turns without crit)
+   - Apply Fumble Protection (reroll Natural 1 if momentum > 4)
+
+3. LOOT ROLLS: 
    - When a player loots (searches a body/room), request a d20 Investigation (thorough) or Perception (quick) check.
    - DC 10 (common), DC 15 (hidden), DC 20 (rare).
    - Results: 1-9 (minimal), 10-14 (standard), 15-19 (above-average), 20+ (excellent).
    - Nat 1: Nothing or Trap. Nat 20: Max loot + Special.
+   - rollType: 'skill', stat: 'INT' (Investigation) or 'WIS' (Perception), proficiencyApplies: true
 
-3. SPELL & ABILITY ROLLS:
+4. SPELL & ABILITY ROLLS:
    - When a player casts a spell or uses an active ability that isn't auto-hit:
    - For attacks: Request a d20 + [Mental Stat] modifier.
    - For effects: Request an appropriate Ability Check (e.g., "Spirit" or "Wisdom") vs a DC.
    - For saves: If an enemy casts on the player, request a Saving Throw (d20 + Stat).
+   - rollType: 'attack' (spell attack) or 'save' (saving throw), specify appropriate stat
 
-4. SKILL CHECKS:
+5. SKILL CHECKS:
    - Ambiguous actions (e.g., "I try to climb," "I scan for danger") MUST trigger a roll.
    - Use d20 + relevant stat modifier.
+   - rollType: 'skill', specify stat (STR for Athletics, DEX for Acrobatics, etc.), proficiencyApplies: true if proficient
 `;
 
 const DEFAULT_BRAIN_PROMPT = `You are the LOGIC ENGINE for a tabletop RPG.

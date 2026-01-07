@@ -10,6 +10,7 @@ import { generateNarrative } from './voice';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 import { getStateReviewerSettings } from './promptHelper';
 import { deepMergeState, GameState } from './utils/stateHelpers';
+import { initializeFateEngine, processFateEngineRoll } from './utils/fateEngine';
 
 // ==================== TYPES ====================
 
@@ -350,6 +351,12 @@ export async function processGameAction(
         const brainKnowledgeDocs = await getKnowledgeForModule(db, engineType, 'brain', 2);
         const voiceKnowledgeDocs = await getKnowledgeForModule(db, engineType, 'voice', 3);
 
+        // 7.5. Initialize Fate Engine if not present
+        if (!currentState.fateEngine) {
+            console.log('[Fate Engine] Initializing Fate Engine state');
+            currentState.fateEngine = initializeFateEngine();
+        }
+
         // 8. Process with Brain (game logic)
         console.log('[Brain] Processing game logic...');
         const brainResult = await processWithBrain({
@@ -382,6 +389,107 @@ export async function processGameAction(
                 pendingRoll: brainResult.data.pendingRoll,
                 // Note: No turn charge for pending roll - will charge when user continues
             };
+        }
+
+        // 8.5. Process roll result through Fate Engine if enhanced data is provided
+        if (rollResult !== undefined && currentState.pendingRoll) {
+            const pendingRoll = currentState.pendingRoll as any;
+
+            // Check if enhanced Fate Engine data is provided
+            if (pendingRoll.rollType && pendingRoll.stat && currentState.character && currentState.fateEngine) {
+                console.log('[Fate Engine] Processing roll with enhanced data');
+                try {
+                    const fateRollResult = processFateEngineRoll({
+                        character: currentState.character as any,
+                        fateEngine: currentState.fateEngine as any,
+                        rollType: pendingRoll.rollType || 'skill',
+                        stat: pendingRoll.stat || 'STR',
+                        dc: pendingRoll.difficulty,
+                        proficiencyApplies: pendingRoll.proficiencyApplies || false,
+                        itemBonus: pendingRoll.itemBonus || 0,
+                        situationalMod: pendingRoll.situationalMod || 0,
+                        advantageSources: pendingRoll.advantageSources || [],
+                        disadvantageSources: pendingRoll.disadvantageSources || []
+                    });
+
+                    // Update fateEngine state
+                    currentState.fateEngine = fateRollResult.updatedFateEngine;
+
+                    // Add enhanced roll to diceRolls
+                    if (brainResult.data) {
+                        if (!brainResult.data.diceRolls) {
+                            brainResult.data.diceRolls = [];
+                        }
+                        brainResult.data.diceRolls.push(fateRollResult.roll);
+                    }
+
+                    console.log('[Fate Engine] Roll processed:', {
+                        momentum: fateRollResult.updatedFateEngine.momentum_counter,
+                        isCrit: fateRollResult.roll.state_flags?.is_crit,
+                        isFumble: fateRollResult.roll.state_flags?.is_fumble,
+                        success: fateRollResult.roll.outcome?.success
+                    });
+                } catch (error) {
+                    console.error('[Fate Engine] Error processing roll:', error);
+                    // Continue without Fate Engine processing
+                }
+            } else {
+                console.log('[Fate Engine] Enhanced roll data not provided, skipping Fate Engine processing');
+            }
+        }
+
+        // 8.6. Director Mode: Dynamic Difficulty Adjustment
+        if (currentState.character && currentState.fateEngine) {
+            const character = currentState.character as any;
+            const fateEngine = currentState.fateEngine as any;
+
+            // Check if Director Mode is off cooldown
+            if (!fateEngine.director_mode_cooldown) {
+                let triggerDirectorMode = false;
+                let triggerReason = '';
+
+                // HP Critical: Player HP < 25%
+                if (character.hp && character.hp.current && character.hp.max) {
+                    const hpPercent = (character.hp.current / character.hp.max) * 100;
+                    if (hpPercent < 25 && hpPercent > 0) {
+                        triggerDirectorMode = true;
+                        triggerReason = 'HP Critical';
+                    }
+                }
+
+                // Resource Exhaustion: Mana/Stamina/Nanites < 20%
+                const checkResource = (resource: any) => {
+                    if (resource && resource.current !== undefined && resource.max) {
+                        const percent = (resource.current / resource.max) * 100;
+                        return percent < 20 && percent >= 0;
+                    }
+                    return false;
+                };
+
+                if (!triggerDirectorMode) {
+                    if (checkResource(character.mana) || checkResource(character.stamina) || checkResource(character.nanites)) {
+                        triggerDirectorMode = true;
+                        triggerReason = 'Resource Exhaustion';
+                    }
+                }
+
+                if (triggerDirectorMode) {
+                    console.log(`[Director Mode] Triggered: ${triggerReason}`);
+
+                    // Activate Director Mode cooldown
+                    (currentState.fateEngine as any).director_mode_cooldown = true;
+
+                    // Add system message to inform player
+                    if (brainResult.data) {
+                        if (!brainResult.data.systemMessages) {
+                            brainResult.data.systemMessages = [];
+                        }
+                        brainResult.data.systemMessages.push(
+                            `[Director Mode] Difficulty adjusted - ${triggerReason} detected. Enemies are less accurate for 2 rounds.`
+                        );
+                    }
+                }
+            }
         }
 
         const finalState = deepMergeState(currentState as GameState, brainResult.data?.stateUpdates || {});
