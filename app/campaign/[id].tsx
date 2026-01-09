@@ -190,6 +190,8 @@ export default function CampaignScreen() {
         try {
             const acceptTrigger = httpsCallable(functions, 'acceptQuestTrigger');
             await acceptTrigger({ campaignId: id, questId });
+            // Reload campaign to update UI with accepted quest
+            await loadCampaign(id);
         } catch (error) {
             console.error('Error accepting quest:', error);
             Alert.alert('Error', 'Failed to accept quest');
@@ -204,6 +206,8 @@ export default function CampaignScreen() {
         try {
             const declineTrigger = httpsCallable(functions, 'declineQuestTrigger');
             await declineTrigger({ campaignId: id, questId });
+            // Reload campaign to update UI with declined quest removed
+            await loadCampaign(id);
         } catch (error) {
             console.error('Error declining quest:', error);
             Alert.alert('Error', 'Failed to decline quest');

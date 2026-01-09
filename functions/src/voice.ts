@@ -87,6 +87,12 @@ interface DiceRoll {
     purpose?: string;
     label?: string; // Added for new dice roll format
     sides?: number; // Added for new dice roll format
+    outcome?: {
+        success: boolean;
+        target_dc?: number;
+        margin?: number;
+        narrative_tag?: string;
+    };
 }
 
 // ==================== MAIN VOICE FUNCTION ====================
@@ -248,12 +254,19 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
         if (isKeepAlive) {
             cueText = 'PING_KEEP_ALIVE';
         } else {
-            // Add dice rolls
+            // Add dice rolls with explicit outcome status
             if (diceRolls.length > 0) {
-                cueText += 'DICE ROLLS:\n';
+                cueText += 'DICE ROLLS (YOU MUST RESPECT THESE OUTCOMES):\n';
                 for (const roll of diceRolls) {
                     const modStr = roll.modifier ? ` + ${roll.modifier}` : '';
-                    cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}\n`;
+                    if (roll.outcome) {
+                        const status = roll.outcome.success ? '✓ SUCCESS' : '✗ FAILURE';
+                        const dcStr = roll.outcome.target_dc ? ` vs DC ${roll.outcome.target_dc}` : '';
+                        const marginStr = roll.outcome.margin !== undefined ? ` (by ${Math.abs(roll.outcome.margin)})` : '';
+                        cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}${dcStr} → ${status}${marginStr}\n`;
+                    } else {
+                        cueText += `- ${roll.purpose || 'Check'}: ${roll.type} rolled ${roll.result}${modStr} = ${roll.total}\n`;
+                    }
                 }
                 cueText += '\n';
             }

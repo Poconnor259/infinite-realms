@@ -401,6 +401,13 @@ interface CollapsibleSectionProps {
 function CollapsibleSection({ title, children, colors, styles, hasUpdate, defaultExpanded = false, onExpand, rightElement }: CollapsibleSectionProps) {
     const [expanded, setExpanded] = useState(defaultExpanded);
 
+    useEffect(() => {
+        if (defaultExpanded) {
+            LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+            setExpanded(true);
+        }
+    }, [defaultExpanded]);
+
     const toggle = () => {
         LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
         const nextState = !expanded;

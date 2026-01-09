@@ -378,7 +378,9 @@ export async function processGameAction(
 
         // If there's a pending roll, return early (no Voice AI call, no turn charge)
         // User will roll dice and continue with rollResult
-        if (brainResult.data?.pendingRoll && brainResult.data?.requiresUserInput) {
+        // If there's a pending roll, return early (no Voice AI call, no turn charge)
+        // User will roll dice and continue with rollResult
+        if (brainResult.data?.pendingRoll) {
             console.log('[Brain] Pending dice roll required, pausing for user input');
             return {
                 success: true,
