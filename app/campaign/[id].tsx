@@ -321,6 +321,7 @@ export default function CampaignScreen() {
     }, [id, user?.id]);
 
     // Real-time listener for messages - syncs narratives even if frontend errors
+    // Skip individual sync callbacks during active interaction to prevent race conditions
     useEffect(() => {
         if (!id || !user?.id) return;
 
@@ -330,31 +331,24 @@ export default function CampaignScreen() {
             id,
             (firestoreMessages) => {
                 const currentMessages = useGameStore.getState().messages;
+                const currentIsLoading = useGameStore.getState().isLoading;
+                const currentPendingRoll = useGameStore.getState().pendingRoll;
 
-                // Create a map of current message IDs for fast lookup
-                const currentMessageIds = new Set(currentMessages.map(m => m.id));
-                const firestoreMessageIds = new Set(firestoreMessages.map(m => m.id));
+                // Skip sync callback during active flow to prevent race conditions
+                // But keep the listener active so it can sync when flow completes
+                if (currentIsLoading || currentPendingRoll) {
+                    console.log('[Campaign] Skipping sync callback during active flow (will retry when idle)');
+                    return;
+                }
 
-                // Find new messages from Firestore that we don't have locally
-                const newMessages = firestoreMessages.filter(m => !currentMessageIds.has(m.id));
-
-                // Find optimistic messages (local only, not in Firestore yet)
-                // These are typically user messages that were just sent
-                const optimisticMessages = currentMessages.filter(m => !firestoreMessageIds.has(m.id));
-
-                if (newMessages.length > 0) {
-                    console.log('[Campaign] Syncing', newMessages.length, 'new messages from Firestore');
-                    console.log('[Campaign] Preserving', optimisticMessages.length, 'optimistic messages');
-
-                    // Merge: Firestore messages + optimistic messages, sorted by timestamp
-                    const mergedMessages = [...firestoreMessages, ...optimisticMessages]
-                        .sort((a, b) => a.timestamp - b.timestamp);
-
-                    setMessages(mergedMessages);
-                } else if (optimisticMessages.length === 0 && currentMessages.length !== firestoreMessages.length) {
-                    // Edge case: Firestore has different messages but no new ones
-                    // This can happen if a message was deleted or modified
-                    console.log('[Campaign] Syncing message changes from Firestore');
+                // Only sync if Firestore has more messages than local
+                // This handles cases where backend saved but frontend errored
+                if (firestoreMessages.length > currentMessages.length) {
+                    console.log('[Campaign] Syncing', firestoreMessages.length, 'messages from Firestore (had', currentMessages.length, 'local)');
+                    setMessages(firestoreMessages);
+                } else if (currentMessages.length === 0 && firestoreMessages.length > 0) {
+                    // Initial load case
+                    console.log('[Campaign] Initial load:', firestoreMessages.length, 'messages');
                     setMessages(firestoreMessages);
                 }
             }
@@ -368,15 +362,22 @@ export default function CampaignScreen() {
 
     // Auto-scroll to top of narrator response when it finishes loading
     const prevIsLoading = useRef(isLoading);
+    const prevPendingRoll = useRef(pendingRoll);
+
     useEffect(() => {
-        if (prevIsLoading.current && !isLoading && lastNarratorIndexReversed !== -1) {
+        // Don't scroll if we were just waiting for dice input
+        // (User is waiting for NEW response, not re-reading old one)
+        const wasWaitingForDice = prevPendingRoll.current !== null && pendingRoll === null;
+
+        if (prevIsLoading.current && !isLoading && lastNarratorIndexReversed !== -1 && !wasWaitingForDice) {
             // Give the list a moment to layout the new content
             requestAnimationFrame(() => {
                 scrollToLastResponse();
             });
         }
         prevIsLoading.current = isLoading;
-    }, [isLoading, lastNarratorIndexReversed]);
+        prevPendingRoll.current = pendingRoll;
+    }, [isLoading, lastNarratorIndexReversed, pendingRoll]);
 
     // Auto-show panel on mobile when dice roll is required
     useEffect(() => {

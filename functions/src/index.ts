@@ -433,6 +433,24 @@ export const processGameAction = onCall(
             // User will roll dice and continue with rollResult
             if (brainResult.data.pendingRoll && brainResult.data.requiresUserInput) {
                 console.log('[Brain] Pending dice roll required, pausing for user input');
+
+                // Save user message before returning (Fix: preserve original user input)
+                if (auth?.uid) {
+                    const messagesRef = db.collection('users')
+                        .doc(auth.uid)
+                        .collection('campaigns')
+                        .doc(campaignId)
+                        .collection('messages');
+
+                    await messagesRef.add({
+                        role: 'user',
+                        content: userInput,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+
+                    console.log('[Brain] Saved user message before pending roll');
+                }
+
                 return {
                     success: true,
                     stateUpdates: brainResult.data.stateUpdates || {},
@@ -485,14 +503,6 @@ export const processGameAction = onCall(
 
             // 8. State Consistency Review (optional - runs based on frequency setting)
             let reviewerResult: any = null;
-
-            // Deep merge character object to preserve existing character data
-            if ((currentState as any).character && (brainResult.data.stateUpdates as any)?.character) {
-                finalState.character = {
-                    ...(currentState as any).character,
-                    ...(brainResult.data.stateUpdates as any).character
-                };
-            }
 
             // 6a. Apply Voice stateReport if available (more reliable than third AI parsing)
             if (voiceResult.stateReport) {
@@ -895,11 +905,18 @@ export const processGameAction = onCall(
                     .doc(campaignId)
                     .collection('messages');
 
-                await messagesRef.add({
-                    role: 'user',
-                    content: userInput,
-                    timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                });
+                // Only save user message if it's NOT a dice roll continuation marker
+                // (The original user message was already saved before the pending roll)
+                if (!userInput.startsWith('[DICE ROLL RESULT:')) {
+                    await messagesRef.add({
+                        role: 'user',
+                        content: userInput,
+                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                    });
+                    console.log('[Messages] Saved user message');
+                } else {
+                    console.log('[Messages] Skipped dice roll marker (user message already saved)');
+                }
 
                 await messagesRef.add({
                     role: 'narrator',
@@ -910,6 +927,7 @@ export const processGameAction = onCall(
                         turnCost: userTier !== 'legendary' ? turnCost : 0,
                     }
                 });
+                console.log('[Messages] Saved narrator message');
 
                 await db.collection('users')
                     .doc(auth.uid)
@@ -948,10 +966,21 @@ export const processGameAction = onCall(
 
         } catch (error) {
             console.error('Game processing error:', error);
-            // Don't expose internal errors to client
+
+            // Return more specific error messages while still protecting sensitive details
+            const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+            const isValidationError = errorMessage.includes('validation failed');
+            const isPermissionError = errorMessage.includes('permission') || errorMessage.includes('not authorized');
+
             return {
                 success: false,
-                error: 'An internal error occurred',
+                error: isValidationError
+                    ? 'Game state validation failed. Please try again or contact support if this persists.'
+                    : isPermissionError
+                        ? 'Permission denied. Please check your account status.'
+                        : errorMessage.length < 200
+                            ? errorMessage  // Show error if it's not too long
+                            : 'An internal error occurred. Please try again.',
             };
         }
     }

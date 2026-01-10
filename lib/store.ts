@@ -500,9 +500,19 @@ export const useGameStore = create<GameState>((set, get) => ({
             }
         } catch (error) {
             console.error('[Game] Roll result submission error:', error);
+
+            const errorMessage = error instanceof Error ? error.message : 'Roll submission failed';
+
+            // Show error toast to user
+            get().addToast({
+                type: 'error',
+                message: errorMessage,
+                duration: 7000,
+            });
+
             set({
                 isLoading: false,
-                error: error instanceof Error ? error.message : 'Roll submission failed',
+                error: errorMessage,
             });
         }
     },

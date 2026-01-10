@@ -64,139 +64,130 @@ export function deepMergeState(
     const result: GameState = { ...currentState };
 
     for (const [key, value] of Object.entries(updates)) {
-        if (value === undefined) continue;
+        if (value === undefined || value === null) continue;
 
         // Handle immutable array fields (abilities, spells, essences)
         if (['abilities', 'spells', 'essences'].includes(key)) {
-            if (typeof value === 'object' && value !== null && 'added' in value) {
-                // Handle { added: [...], removed: [...] } format
-                const current = (result[key] as string[]) || [];
-                const { added = [] } = value as { added?: string[]; removed?: string[] };
-
-                // For immutable fields, IGNORE removed operations
-                const newSet = new Set([...current, ...added]);
-                result[key] = Array.from(newSet);
+            const current = (result[key] as string[]) || [];
+            if (typeof value === 'object' && 'added' in value) {
+                const { added = [] } = value as { added?: string[] };
+                result[key] = Array.from(new Set([...current, ...added]));
             } else if (Array.isArray(value)) {
-                // Treat as additive (union)
-                const current = (result[key] as string[]) || [];
-                const newSet = new Set([...current, ...value]);
-                result[key] = Array.from(newSet);
+                result[key] = Array.from(new Set([...current, ...value]));
             }
             continue;
         }
 
-        // Handle protected array fields (inventory, partyMembers) - require explicit add/remove
+        // Handle protected array fields (inventory, partyMembers)
         if (['inventory', 'partyMembers'].includes(key)) {
-            if (typeof value === 'object' && value !== null && 'added' in value) {
-                // Handle { added: [...], removed: [...] } format
-                const current = (result[key] as string[]) || [];
+            const current = (result[key] as string[]) || [];
+            if (typeof value === 'object' && 'added' in value) {
                 const { added = [], removed = [] } = value as { added?: string[]; removed?: string[] };
-
-                // Apply add/remove operations
                 const newSet = new Set([...current, ...added]);
                 removed.forEach(item => newSet.delete(item));
                 result[key] = Array.from(newSet);
             } else if (Array.isArray(value)) {
-                // PROTECTION: If AI sends plain array, treat as ADD-ONLY (don't replace)
-                console.warn(`[deepMergeState] Received plain array for protected field '${key}'. Treating as add-only to prevent data loss.`);
-                const current = (result[key] as string[]) || [];
-                const newSet = new Set([...current, ...value]);
-                result[key] = Array.from(newSet);
+                console.warn(`[deepMergeState] Received plain array for protected field '${key}'. Treating as add-only.`);
+                result[key] = Array.from(new Set([...current, ...value]));
             }
             continue;
         }
 
-        // Handle keyNpcs (protected - can add/update but not delete)
-        if (key === 'keyNpcs' && typeof value === 'object' && value !== null) {
+        // Handle keyNpcs (protected)
+        if (key === 'keyNpcs' && typeof value === 'object') {
             const currentNpcs = (result.keyNpcs as Record<string, any>) || {};
             const updatedNpcs = value as Record<string, any>;
 
-            for (const [npcKey, npcData] of Object.entries(updatedNpcs)) {
-                if (currentNpcs[npcKey]) {
-                    // NPC exists - merge updates but protect identity fields
-                    const existing = currentNpcs[npcKey];
-                    currentNpcs[npcKey] = {
+            for (const [npcId, npcData] of Object.entries(updatedNpcs)) {
+                if (currentNpcs[npcId]) {
+                    const existing = currentNpcs[npcId];
+                    currentNpcs[npcId] = {
                         ...existing,
                         ...npcData,
-                        // Protect identity
-                        name: existing.name || npcData.name,
+                        name: existing.name || npcData.name, // Protect identity
                         role: existing.role || npcData.role,
                     };
                 } else {
-                    // New NPC - add it
-                    currentNpcs[npcKey] = npcData;
+                    currentNpcs[npcId] = npcData;
                 }
             }
             result.keyNpcs = currentNpcs;
             continue;
         }
 
-        // Handle character object (deep merge with protection)
-        if (key === 'character' && typeof value === 'object' && value !== null) {
+        // Handle character object (recursive merge with protection)
+        if (key === 'character' && typeof value === 'object') {
             const currentChar = (result.character as Record<string, any>) || {};
-            const updates = value as Record<string, any>;
+            const charUpdates = value as Record<string, any>;
 
-            result.character = {
-                ...currentChar,
-                ...updates,
+            const mergedChar = { ...currentChar };
+
+            for (const [charKey, charValue] of Object.entries(charUpdates)) {
+                if (charValue === undefined || charValue === null) continue;
+
                 // Protect immutable character fields
-                essences: currentChar.essences || updates.essences,
-                rank: currentChar.rank || updates.rank,
-                name: currentChar.name || updates.name,
-            };
+                if (['essences', 'rank', 'name'].includes(charKey) && currentChar[charKey]) {
+                    continue;
+                }
 
-            // Handle character abilities specially (add-only)
-            if (updates.abilities) {
-                const currentAbilities = currentChar.abilities || [];
-                if (typeof updates.abilities === 'object' && 'added' in updates.abilities) {
-                    const { added = [] } = updates.abilities as { added?: string[] };
-                    result.character.abilities = Array.from(new Set([...currentAbilities, ...added]));
-                } else if (Array.isArray(updates.abilities)) {
-                    result.character.abilities = Array.from(new Set([...currentAbilities, ...updates.abilities]));
+                // Handle nested abilities in character
+                if (charKey === 'abilities') {
+                    const currentAbilities = currentChar.abilities || [];
+                    if (typeof charValue === 'object' && 'added' in charValue) {
+                        const { added = [] } = charValue as { added?: string[] };
+                        mergedChar.abilities = Array.from(new Set([...currentAbilities, ...added]));
+                    } else if (Array.isArray(charValue)) {
+                        mergedChar.abilities = Array.from(new Set([...currentAbilities, ...charValue]));
+                    }
+                    continue;
+                }
+
+                // Handle nested inventory in character
+                if (charKey === 'inventory') {
+                    const currentInv = currentChar.inventory || [];
+                    if (typeof charValue === 'object' && 'added' in charValue) {
+                        const { added = [], removed = [] } = charValue as { added?: string[]; removed?: string[] };
+                        const newSet = new Set([...currentInv, ...added]);
+                        removed.forEach(item => newSet.delete(item));
+                        mergedChar.inventory = Array.from(newSet);
+                    } else if (Array.isArray(charValue)) {
+                        mergedChar.inventory = Array.from(new Set([...currentInv, ...charValue]));
+                    }
+                    continue;
+                }
+
+                // Recursive merge for nested objects (like resources: hp, mana, nanites)
+                if (
+                    typeof charValue === 'object' &&
+                    !Array.isArray(charValue) &&
+                    typeof currentChar[charKey] === 'object' &&
+                    currentChar[charKey] !== null &&
+                    !Array.isArray(currentChar[charKey])
+                ) {
+                    mergedChar[charKey] = {
+                        ...(currentChar[charKey] as Record<string, any>),
+                        ...(charValue as Record<string, any>)
+                    };
+                } else {
+                    mergedChar[charKey] = charValue;
                 }
             }
 
-            // Handle character inventory specially (protected - explicit add/remove only)
-            if (updates.inventory) {
-                const currentInventory = currentChar.inventory || [];
-                if (typeof updates.inventory === 'object' && 'added' in updates.inventory) {
-                    const { added = [], removed = [] } = updates.inventory as { added?: string[]; removed?: string[] };
-                    const newSet = new Set([...currentInventory, ...added]);
-                    removed.forEach(item => newSet.delete(item));
-                    result.character.inventory = Array.from(newSet);
-                } else if (Array.isArray(updates.inventory)) {
-                    // PROTECTION: Treat plain array as add-only
-                    console.warn('[deepMergeState] Received plain array for character.inventory. Treating as add-only.');
-                    result.character.inventory = Array.from(new Set([...currentInventory, ...updates.inventory]));
-                }
-            }
+            result.character = mergedChar;
             continue;
         }
 
-        // Handle arrays with add/remove operations
-        if (typeof value === 'object' && value !== null && 'added' in value) {
-            const current = (result[key] as string[]) || [];
-            const { added = [], removed = [] } = value as { added?: string[]; removed?: string[] };
-
-            // Apply add/remove
-            const newSet = new Set([...current, ...added]);
-            removed.forEach(item => newSet.delete(item));
-            result[key] = Array.from(newSet);
-            continue;
-        }
-
-        // Handle nested objects (recursive merge)
+        // Handle general recursive merge for other nested objects
         if (
             typeof value === 'object' &&
-            value !== null &&
             !Array.isArray(value) &&
             typeof result[key] === 'object' &&
             result[key] !== null &&
             !Array.isArray(result[key])
         ) {
             result[key] = {
-                ...(result[key] as Record<string, unknown>),
-                ...(value as Record<string, unknown>),
+                ...(result[key] as Record<string, any>),
+                ...(value as Record<string, any>)
             };
             continue;
         }
