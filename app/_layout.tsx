@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore, useTurnsStore, useConfigStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser } from '../lib/firebase';
+import { ToastContainer } from '../components/Toast';
 
 import { useRouter, useSegments } from 'expo-router';
 
@@ -151,6 +152,7 @@ export default function RootLayout() {
                     }}
                 />
             </Stack>
+            <ToastContainer />
         </GestureHandlerRootView>
     );
 }

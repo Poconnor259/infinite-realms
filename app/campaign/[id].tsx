@@ -14,7 +14,7 @@ import {
     Modal,
     ScrollView as RNScrollView,
 } from 'react-native';
-import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn, functions, db } from '../../lib/firebase';
+import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser, deleteCampaignFn, functions, db, subscribeToCampaignMessages } from '../../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -117,6 +117,9 @@ export default function CampaignScreen() {
         submitRollResult,
         updateCurrentCampaign,
         clearRollHistory,
+        lastFailedRequest,
+        retryLastRequest,
+        setMessages,
     } = useGameStore();
 
     const user = useUserStore((state) => state.user);
@@ -304,7 +307,7 @@ export default function CampaignScreen() {
         }
     }, [id, isMounted, loadCampaign, clearRollHistory]);
 
-    // Real-time listener for campaign updates
+    // Real-time listener for campaign updates (character stats, module state)
     useEffect(() => {
         if (!id || !user?.id) return;
         const campaignRef = doc(db, 'users', user.id, 'campaigns', id);
@@ -316,6 +319,31 @@ export default function CampaignScreen() {
         });
         return () => unsubscribe();
     }, [id, user?.id]);
+
+    // Real-time listener for messages - syncs narratives even if frontend errors
+    useEffect(() => {
+        if (!id || !user?.id) return;
+
+        console.log('[Campaign] Starting real-time message sync for:', id);
+        const unsubscribe = subscribeToCampaignMessages(
+            user.id,
+            id,
+            (firestoreMessages) => {
+                // Only update if we have more messages from Firestore than locally
+                // This prevents overwriting local optimistic updates
+                const currentMessages = useGameStore.getState().messages;
+                if (firestoreMessages.length > currentMessages.length) {
+                    console.log('[Campaign] Syncing', firestoreMessages.length, 'messages from Firestore (had', currentMessages.length, 'local)');
+                    setMessages(firestoreMessages);
+                }
+            }
+        );
+
+        return () => {
+            console.log('[Campaign] Stopping message sync');
+            unsubscribe();
+        };
+    }, [id, user?.id, setMessages]);
 
     // Auto-scroll to top of narrator response when it finishes loading
     const prevIsLoading = useRef(isLoading);
@@ -590,6 +618,19 @@ export default function CampaignScreen() {
                                     <Ionicons name="arrow-down" size={20} color={colors.text.primary} />
                                 </TouchableOpacity>
                             </View>
+                        )}
+
+                        {/* Retry Button - shows when last request failed */}
+                        {lastFailedRequest && !isLoading && (
+                            <TouchableOpacity
+                                onPress={retryLastRequest}
+                                style={styles.retryButton}
+                            >
+                                <Ionicons name="refresh" size={18} color={colors.status.error} />
+                                <Text style={[styles.retryButtonText, { color: colors.status.error }]}>
+                                    Retry Failed Message
+                                </Text>
+                            </TouchableOpacity>
                         )}
 
                         {/* Chat Input */}
@@ -1213,5 +1254,20 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center' as const,
         borderWidth: 1,
         borderColor: colors.border.default,
+    },
+    retryButton: {
+        flexDirection: 'row' as const,
+        alignItems: 'center' as const,
+        justifyContent: 'center' as const,
+        padding: spacing.sm,
+        backgroundColor: colors.status.error + '15', // 15% opacity
+        borderRadius: borderRadius.sm,
+        marginHorizontal: spacing.md,
+        marginBottom: spacing.xs,
+    },
+    retryButtonText: {
+        fontSize: typography.fontSize.sm,
+        marginLeft: spacing.xs,
+        fontWeight: '600' as const,
     },
 });

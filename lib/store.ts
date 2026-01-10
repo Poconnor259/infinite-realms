@@ -51,6 +51,121 @@ const createStorage = () => {
 
 export const storage = createStorage();
 
+// ==================== RETRY CONFIGURATION ====================
+
+const RETRY_CONFIG = {
+    maxRetries: 3,
+    baseDelay: 1000,  // 1 second
+    maxDelay: 10000,  // 10 seconds
+    retryableCodes: ['internal', 'unavailable', 'deadline-exceeded', 'resource-exhausted'],
+    retryableStatuses: [500, 502, 503, 504, 429],
+};
+
+/**
+ * Retry a function with exponential backoff
+ * @param fn Function to retry
+ * @param onRetry Callback for each retry attempt (attempt number, delay in ms, max retries)
+ */
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    onRetry?: (attempt: number, delay: number, maxRetries: number) => void
+): Promise<T> {
+    let lastError: any = null;
+
+    for (let attempt = 0; attempt <= RETRY_CONFIG.maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error: any) {
+            lastError = error;
+
+            // Check if error is retryable
+            const errorCode = error?.code || '';
+            const errorStatus = error?.status || 0;
+            const isRetryable =
+                RETRY_CONFIG.retryableCodes.includes(errorCode) ||
+                RETRY_CONFIG.retryableStatuses.includes(errorStatus);
+
+            // Don't retry if not retryable or max retries reached
+            if (!isRetryable || attempt === RETRY_CONFIG.maxRetries) {
+                throw error;
+            }
+
+            // Calculate delay with exponential backoff
+            const delay = Math.min(
+                RETRY_CONFIG.baseDelay * Math.pow(2, attempt),
+                RETRY_CONFIG.maxDelay
+            );
+
+            // Notify about retry
+            onRetry?.(attempt + 1, delay, RETRY_CONFIG.maxRetries);
+
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, delay));
+        }
+    }
+
+    throw lastError;
+}
+
+// ==================== TOAST NOTIFICATIONS ====================
+
+export type ToastType = 'info' | 'success' | 'warning' | 'error';
+
+export interface Toast {
+    id: string;
+    type: ToastType;
+    message: string;
+    duration?: number;
+    action?: {
+        label: string;
+        onPress: () => void;
+    };
+}
+
+function generateToastId(): string {
+    return `toast-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+}
+
+// ==================== ERROR MESSAGE HELPER ====================
+
+function getErrorMessage(error: any): { message: string; isRetryable: boolean } {
+    const errorCode = error?.code || '';
+    const errorMessage = error?.message || '';
+
+    // Authentication errors
+    if (errorCode === 'unauthenticated' || errorCode.includes('auth')) {
+        return { message: 'Please sign in again to continue', isRetryable: false };
+    }
+
+    // Turn limit errors
+    if (errorMessage.includes('run out of turns')) {
+        return { message: 'Out of turns. Upgrade your plan or wait for monthly reset.', isRetryable: false };
+    }
+
+    // Network/timeout errors
+    if (errorCode === 'unavailable' || errorCode === 'deadline-exceeded') {
+        return { message: 'Connection timeout. Check your internet connection.', isRetryable: true };
+    }
+
+    // Rate limit
+    if (errorCode === 'resource-exhausted' || error?.status === 429) {
+        return { message: 'Too many requests. Please wait a moment.', isRetryable: true };
+    }
+
+    // AI-specific errors (Anthropic/OpenAI)
+    if (errorMessage.includes('overloaded') || errorMessage.includes('capacity')) {
+        return { message: 'AI service is busy. Please try again.', isRetryable: true };
+    }
+
+    // Server errors
+    if (errorCode === 'internal' || (error?.status >= 500 && error?.status < 600)) {
+        return { message: 'Server error. Our team has been notified.', isRetryable: true };
+    }
+
+    // Generic fallback
+    return { message: errorMessage || 'An unexpected error occurred', isRetryable: false };
+}
+
 // ==================== GAME STORE ====================
 
 export interface RollHistoryEntry {
@@ -83,6 +198,9 @@ interface GameState {
     } | null;
     rollHistory: RollHistoryEntry[];
 
+    // Toast notifications
+    toasts: Toast[];
+
     // Edit & Retry
     editingMessage: string | null; // Text of message being edited
     lastFailedRequest: { input: string; timestamp: number } | null;
@@ -101,6 +219,10 @@ interface GameState {
     submitRollResult: (rollResult: number) => Promise<void>;
     addRollToHistory: (entry: RollHistoryEntry) => void;
     clearRollHistory: () => void;
+
+    // Toast Actions
+    addToast: (toast: Omit<Toast, 'id'>) => void;
+    removeToast: (id: string) => void;
 
     // Edit & Retry Actions
     setEditingMessage: (text: string | null) => void;
@@ -142,6 +264,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     pendingChoice: null,
     pendingRoll: null,
     rollHistory: loadRollHistory(),
+    toasts: [],
     editingMessage: null,
     lastFailedRequest: null,
 
@@ -211,6 +334,24 @@ export const useGameStore = create<GameState>((set, get) => ({
     clearRollHistory: () => {
         set({ rollHistory: [] });
         saveRollHistory([]);
+    },
+
+    addToast: (toast) => {
+        const id = generateToastId();
+        const newToast: Toast = { ...toast, id };
+        set((state) => ({ toasts: [...state.toasts, newToast] }));
+
+        // Auto-remove toast after duration (default 5 seconds)
+        const duration = toast.duration || 5000;
+        setTimeout(() => {
+            get().removeToast(id);
+        }, duration);
+    },
+
+    removeToast: (id) => {
+        set((state) => ({
+            toasts: state.toasts.filter(t => t.id !== id)
+        }));
     },
 
     submitRollResult: async (rollResult: number) => {
@@ -352,7 +493,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     },
 
     retryLastRequest: async () => {
-        const { lastFailedRequest, processUserInput, clearFailedRequest } = get();
+        const { lastFailedRequest, processUserInput, clearFailedRequest, isLoading } = get();
+
+        // Prevent double-retry
+        if (isLoading) {
+            console.warn('[Game] Request already in progress, skipping retry');
+            return;
+        }
 
         if (!lastFailedRequest) {
             console.warn('[Game] No failed request to retry');
@@ -409,23 +556,33 @@ export const useGameStore = create<GameState>((set, get) => ({
 
             console.log('[Game] Processing with Cloud Function...');
 
-            // Call Cloud Function
-            const result = await processGameAction({
-                campaignId: state.currentCampaign.id,
-                userInput: input,
-                worldModule: state.currentCampaign.worldModule,
-                currentState: state.currentCampaign.moduleState as any,
-                chatHistory: newMessages.slice(-10).map(m => ({
-                    role: m.role,
-                    content: m.content
-                })),
-                userTier: user.tier || 'scout',
-                byokKeys: {
-                    openai: settings.openaiKey || undefined,
-                    anthropic: settings.anthropicKey || undefined,
-                },
-                interactiveDiceRolls: settings.diceRollMode !== 'auto',
-            });
+            // Call Cloud Function with retry logic
+            const result = await withRetry(
+                () => processGameAction({
+                    campaignId: state.currentCampaign.id,
+                    userInput: input,
+                    worldModule: state.currentCampaign.worldModule,
+                    currentState: state.currentCampaign.moduleState as any,
+                    chatHistory: newMessages.slice(-10).map(m => ({
+                        role: m.role,
+                        content: m.content
+                    })),
+                    userTier: user.tier || 'scout',
+                    byokKeys: {
+                        openai: settings.openaiKey || undefined,
+                        anthropic: settings.anthropicKey || undefined,
+                    },
+                    interactiveDiceRolls: settings.diceRollMode !== 'auto',
+                }),
+                (attempt, delay, maxRetries) => {
+                    // Show retry toast with counter
+                    get().addToast({
+                        type: 'warning',
+                        message: `Connection issue, retrying... (${attempt}/${maxRetries})`,
+                        duration: delay,
+                    });
+                }
+            );
 
             console.log('[Game] Result:', result.data);
 
@@ -520,23 +677,37 @@ export const useGameStore = create<GameState>((set, get) => ({
         } catch (error) {
             console.error('[Game] Error:', error);
 
+            // Get specific error message
+            const { message: errorMessage, isRetryable } = getErrorMessage(error);
+
+            // Show error toast with optional retry button
+            get().addToast({
+                type: 'error',
+                message: errorMessage,
+                duration: isRetryable ? 10000 : 7000,
+                action: isRetryable ? {
+                    label: 'Retry',
+                    onPress: () => get().retryLastRequest()
+                } : undefined,
+            });
+
             // Save the failed request for retry
             set({
                 isLoading: false,
-                error: error instanceof Error ? error.message : 'An error occurred',
+                error: errorMessage,
                 lastFailedRequest: { input, timestamp: Date.now() },
             });
 
             // Add system error message to chat
-            const errorMessage: Message = {
+            const systemErrorMessage: Message = {
                 id: `err_${Date.now()}`,
                 role: 'system',
-                content: `*Error: ${error instanceof Error ? error.message : 'Connection failed'}*`,
+                content: `*${errorMessage}*`,
                 timestamp: Date.now(),
             };
 
             set((state) => ({
-                messages: [...state.messages, errorMessage]
+                messages: [...state.messages, systemErrorMessage]
             }));
         }
     },

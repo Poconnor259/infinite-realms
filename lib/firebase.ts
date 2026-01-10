@@ -468,6 +468,49 @@ export async function loadCampaign(userId: string, campaignId: string) {
     return { ...campaignData, messages };
 }
 
+/**
+ * Subscribe to real-time updates for campaign messages.
+ * This syncs any messages saved by the backend even if frontend errors.
+ * @returns Unsubscribe function to stop listening
+ */
+export function subscribeToCampaignMessages(
+    userId: string,
+    campaignId: string,
+    onMessagesUpdate: (messages: any[]) => void
+): () => void {
+    if (!db) {
+        console.warn('[Firebase] Firestore not initialized, skipping message subscription');
+        return () => { };
+    }
+
+    const messagesCol = collection(db, 'users', userId, 'campaigns', campaignId, 'messages');
+    const messagesQuery = query(messagesCol, orderBy('timestamp', 'asc'), limit(100));
+
+    console.log('[Firebase] Starting real-time message subscription for campaign:', campaignId);
+
+    const unsubscribe = onSnapshot(messagesQuery,
+        (snapshot) => {
+            const messages = snapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                    id: doc.id,
+                    role: data.role,
+                    content: data.content,
+                    timestamp: data.timestamp?.toMillis?.() || Date.now(),
+                    metadata: data.metadata,
+                };
+            });
+            console.log('[Firebase] Real-time update: received', messages.length, 'messages');
+            onMessagesUpdate(messages);
+        },
+        (error) => {
+            console.error('[Firebase] Message subscription error:', error);
+        }
+    );
+
+    return unsubscribe;
+}
+
 export async function getUserCampaigns(userId: string) {
     const campaignsCol = collection(db, 'users', userId, 'campaigns');
     const q = query(campaignsCol, orderBy('updatedAt', 'desc'), limit(20));
