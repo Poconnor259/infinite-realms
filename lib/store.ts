@@ -235,10 +235,11 @@ interface GameState {
     loadCampaign: (id: string) => Promise<void>;
 }
 
-// Initialize roll history from localStorage
-const loadRollHistory = (): RollHistoryEntry[] => {
+// Initialize roll history from localStorage (campaign-specific)
+const loadRollHistory = (campaignId?: string): RollHistoryEntry[] => {
+    if (!campaignId) return [];
     try {
-        const stored = storage.getString('rollHistory');
+        const stored = storage.getString(`rollHistory_${campaignId}`);
         if (stored) {
             return JSON.parse(stored);
         }
@@ -248,13 +249,41 @@ const loadRollHistory = (): RollHistoryEntry[] => {
     return [];
 };
 
-const saveRollHistory = (history: RollHistoryEntry[]) => {
+const saveRollHistory = (campaignId: string | undefined, history: RollHistoryEntry[]) => {
+    if (!campaignId) return;
     try {
-        storage.set('rollHistory', JSON.stringify(history));
+        storage.set(`rollHistory_${campaignId}`, JSON.stringify(history));
     } catch (e) {
         console.warn('Failed to save roll history to storage');
     }
 };
+
+/**
+ * Extract dice rolls from message metadata and convert to RollHistoryEntry[]
+ * Used to populate roll history from Firestore messages
+ */
+function extractRollsFromMessages(messages: Message[]): RollHistoryEntry[] {
+    const rolls: RollHistoryEntry[] = [];
+
+    for (const message of messages) {
+        if (message.metadata?.diceRolls) {
+            for (const diceRoll of message.metadata.diceRolls) {
+                rolls.push({
+                    type: diceRoll.type,
+                    purpose: diceRoll.purpose || 'Unknown',
+                    roll: diceRoll.result,
+                    total: diceRoll.total,
+                    success: undefined, // Not stored in DiceRoll type
+                    mode: 'auto', // Assume auto since it came from backend
+                    timestamp: message.timestamp,
+                });
+            }
+        }
+    }
+
+    // Sort by timestamp (newest first) and limit to 10
+    return rolls.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
+}
 
 export const useGameStore = create<GameState>((set, get) => ({
     currentCampaign: null,
@@ -263,7 +292,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     error: null,
     pendingChoice: null,
     pendingRoll: null,
-    rollHistory: loadRollHistory(),
+    rollHistory: [], // Will be loaded when campaign loads
     toasts: [],
     editingMessage: null,
     lastFailedRequest: null,
@@ -294,7 +323,20 @@ export const useGameStore = create<GameState>((set, get) => ({
         }));
     },
 
-    setMessages: (messages) => set({ messages }),
+    setMessages: (messages) => {
+        set({ messages });
+
+        // Extract dice rolls from message metadata and populate roll history
+        const campaignId = get().currentCampaign?.id;
+        if (campaignId) {
+            const extractedRolls = extractRollsFromMessages(messages);
+            if (extractedRolls.length > 0) {
+                console.log('[Store] Extracted', extractedRolls.length, 'dice rolls from messages');
+                set({ rollHistory: extractedRolls });
+                saveRollHistory(campaignId, extractedRolls);
+            }
+        }
+    },
 
     setLoading: (loading) => set({ isLoading: loading }),
 
@@ -326,14 +368,16 @@ export const useGameStore = create<GameState>((set, get) => ({
     addRollToHistory: (entry) => {
         set((state) => {
             const newHistory = [entry, ...state.rollHistory].slice(0, 10);
-            saveRollHistory(newHistory);
+            const campaignId = state.currentCampaign?.id;
+            saveRollHistory(campaignId, newHistory);
             return { rollHistory: newHistory };
         });
     },
 
     clearRollHistory: () => {
+        const campaignId = get().currentCampaign?.id;
         set({ rollHistory: [] });
-        saveRollHistory([]);
+        saveRollHistory(campaignId, []);
     },
 
     addToast: (toast) => {
@@ -727,9 +771,23 @@ export const useGameStore = create<GameState>((set, get) => ({
                 // Extract messages from campaign data if available
                 const { messages = [], ...rest } = campaignData;
 
+                // Load campaign-specific roll history
+                const storedRollHistory = loadRollHistory(id);
+
+                // If no stored history, extract from messages
+                const rollHistory = storedRollHistory.length > 0
+                    ? storedRollHistory
+                    : extractRollsFromMessages(messages);
+
+                if (rollHistory.length > 0 && storedRollHistory.length === 0) {
+                    console.log('[Store] Extracted', rollHistory.length, 'dice rolls from messages on campaign load');
+                    saveRollHistory(id, rollHistory);
+                }
+
                 set({
                     currentCampaign: rest as Campaign,
                     messages,
+                    rollHistory,
                     isLoading: false
                 });
                 storage.set('lastCampaignId', id);

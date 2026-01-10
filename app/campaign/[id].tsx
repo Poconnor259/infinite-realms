@@ -329,11 +329,32 @@ export default function CampaignScreen() {
             user.id,
             id,
             (firestoreMessages) => {
-                // Only update if we have more messages from Firestore than locally
-                // This prevents overwriting local optimistic updates
                 const currentMessages = useGameStore.getState().messages;
-                if (firestoreMessages.length > currentMessages.length) {
-                    console.log('[Campaign] Syncing', firestoreMessages.length, 'messages from Firestore (had', currentMessages.length, 'local)');
+
+                // Create a map of current message IDs for fast lookup
+                const currentMessageIds = new Set(currentMessages.map(m => m.id));
+                const firestoreMessageIds = new Set(firestoreMessages.map(m => m.id));
+
+                // Find new messages from Firestore that we don't have locally
+                const newMessages = firestoreMessages.filter(m => !currentMessageIds.has(m.id));
+
+                // Find optimistic messages (local only, not in Firestore yet)
+                // These are typically user messages that were just sent
+                const optimisticMessages = currentMessages.filter(m => !firestoreMessageIds.has(m.id));
+
+                if (newMessages.length > 0) {
+                    console.log('[Campaign] Syncing', newMessages.length, 'new messages from Firestore');
+                    console.log('[Campaign] Preserving', optimisticMessages.length, 'optimistic messages');
+
+                    // Merge: Firestore messages + optimistic messages, sorted by timestamp
+                    const mergedMessages = [...firestoreMessages, ...optimisticMessages]
+                        .sort((a, b) => a.timestamp - b.timestamp);
+
+                    setMessages(mergedMessages);
+                } else if (optimisticMessages.length === 0 && currentMessages.length !== firestoreMessages.length) {
+                    // Edge case: Firestore has different messages but no new ones
+                    // This can happen if a message was deleted or modified
+                    console.log('[Campaign] Syncing message changes from Firestore');
                     setMessages(firestoreMessages);
                 }
             }
@@ -431,7 +452,7 @@ export default function CampaignScreen() {
                     <Text style={styles.errorText}>Campaign not found</Text>
                     <TouchableOpacity
                         style={styles.backButton}
-                        onPress={() => router.back()}
+                        onPress={() => router.push('/')}
                     >
                         <Text style={styles.backButtonText}>Go Back</Text>
                     </TouchableOpacity>
@@ -471,7 +492,7 @@ export default function CampaignScreen() {
                         <View style={styles.header}>
                             <View style={styles.headerLeft}>
                                 <Logo size={32} />
-                                <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
+                                <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/')}>
                                     <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
                                 </TouchableOpacity>
                                 <View>
