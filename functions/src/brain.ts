@@ -4,6 +4,7 @@ import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
 import { getPrompt } from './promptHelper';
 import { getActiveQuest, type GameState } from './utils/stateHelpers';
+import { buildCampaignLedger } from './utils/campaignLedger';
 
 // ==================== TYPES ====================
 
@@ -227,7 +228,7 @@ REQUIRED pendingRoll JSON structure:
   "purpose": "Attack Roll vs Goblin",  // Required: Clear description
   "modifier": 5,           // Optional: Number bonus/penalty
   "stat": "Strength",      // Optional: Related stat
-  "difficulty": 15         // Optional: DC if known
+  "difficulty": 15         // REQUIRED for DC checks - ALWAYS include the target DC number
 }
 
 TRIGGERS for pendingRoll (ANY of these = MUST use pendingRoll):
@@ -320,7 +321,9 @@ IMPORTANT: Keep this quest objective in mind. The player is working towards comp
 
         systemPrompt += `${questContext}
 
-CURRENT GAME STATE:
+${buildCampaignLedger(currentState, worldModule)}
+
+CURRENT GAME STATE (RAW):
 ${JSON.stringify(currentState, null, 2)}
 
 Respond with JSON only. No markdown, no explanation.`;

@@ -1,11 +1,11 @@
-import * as functions from 'firebase-functions';
+import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 
 /**
  * Seed ambiance settings
  * Call with: https://us-central1-infinite-realms-5dcba.cloudfunctions.net/seedAmbianceSettings
  */
-export const seedAmbianceSettings = functions.https.onRequest(async (req, res) => {
+export const seedAmbianceSettings = onRequest(async (req, res) => {
     try {
         const defaultSettings = {
             global: {

@@ -477,7 +477,8 @@ export const processGameAction = onCall(
                 narratorWordLimitMin: narratorLimits.min,
                 narratorWordLimitMax: narratorLimits.max,
                 enforceWordLimits: (narratorLimits as any).enforce,
-                characterProfile: (currentState as any).character
+                characterProfile: (currentState as any).character, // Deprecated
+                currentState: currentState // For Campaign Ledger
             });
 
             // Log Voice result for debugging
@@ -925,6 +926,16 @@ export const processGameAction = onCall(
                     metadata: {
                         voiceModel: voiceConfig.model, // Store resolved model ID for permanent display
                         turnCost: userTier !== 'legendary' ? turnCost : 0,
+                        debug: {
+                            brainResponse: brainResult.data,
+                            stateReport: voiceResult.stateReport || null,
+                            reviewerResult: reviewerResult || null,
+                            questResult: questMasterDebug,
+                            models: {
+                                brain: brainConfig.model,
+                                voice: voiceConfig.model,
+                            },
+                        },
                     }
                 });
                 console.log('[Messages] Saved narrator message');

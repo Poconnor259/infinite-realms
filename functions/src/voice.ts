@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { getPrompt, getStateReportPrompt } from './promptHelper';
+import { buildCampaignLedger } from './utils/campaignLedger';
 
 // ==================== TYPES ====================
 
@@ -19,7 +20,8 @@ interface VoiceInput {
     narratorWordLimitMin?: number; // Minimum word count (default: 150)
     narratorWordLimitMax?: number; // Maximum word count (default: 250)
     enforceWordLimits?: boolean; // Whether to instruct AI to follow limits
-    characterProfile?: any; // Current character state for context
+    characterProfile?: any; // Current character state for context (DEPRECATED - use currentState)
+    currentState?: any; // Full game state for Campaign Ledger
     isKeepAlive?: boolean; // If true, only refresh cache (1 token output)
     maxTokens?: number; // Optional dynamic token limit
     systemMessages?: string[]; // Game logic messages from Brain (ability activations, mana costs, etc.)
@@ -163,37 +165,15 @@ CRITICAL RESOURCE RULES FOR OUTWORLDER:
 `;
         }
 
-        // Build character context section dynamically from all available fields
+        // Build character context section using Campaign Ledger
         let characterContext = '';
-        if (input.characterProfile) {
-            const char = input.characterProfile;
+        if (input.currentState || input.characterProfile) {
+            const state = input.currentState || { character: input.characterProfile };
+            characterContext = buildCampaignLedger(state, worldModule);
 
-            // Build a dynamic list of character attributes
-            const contextLines: string[] = ['CHARACTER CONTEXT:'];
+            // Add narrator-specific instructions
+            characterContext += `
 
-            // Add all character fields dynamically (excluding internal/technical fields)
-            const excludedFields = ['id', 'userId', 'campaignId', 'createdAt', 'updatedAt', 'moduleState', 'essenceSelection'];
-
-            for (const [key, value] of Object.entries(char)) {
-                if (excludedFields.includes(key) || value === undefined || value === null) continue;
-
-                // Format the field name (camelCase to Title Case)
-                const fieldName = key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
-
-                // Handle different value types
-                if (Array.isArray(value)) {
-                    if (value.length > 0) {
-                        contextLines.push(`- ${fieldName}: ${value.join(', ')}`);
-                    }
-                } else if (typeof value === 'object') {
-                    // Skip complex nested objects
-                    continue;
-                } else {
-                    contextLines.push(`- ${fieldName}: ${value}`);
-                }
-            }
-
-            characterContext = contextLines.join('\n') + `
 CRITICAL: You are the NARRATOR, not the game logic engine.
 - Do NOT modify game state or grant abilities - that is handled by the Brain AI.
 - When describing combat or actions, you may reference the character's known abilities to make the narrative more immersive.

@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { GoogleGenerativeAI, SchemaType } from '@google/generative-ai';
 import { z } from 'zod';
 import type { GameState } from './utils/stateHelpers';
+import { buildCampaignLedger } from './utils/campaignLedger';
 
 // ==================== TYPES ====================
 
@@ -191,13 +192,15 @@ Current Scale (Rank ${rank}):
 }
 
 function buildPrompt(input: QuestMasterInput): string {
-    const { worldModule, maxQuests = 2 } = input;
+    const { worldModule, maxQuests = 2, currentState } = input;
     const data = getTemplateData(input);
+
+    // Build Campaign Ledger for consistent context
+    const ledger = buildCampaignLedger(currentState, worldModule);
 
     let prompt = `You are the Quest Master for a ${worldModule} RPG campaign.
 
-## CHARACTER CONTEXT
-{{CHARACTER_CONTEXT}}
+${ledger}
 
 ## QUEST HISTORY
 {{QUEST_HISTORY}}
@@ -226,6 +229,13 @@ SCOPE GUIDANCE:
 
 ## REWARD SCALING
 {{REWARD_SCALING}}
+
+## QUEST GENERATION PHILOSOPHY
+• Generate quests that challenge the character's WEAK stats, not just strong ones
+• Include quests that require abilities the character DOESN'T have (encourages growth)
+• Mix difficulty appropriately for the campaign difficulty level
+• NPCs offer quests for their own reasons, not the player's convenience
+• Not every quest reward matches the character's build
 
 ## OUTPUT REQUIREMENTS
 Generate ${maxQuests} quest(s) in JSON format.
