@@ -160,6 +160,12 @@ ${customRules}
                 // Check if character already has abilities
                 const hasAbilities = character.abilities && Array.isArray(character.abilities) && character.abilities.length > 0;
 
+                // Helper to format abilities for display (handles both string[] and object[])
+                const formatAbilityList = (abilities: any[]): string => {
+                    if (!abilities || abilities.length === 0) return 'None yet';
+                    return abilities.map(a => typeof a === 'string' ? a : a.name || 'Unknown').join(', ');
+                };
+
                 // Build the base override section
                 essenceOverrideSection = `
 
@@ -167,7 +173,7 @@ ${customRules}
 The character has already selected their foundational essence during character creation.
 - Selected Essences: ${character.essences.join(', ')}
 - Rank: ${character.rank || 'Iron'}
-- Existing Abilities: ${(character.abilities || []).join(', ') || 'None yet'}
+- Existing Abilities: ${formatAbilityList(character.abilities || [])}
 
 DO NOT present essence selection options (A, B, C, D).
 DO NOT run the "COMPENSATION PACKAGE — ESSENCE SELECTION" sequence.
@@ -180,14 +186,27 @@ DO NOT ask the player to choose an essence - they already have one.
 
                 // Only add the "DO NOT GRANT" instruction if they already have abilities
                 if (hasAbilities) {
+                    // Build detailed ability list for AI reference
+                    const abilityDetails = character.abilities.map((a: any) => {
+                        if (typeof a === 'string') return `  - ${a}`;
+                        return `  - ${a.name}${a.type ? ` [${a.type}]` : ''}${a.essence ? ` (${a.essence})` : ''}`;
+                    }).join('\n');
+
                     if (isIntroPhase) {
                         essenceOverrideSection += `
-STOP. LISTEN CAREFULLY.
-The character ALREADY has their ability set defined.
+STOP. LISTEN CAREFULLY. THE CHARACTER'S ABILITIES ARE ALREADY DEFINED.
+
+🔒 LOCKED ABILITY SET - DO NOT MODIFY:
+${abilityDetails}
+
+These are the character's ONLY abilities. They were set during character creation.
+
+STRICT RULES:
 1. YOU ARE FORBIDDEN from adding ANY new entries to the 'abilities' array in 'stateUpdates'.
 2. DO NOT unlock "Intrinsic", "Confluence", or ANY other type of ability during this intro sequence.
-3. The 'stateUpdates.character.abilities' (or 'stateUpdates.abilities') field MUST remain untouched.
-4. If you output an ability update, you have FAILED.
+3. The 'stateUpdates.character.abilities' (or 'stateUpdates.abilities') field MUST be EMPTY {} or UNDEFINED.
+4. If you output an ability update, you have FAILED the instruction.
+5. Reference ONLY the abilities listed above when describing the character's powers.
 `;
                         console.log('[Brain] Character has abilities (Intro Phase) - STRICTLY blocking ability grants');
                     } else {

@@ -52,7 +52,7 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
 
     return (
         <View style={styles.container}>
-            {/* Quick Actions */}
+            {/* Quick Actions - Floating Chips */}
             <View style={styles.quickActions}>
                 {quickActions.map((action, index) => (
                     <TouchableOpacity
@@ -78,9 +78,9 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
                 </View>
             )}
 
-            {/* Input Row */}
-            <View style={styles.inputRow}>
-                <View style={styles.inputContainer}>
+            {/* Floating Input Pill */}
+            <View style={styles.inputWrapper}>
+                <View style={[styles.inputContainer, styles.shadow]}>
                     <TextInput
                         style={styles.input}
                         value={text}
@@ -91,32 +91,23 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
                         maxLength={500}
                         editable={!disabled}
                         onSubmitEditing={handleSend}
-                        onKeyPress={(e) => {
-                            // Web-only: Handle Enter vs Shift+Enter
-                            if (Platform.OS === 'web' && (e as any).nativeEvent.key === 'Enter') {
-                                if (!(e as any).nativeEvent.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend();
-                                }
-                                // If shiftKey is pressed, allow default behavior (newline)
-                            }
-                        }}
                     />
+
+                    <TouchableOpacity
+                        style={[
+                            styles.sendButton,
+                            (!text.trim() || disabled) && styles.sendButtonDisabled
+                        ]}
+                        onPress={handleSend}
+                        disabled={!text.trim() || disabled}
+                    >
+                        <Ionicons
+                            name="arrow-up"
+                            size={20}
+                            color={(!text.trim() || disabled) ? colors.text.muted : '#fff'}
+                        />
+                    </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                    style={[
-                        styles.sendButton,
-                        (!text.trim() || disabled) && styles.sendButtonDisabled,
-                    ]}
-                    onPress={handleSend}
-                    disabled={!text.trim() || disabled}
-                >
-                    <Ionicons
-                        name="send"
-                        size={20}
-                        color={text.trim() && !disabled ? '#fff' : colors.text.muted}
-                    />
-                </TouchableOpacity>
             </View>
         </View>
     );
@@ -124,64 +115,79 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
 
 const createStyles = (colors: any) => StyleSheet.create({
     container: {
-        borderTopWidth: 1,
-        borderTopColor: colors.border.default,
-        backgroundColor: colors.background.secondary,
-        paddingBottom: Platform.OS === 'ios' ? spacing.md : spacing.sm,
+        backgroundColor: colors.background.primary, // Seamless background
+        paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.md,
+        paddingHorizontal: spacing.md,
     },
     quickActions: {
         flexDirection: 'row',
-        paddingHorizontal: spacing.md,
-        paddingTop: spacing.sm,
+        marginBottom: spacing.sm,
         gap: spacing.sm,
+        justifyContent: 'center', // Center chips
     },
     quickAction: {
         flexDirection: 'row',
         alignItems: 'center',
         backgroundColor: colors.background.tertiary,
-        paddingHorizontal: spacing.sm,
-        paddingVertical: spacing.xs,
-        borderRadius: borderRadius.full,
-        gap: spacing.xs,
-    },
-    quickActionIcon: {
-        fontSize: 14,
-    },
-    quickActionLabel: {
-        color: colors.text.muted,
-        fontSize: typography.fontSize.xs,
-    },
-    inputRow: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
         paddingHorizontal: spacing.md,
-        paddingTop: spacing.sm,
-        gap: spacing.sm,
-    },
-    inputContainer: {
-        flex: 1,
-        backgroundColor: colors.background.primary,
-        borderRadius: borderRadius.lg,
+        paddingVertical: 6,
+        borderRadius: borderRadius.full,
+        gap: 6,
         borderWidth: 1,
         borderColor: colors.border.default,
     },
+    quickActionIcon: {
+        fontSize: 12,
+    },
+    quickActionLabel: {
+        color: colors.text.secondary,
+        fontSize: 12,
+        fontWeight: '500',
+    },
+    inputWrapper: {
+        width: '100%',
+        maxWidth: 800, // Limit width on desktop
+        alignSelf: 'center',
+    },
+    inputContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        backgroundColor: colors.background.secondary,
+        borderRadius: 26, // Pill shape
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        paddingLeft: spacing.md,
+        paddingRight: 6, // Tight to send button
+        paddingVertical: 6,
+        minHeight: 52,
+    },
     input: {
+        flex: 1,
         color: colors.text.primary,
-        fontSize: typography.fontSize.md,
-        paddingHorizontal: spacing.md,
-        paddingVertical: spacing.sm,
-        maxHeight: 100,
+        fontSize: 16,
+        lineHeight: 24,
+        paddingVertical: 8, // Center vertically
+        paddingRight: spacing.sm,
+        maxHeight: 120,
     },
     sendButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
+        width: 40,
+        height: 40,
+        borderRadius: 20,
         backgroundColor: colors.primary[500],
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 0, // Aligned with input
     },
     sendButtonDisabled: {
-        backgroundColor: colors.background.tertiary,
+        backgroundColor: 'transparent',
+    },
+    shadow: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 4,
     },
     editingIndicator: {
         flexDirection: 'row',
@@ -189,18 +195,18 @@ const createStyles = (colors: any) => StyleSheet.create({
         gap: spacing.sm,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.xs,
-        backgroundColor: colors.primary[500] + '15',
-        borderLeftWidth: 3,
-        borderLeftColor: colors.primary[400],
+        marginBottom: spacing.sm,
+        backgroundColor: colors.primary[500] + '10',
+        borderRadius: borderRadius.md,
+        alignSelf: 'center',
     },
     editingText: {
-        flex: 1,
         color: colors.primary[400],
-        fontSize: typography.fontSize.sm,
+        fontSize: 12,
     },
     cancelEditText: {
         color: colors.text.muted,
-        fontSize: typography.fontSize.sm,
-        fontWeight: '500',
+        fontSize: 12,
+        fontWeight: '600',
     },
 });

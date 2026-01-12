@@ -713,6 +713,44 @@ const createStyles = (colors: any) => StyleSheet.create({
         flex: 1,
         backgroundColor: colors.background.primary,
     },
+    contentWrapper: {
+        flex: 1,
+        flexDirection: 'row',
+        maxWidth: 1600, // Limit max width on large screens
+        width: '100%',
+        alignSelf: 'center',
+    },
+    desktopLayout: {
+        paddingHorizontal: spacing.lg,
+    },
+    chatContainer: {
+        flex: 1,
+        position: 'relative',
+    },
+    chatContainerDesktop: {
+        borderRightWidth: 1,
+        borderRightColor: colors.border.default,
+    },
+    panelContainer: {
+        width: 380, // Slightly wider for better reading
+        backgroundColor: colors.background.secondary, // Distinguishable from chat
+        borderLeftWidth: 1,
+        borderLeftColor: colors.border.default,
+    },
+    panelMobile: {
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        bottom: 0,
+        width: '85%', // Drawer width
+        maxWidth: 400,
+        zIndex: 100,
+        shadowColor: "#000",
+        shadowOffset: { width: -4, height: 0 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 16,
+    },
     keyboardView: {
         flex: 1,
     },
@@ -720,35 +758,60 @@ const createStyles = (colors: any) => StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: spacing.sm,
+        paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
         borderBottomWidth: 1,
         borderBottomColor: colors.border.default,
+        backgroundColor: colors.background.primary,
+        zIndex: 10,
     },
-    headerButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        justifyContent: 'center',
+    headerLeft: {
+        flexDirection: 'row',
         alignItems: 'center',
+        gap: spacing.sm,
+        width: 120, // Balancing width
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.sm,
+        width: 120, // Balancing width
+        justifyContent: 'flex-end',
     },
     headerCenter: {
         flex: 1,
         alignItems: 'center',
     },
-    campaignHeader: {
-        flexDirection: 'row',
+    iconButton: {
+        padding: spacing.xs,
+        borderRadius: borderRadius.md,
+        // backgroundColor: colors.background.tertiary, // Optional: removing for cleaner look
+    },
+    headerButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
         alignItems: 'center',
+        backgroundColor: colors.background.tertiary,
     },
-    worldIcon: {
-        fontSize: 24,
-        marginRight: spacing.sm,
+    courseTitle: { // formerly campaignTitle
+        color: colors.text.primary,
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+        textAlign: 'center',
     },
-    campaignTitle: {
+    campaignName: {
         color: colors.text.primary,
         fontSize: typography.fontSize.md,
         fontWeight: '600',
-        maxWidth: 180,
+        textAlign: 'center',
+    },
+    worldName: {
+        color: colors.text.muted,
+        fontSize: 11,
+        marginTop: 2,
+        textAlign: 'center',
     },
     characterInfo: {
         color: colors.text.muted,
@@ -846,27 +909,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontWeight: '500',
     },
     // Quest UI Styles
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.sm,
-    },
-    headerRight: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconButton: {
-        padding: spacing.xs,
-    },
-    campaignName: {
-        color: colors.text.primary,
-        fontSize: typography.fontSize.md,
-        fontWeight: 'bold',
-    },
-    worldName: {
-        color: colors.text.muted,
-        fontSize: typography.fontSize.xs,
-    },
     questLogContainer: {
         backgroundColor: colors.background.secondary,
         width: '90%',
@@ -1178,38 +1220,8 @@ const createStyles = (colors: any) => StyleSheet.create({
         padding: spacing.md,
         borderRadius: borderRadius.sm,
     },
-    contentWrapper: {
-        flex: 1,
-    },
-    desktopLayout: {
-        flexDirection: 'row' as const,
-    },
-    chatContainer: {
-        flex: 1,
-    },
-    chatContainerDesktop: {
-        maxWidth: 'calc(100% - 320px)' as any,
-    },
-    panelContainer: {
-        width: 320,
-        borderLeftWidth: 1,
-        borderLeftColor: colors.border.default,
-        backgroundColor: colors.background.secondary,
-    },
-    panelMobile: {
-        position: 'absolute' as const,
-        top: 0,
-        right: 0,
-        bottom: 0,
-        zIndex: 1000,
-        shadowColor: '#000',
-        shadowOffset: { width: -2, height: 0 },
-        shadowOpacity: 0.25,
-        shadowRadius: 8,
-        elevation: 5,
-    },
     closePanelButton: {
-        position: 'absolute' as const,
+        position: 'absolute',
         top: spacing.md,
         right: spacing.md,
         zIndex: 1001,
@@ -1217,8 +1229,8 @@ const createStyles = (colors: any) => StyleSheet.create({
         height: 40,
         borderRadius: 20,
         backgroundColor: colors.background.tertiary,
-        justifyContent: 'center' as const,
-        alignItems: 'center' as const,
+        justifyContent: 'center',
+        alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
@@ -1235,8 +1247,8 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderColor: colors.primary[600] + '40',
     },
     choicePrompt: {
-        flexDirection: 'row' as const,
-        alignItems: 'center' as const,
+        flexDirection: 'row',
+        alignItems: 'center',
         gap: spacing.sm,
         marginBottom: spacing.sm,
     },
@@ -1244,7 +1256,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         flex: 1,
         color: colors.text.primary,
         fontSize: typography.fontSize.md,
-        fontWeight: '600' as const,
+        fontWeight: '600',
     },
     choiceButtons: {
         gap: spacing.sm,
@@ -1264,13 +1276,13 @@ const createStyles = (colors: any) => StyleSheet.create({
     choiceFreeformHint: {
         color: colors.text.muted,
         fontSize: typography.fontSize.sm,
-        fontStyle: 'italic' as const,
-        textAlign: 'center' as const,
+        fontStyle: 'italic',
+        textAlign: 'center',
     },
     navButtons: {
-        flexDirection: 'row' as const,
-        justifyContent: 'center' as const,
-        alignItems: 'center' as const,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
         gap: spacing.sm,
         paddingHorizontal: spacing.md,
         paddingVertical: spacing.sm,
@@ -1280,15 +1292,15 @@ const createStyles = (colors: any) => StyleSheet.create({
         height: 44,
         borderRadius: 22,
         backgroundColor: colors.background.tertiary,
-        justifyContent: 'center' as const,
-        alignItems: 'center' as const,
+        justifyContent: 'center',
+        alignItems: 'center',
         borderWidth: 1,
         borderColor: colors.border.default,
     },
     retryButton: {
-        flexDirection: 'row' as const,
-        alignItems: 'center' as const,
-        justifyContent: 'center' as const,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
         padding: spacing.sm,
         backgroundColor: colors.status.error + '15', // 15% opacity
         borderRadius: borderRadius.sm,
@@ -1298,6 +1310,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     retryButtonText: {
         fontSize: typography.fontSize.sm,
         marginLeft: spacing.xs,
-        fontWeight: '600' as const,
+        fontWeight: '600',
     },
 });

@@ -79,6 +79,7 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
         if (isUser) return styles.userBubble;
         if (isSystem) return styles.systemBubble;
         if (isBlueBox) return styles.blueBoxBubble;
+        // Narrator messages now have no bubble background
         return styles.narratorBubble;
     };
 
@@ -88,12 +89,11 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
         if (isBlueBox) return styles.blueBoxText;
         return styles.narratorText;
     };
-
     // Parse markdown-like formatting
-    const formatContent = (content: string) => {
+    const formatContent = (text: string) => {
         // Handle code blocks first
         const codeBlockRegex = /```([\s\S]*?)```/g;
-        const parts = content.split(codeBlockRegex);
+        const parts = text.split(codeBlockRegex);
 
         return parts.map((part, i) => {
             if (i % 2 === 1) {
@@ -110,9 +110,9 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
         });
     };
 
-    const formatInlineContent = (content: string, key: number) => {
+    const formatInlineContent = (text: string, key: number) => {
         // Simple parsing for bold and italic
-        const lines = content.split('\n');
+        const lines = text.split('\n');
         return (
             <Text key={key} style={getTextStyle()}>
                 {lines.map((line, i) => (
@@ -123,78 +123,68 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
                 ))}
             </Text>
         );
-    };
-
-    return (
+    }; return (
         <View style={[
             styles.container,
             isUser && styles.userContainer,
+            !isUser && styles.narratorContainer,
         ]}>
+            {/* Minimal Role Indicator for Narrator (integrated with text or sidebar) */}
             {!isUser && !isSystem && (
-                <View style={styles.roleIndicator}>
-                    <Text style={styles.roleText}>
-                        {message.role === 'narrator'
-                            ? `📜 Narrator${message.metadata?.voiceModel ? ` - ${AVAILABLE_MODELS.find(m => m.id === message.metadata?.voiceModel)?.name || message.metadata?.voiceModel}` : ''}`
-                            : '🎭 Character'}
-                    </Text>
-                    {message.role === 'narrator' && message.metadata?.turnCost !== undefined && (
-                        <View style={styles.usageFlag}>
-                            <Ionicons name="flash-outline" size={10} color={colors.text.muted} />
-                            <Text style={styles.usageFlagText}>
-                                {message.metadata.turnCost} turns
-                            </Text>
-                        </View>
-                    )}
+                <View style={styles.narratorHeader}>
+                    {/* <Text style={styles.narratorName}>
+                        {message.metadata?.voiceModel ? 
+                            (AVAILABLE_MODELS.find(m => m.id === message.metadata?.voiceModel)?.name || message.metadata?.voiceModel) 
+                            : 'Narrator'}
+                    </Text> */}
+                    {/* Optional: Add timestamp or turn cost here if needed, but keeping it clean for now */}
                 </View>
             )}
-            <GlassCard
-                variant={isBlueBox ? 'strong' : isUser ? 'medium' : 'light'}
-                style={[styles.bubble, getBubbleStyle()]}
-            >
-                {formatContent(content)}
 
-                {/* Edit button for last user message */}
+            {isUser || isSystem || isBlueBox ? (
+                /* Bubble style for User & System */
+                <View style={[styles.bubble, getBubbleStyle()]}>
+                    {formatContent(content)}
+
+                    {/* usage flag for User messages if we want to show cost there? usually narrator costs */}
+                </View>
+            ) : (
+                /* Document style for Narrator (No Bubble) */
+                <View style={styles.narratorContent}>
+                    {formatContent(content)}
+                </View>
+            )}
+
+            {/* Edit/Retry/Speaker Buttons Logic */}
+            <View style={styles.messageActions}>
                 {isUser && isLastUserMessage && (
-                    <TouchableOpacity
-                        style={styles.editButton}
-                        onPress={handleEdit}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
-                        <Ionicons name="pencil" size={14} color={colors.text.inverse} />
-                        <Text style={styles.editButtonText}>Edit</Text>
+                    <TouchableOpacity onPress={handleEdit} style={styles.iconAction}>
+                        <Ionicons name="pencil" size={14} color={colors.text.muted} />
                     </TouchableOpacity>
                 )}
 
-                {/* Retry button for error messages */}
                 {canRetry && (
-                    <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={handleRetry}
-                    >
-                        <Ionicons name="refresh" size={16} color={colors.status.error} />
-                        <Text style={styles.retryButtonText}>Retry</Text>
+                    <TouchableOpacity onPress={handleRetry} style={styles.iconAction}>
+                        <Ionicons name="refresh" size={14} color={colors.status.error} />
                     </TouchableOpacity>
                 )}
 
-                {/* Speaker button for narrator TTS */}
                 {isNarrator && (
-                    <TouchableOpacity
-                        style={styles.speakerButton}
-                        onPress={handleSpeak}
-                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                    >
+                    <TouchableOpacity onPress={handleSpeak} style={styles.iconAction}>
                         <Ionicons
-                            name={isSpeaking ? 'stop-circle' : 'volume-high'}
-                            size={18}
-                            color={isSpeaking ? colors.status.error : colors.text.muted}
+                            name={isSpeaking ? 'stop' : 'volume-high'}
+                            size={14}
+                            color={isSpeaking ? colors.primary[400] : colors.text.muted}
                         />
                     </TouchableOpacity>
                 )}
-            </GlassCard>
+            </View>
 
-            {/* Debug Panel for Admin Users */}
+            {/* Debug Panel ... */}
+            {/* ... (Debug panel code remains same, just ensuring it renders) */}
             {!isUser && !isSystem && message.metadata?.debug && user?.role === 'admin' && (
                 <View style={[styles.debugPanel, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                    {/* ... (omitted for brevity, keep existing logic) ... */}
                     <TouchableOpacity
                         style={styles.debugHeader}
                         onPress={() => setDebugExpanded(!debugExpanded)}
@@ -205,55 +195,14 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
                             color={colors.text.muted}
                         />
                         <Text style={[styles.debugTitle, { color: colors.text.muted }]}>
-                            🔍 AI Debug Data
+                            Debug
                         </Text>
                     </TouchableOpacity>
-
                     {debugExpanded && (
                         <View style={styles.debugContent}>
-                            {message.metadata.debug.brainResponse && (
-                                <View style={styles.debugSection}>
-                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
-                                        Brain AI Response:
-                                    </Text>
-                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
-                                        {JSON.stringify(message.metadata.debug.brainResponse, null, 2)}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {message.metadata.debug.stateReport && (
-                                <View style={styles.debugSection}>
-                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
-                                        Voice AI State Report:
-                                    </Text>
-                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
-                                        {JSON.stringify(message.metadata.debug.stateReport, null, 2)}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {message.metadata.debug.reviewerResult && (
-                                <View style={styles.debugSection}>
-                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
-                                        State Reviewer Result:
-                                    </Text>
-                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
-                                        {JSON.stringify(message.metadata.debug.reviewerResult, null, 2)}
-                                    </Text>
-                                </View>
-                            )}
-
-                            {message.metadata.debug.questResult && (
-                                <View style={styles.debugSection}>
-                                    <Text style={[styles.debugSectionTitle, { color: colors.text.secondary }]}>
-                                        Quest Master Response:
-                                    </Text>
-                                    <Text style={[styles.debugJson, { color: colors.text.muted, backgroundColor: colors.background.primary }]}>
-                                        {JSON.stringify(message.metadata.debug.questResult, null, 2)}
-                                    </Text>
-                                </View>
-                            )}
+                            <Text style={[styles.debugJson, { color: colors.text.muted }]}>
+                                {JSON.stringify(message.metadata.debug, null, 2)}
+                            </Text>
                         </View>
                     )}
                 </View>
@@ -264,35 +213,34 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
 
 const createStyles = (colors: any) => StyleSheet.create({
     container: {
-        paddingHorizontal: spacing.md,
-        marginBottom: spacing.md,
+        marginBottom: spacing.lg, // increased spacing between messages
+        paddingHorizontal: 0,
     },
     userContainer: {
         alignItems: 'flex-end',
+        paddingHorizontal: spacing.md,
     },
-    roleIndicator: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: spacing.xs,
-    },
-    roleText: {
-        color: colors.text.muted,
-        fontSize: typography.fontSize.xs,
-    },
-    usageFlag: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingHorizontal: spacing.xs,
-        paddingVertical: 2,
-        backgroundColor: colors.background.tertiary,
-        borderRadius: 4,
+    narratorContainer: {
+        alignItems: 'flex-start',
+        paddingHorizontal: spacing.md,
+        borderLeftWidth: 2,
+        borderLeftColor: colors.primary[400] + '40', // Subtle accent line
         marginLeft: spacing.sm,
     },
-    usageFlagText: {
-        color: colors.text.muted,
-        fontSize: 10,
-        fontWeight: '500',
+    narratorHeader: {
+        marginBottom: spacing.xs,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    narratorName: {
+        fontSize: 12,
+        fontWeight: '600',
+        color: colors.primary[400],
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    narratorContent: {
+        width: '100%',
     },
     bubble: {
         maxWidth: '85%',
@@ -300,136 +248,79 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderRadius: borderRadius.lg,
     },
     userBubble: {
-        backgroundColor: colors.chat.user,
-        borderBottomRightRadius: borderRadius.sm,
+        backgroundColor: colors.background.tertiary, // Softer than primary color
+        borderBottomRightRadius: borderRadius.xs,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
+        elevation: 1,
     },
     narratorBubble: {
-        backgroundColor: colors.chat.narrator,
-        borderBottomLeftRadius: borderRadius.sm,
+        // No background for narrator
+        backgroundColor: 'transparent',
+        padding: 0,
     },
     systemBubble: {
-        backgroundColor: colors.chat.system + '20', // Add transparency if hex
+        backgroundColor: colors.status.info + '10',
         borderWidth: 1,
-        borderColor: colors.chat.system + '40',
+        borderColor: colors.status.info + '20',
+        width: '100%',
+        maxWidth: '100%',
+        alignItems: 'center',
     },
     blueBoxBubble: {
-        backgroundColor: colors.chat.blueBox + '20',
+        backgroundColor: colors.chat.blueBox + '10',
         borderWidth: 1,
-        borderColor: colors.chat.blueBox + '50',
+        borderColor: colors.chat.blueBox + '30',
+        width: '100%',
+        maxWidth: '100%',
     },
     userText: {
-        color: colors.text.inverse, // User bubble is usually dark/colored, so inverse text
-        fontSize: typography.fontSize.md,
-        lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
-    },
-    narratorText: {
-        color: colors.text.secondary,
-        fontSize: typography.fontSize.md,
-        lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
-    },
-    narratorBubbleAlt: {
-        backgroundColor: colors.background.tertiary, // Use tertiary for alternation
-        borderBottomLeftRadius: borderRadius.sm,
-    },
-    narratorTextAlt: {
         color: colors.text.primary,
         fontSize: typography.fontSize.md,
-        lineHeight: typography.fontSize.md * typography.lineHeight.relaxed,
+        lineHeight: 24,
+    },
+    narratorText: {
+        color: colors.text.secondary, // Slightly softer than pure white
+        fontSize: 17, // Slightly larger for reading
+        lineHeight: 28, // Relaxed line height for storytelling
+        fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto', // Ideally Serif if available
     },
     systemText: {
         color: colors.status.info,
-        fontSize: typography.fontSize.sm,
-        fontStyle: 'italic',
+        fontSize: 13,
+        textAlign: 'center',
     },
     blueBoxText: {
-        color: colors.status.info,
-        fontSize: typography.fontSize.md,
+        color: colors.text.primary,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontSize: 14,
     },
     codeBlock: {
-        backgroundColor: colors.background.primary,
+        backgroundColor: colors.background.tertiary,
         padding: spacing.md,
         borderRadius: borderRadius.md,
         marginVertical: spacing.sm,
     },
     codeText: {
-        color: colors.status.info,
-        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontSize: 13,
     },
-    debugPanel: {
-        marginTop: spacing.sm,
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        overflow: 'hidden',
-    },
-    debugHeader: {
+    messageActions: {
         flexDirection: 'row',
-        alignItems: 'center',
-        padding: spacing.sm,
-        gap: spacing.xs,
+        marginTop: 4,
+        gap: 12,
+        opacity: 0.7,
     },
-    debugTitle: {
-        fontSize: typography.fontSize.sm,
-        fontWeight: '600',
+    iconAction: {
+        padding: 4,
     },
-    debugContent: {
-        padding: spacing.sm,
-        gap: spacing.md,
-    },
-    debugSection: {
-        gap: spacing.xs,
-    },
-    debugSectionTitle: {
-        fontSize: typography.fontSize.sm,
-        fontWeight: '600',
-    },
-    debugJson: {
-        fontSize: typography.fontSize.xs,
-        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-        padding: spacing.sm,
-        borderRadius: borderRadius.sm,
-    },
-    editButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginTop: spacing.sm,
-        paddingVertical: spacing.xs,
-        paddingHorizontal: spacing.sm,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: borderRadius.sm,
-        alignSelf: 'flex-end',
-    },
-    editButtonText: {
-        color: colors.text.inverse,
-        fontSize: typography.fontSize.xs,
-        fontWeight: '500',
-    },
-    retryButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: spacing.xs,
-        marginTop: spacing.sm,
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        backgroundColor: colors.status.error + '20',
-        borderRadius: borderRadius.md,
-        borderWidth: 1,
-        borderColor: colors.status.error + '40',
-        alignSelf: 'flex-start',
-    },
-    retryButtonText: {
-        color: colors.status.error,
-        fontSize: typography.fontSize.sm,
-        fontWeight: '600',
-    },
-    speakerButton: {
-        position: 'absolute',
-        top: spacing.sm,
-        right: spacing.sm,
-        padding: spacing.xs,
-        borderRadius: borderRadius.full,
-        backgroundColor: colors.background.primary + '60',
-    },
+    // Debug styles simplified
+    debugPanel: { marginTop: 8, padding: 8, borderRadius: 4, borderWidth: 1, opacity: 0.8 },
+    debugHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    debugTitle: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+    debugContent: { marginTop: 4 },
+    debugJson: { fontSize: 9, fontFamily: 'monospace' },
 });
