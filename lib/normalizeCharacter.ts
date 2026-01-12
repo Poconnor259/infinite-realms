@@ -257,7 +257,7 @@ function normalizeStats(char: any, worldType: string): NormalizedStat[] {
 
 function getStatInfo(key: string, worldType: string): { name: string; abbreviation: string; icon?: string } {
     const statMap: Record<string, { name: string; abbreviation: string; icon?: string }> = {
-        // D&D style
+        // D&D / Classic style
         strength: { name: 'Strength', abbreviation: 'STR', icon: '💪' },
         dexterity: { name: 'Dexterity', abbreviation: 'DEX', icon: '🏃' },
         constitution: { name: 'Constitution', abbreviation: 'CON', icon: '🛡️' },
@@ -266,13 +266,19 @@ function getStatInfo(key: string, worldType: string): { name: string; abbreviati
         charisma: { name: 'Charisma', abbreviation: 'CHA', icon: '✨' },
 
         // Outworlder style
-        power: { name: 'Power', abbreviation: 'PWR' },
-        speed: { name: 'Speed', abbreviation: 'SPD' },
-        stamina: { name: 'Stamina', abbreviation: 'STA' },
-        spirit: { name: 'Stamina', abbreviation: 'STA' }, // Backward compatibility mapping
-        recovery: { name: 'Recovery', abbreviation: 'REC' },
+        power: { name: 'Power', abbreviation: 'PWR', icon: '💪' },
+        speed: { name: 'Speed', abbreviation: 'SPD', icon: '🏃' },
+        stamina: { name: 'Stamina', abbreviation: 'STA', icon: '🔋' },
+        spirit: { name: 'Spirit', abbreviation: 'SPI', icon: '✨' },
+        recovery: { name: 'Recovery', abbreviation: 'REC', icon: '❤️' },
 
-        // Tactical/Praxis style
+        // Tactical/Praxis style (Solo Leveling inspired)
+        agility: { name: 'Agility', abbreviation: 'AGI', icon: '🏃' },
+        vitality: { name: 'Vitality', abbreviation: 'VIT', icon: '❤️' },
+        sense: { name: 'Sense', abbreviation: 'SEN', icon: '👁️' },
+        perception: { name: 'Perception', abbreviation: 'PER', icon: '👁️' },
+
+        // Legacy Tactical stats
         combat: { name: 'Combat', abbreviation: 'COM', icon: '🎯' },
         tactics: { name: 'Tactics', abbreviation: 'TAC', icon: '🧠' },
         stealth: { name: 'Stealth', abbreviation: 'STL', icon: '👤' },
