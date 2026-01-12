@@ -333,11 +333,16 @@ export default function CampaignScreen() {
                 const currentMessages = useGameStore.getState().messages;
                 const currentIsLoading = useGameStore.getState().isLoading;
                 const currentPendingRoll = useGameStore.getState().pendingRoll;
+                const syncBlockedUntil = useGameStore.getState().syncBlockedUntil;
+
+                // Allow initial load even when sync is blocked
+                const isInitialLoad = currentMessages.length === 0 && firestoreMessages.length > 0;
 
                 // Skip sync callback during active flow to prevent race conditions
                 // But keep the listener active so it can sync when flow completes
-                if (currentIsLoading || currentPendingRoll) {
-                    console.log('[Campaign] Skipping sync callback during active flow (will retry when idle)');
+                // AND always allow initial load
+                if (!isInitialLoad && (currentIsLoading || currentPendingRoll || Date.now() < syncBlockedUntil)) {
+                    console.log('[Campaign] Sync blocked - active flow or cooldown period');
                     return;
                 }
 
@@ -346,7 +351,7 @@ export default function CampaignScreen() {
                 if (firestoreMessages.length > currentMessages.length) {
                     console.log('[Campaign] Syncing', firestoreMessages.length, 'messages from Firestore (had', currentMessages.length, 'local)');
                     setMessages(firestoreMessages);
-                } else if (currentMessages.length === 0 && firestoreMessages.length > 0) {
+                } else if (isInitialLoad) {
                     // Initial load case
                     console.log('[Campaign] Initial load:', firestoreMessages.length, 'messages');
                     setMessages(firestoreMessages);
@@ -369,7 +374,10 @@ export default function CampaignScreen() {
         // (User is waiting for NEW response, not re-reading old one)
         const wasWaitingForDice = prevPendingRoll.current !== null && pendingRoll === null;
 
-        if (prevIsLoading.current && !isLoading && lastNarratorIndexReversed !== -1 && !wasWaitingForDice) {
+        // Don't scroll if we just received a pending roll request
+        const justReceivedPendingRoll = prevPendingRoll.current === null && pendingRoll !== null;
+
+        if (prevIsLoading.current && !isLoading && lastNarratorIndexReversed !== -1 && !wasWaitingForDice && !pendingRoll && !justReceivedPendingRoll) {
             // Give the list a moment to layout the new content
             requestAnimationFrame(() => {
                 scrollToLastResponse();

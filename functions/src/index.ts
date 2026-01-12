@@ -2311,7 +2311,7 @@ export const keepVoiceCacheAlive = onCall(async (request) => {
         if (!campaignDoc.exists) throw new HttpsError('not-found', 'Campaign not found.');
 
         const campaignData = campaignDoc.data();
-        if (campaignData?.userId !== userId) throw new HttpsError('permission-denied', 'Not your campaign.');
+        // Campaign path (users/{userId}/campaigns/{campaignId}) already ensures ownership
 
         const currentState = campaignData?.state || {};
         const worldId = campaignData?.worldId;

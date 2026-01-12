@@ -39,6 +39,8 @@ interface RollHistoryEntry {
     purpose: string;
     roll: number;
     total: number;
+    modifier?: number;
+    difficulty?: number;
     success?: boolean;
     mode: 'auto' | 'digital' | 'physical';
     timestamp: number;
@@ -481,9 +483,16 @@ function RollHistory({ history, colors }: RollHistoryProps) {
                             <Text style={[historyStyles.diceType, { color: colors.text.primary }]}>
                                 {entry.type.toUpperCase()}
                             </Text>
-                            <Text style={[historyStyles.result, { color: colors.primary[400] }]}>
-                                {entry.total}
-                            </Text>
+                            <View style={{ flex: 1 }}>
+                                <Text style={[historyStyles.result, { color: colors.primary[400] }]}>
+                                    {entry.roll}{entry.modifier !== undefined && entry.modifier !== 0 ? ` ${entry.modifier >= 0 ? '+' : ''}${entry.modifier}` : ''} = {entry.total}
+                                </Text>
+                                {entry.difficulty !== undefined && (
+                                    <Text style={[historyStyles.difficultyText, { color: colors.text.muted }]}>
+                                        vs DC {entry.difficulty}
+                                    </Text>
+                                )}
+                            </View>
                             {entry.success !== undefined && (
                                 <View style={[
                                     historyStyles.successBadge,
@@ -561,9 +570,12 @@ const historyStyles = StyleSheet.create({
         fontWeight: '600',
     },
     result: {
-        fontSize: typography.fontSize.xl,
-        fontWeight: '800',
-        flex: 1,
+        fontSize: typography.fontSize.md,
+        fontWeight: '700',
+    },
+    difficultyText: {
+        fontSize: typography.fontSize.xs,
+        marginTop: 2,
     },
     successBadge: {
         width: 24,

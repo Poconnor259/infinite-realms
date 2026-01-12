@@ -48,9 +48,12 @@ const failedLoads: Set<SoundEffect> = new Set();
 
 /**
  * Check if sound effects are enabled in settings
+ * TEMPORARILY DISABLED: Pixabay URLs returning 403 Forbidden
+ * TODO: Replace with self-hosted sounds or use admin audio management
  */
 function isSoundEnabled(): boolean {
-    return useSettingsStore.getState().soundEffects;
+    return false; // Temporarily disabled
+    // return useSettingsStore.getState().soundEffects;
 }
 
 /**

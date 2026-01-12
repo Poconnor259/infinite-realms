@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,12 @@ interface TurnsMeterProps {
 }
 
 export function TurnsMeter({ compact = false }: TurnsMeterProps) {
+    const [isHydrated, setIsHydrated] = useState(false);
+
+    useEffect(() => {
+        setIsHydrated(true);
+    }, []);
+
     const router = useRouter();
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
@@ -49,6 +55,32 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
             default: return tier;
         }
     };
+
+    // Show placeholder during SSR and initial client render to prevent hydration mismatch
+    if (!isHydrated) {
+        if (compact) {
+            return (
+                <View style={styles.compactContainer}>
+                    <View style={[styles.compactBar, { backgroundColor: colors.background.tertiary }]} />
+                    <Text style={styles.compactText}>...</Text>
+                </View>
+            );
+        }
+
+        return (
+            <View style={styles.container}>
+                <View style={styles.header}>
+                    <View style={styles.tierBadge}>
+                        <Text style={styles.tierIcon}>🔭</Text>
+                        <Text style={styles.tierName}>Loading...</Text>
+                    </View>
+                </View>
+                <View style={styles.meterContainer}>
+                    <View style={styles.meterTrack} />
+                </View>
+            </View>
+        );
+    }
 
     if (compact) {
         return (

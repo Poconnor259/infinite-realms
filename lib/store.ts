@@ -173,6 +173,8 @@ export interface RollHistoryEntry {
     purpose: string;        // "Attack Roll", "Saving Throw", etc.
     roll: number;           // Raw dice result
     total: number;          // Result + modifier
+    modifier?: number;      // Modifier applied (+3, -2, etc.)
+    difficulty?: number;    // DC/Target number
     success?: boolean;      // If there was a DC check
     mode: 'auto' | 'digital' | 'physical';  // How the roll was made
     timestamp: number;      // When the roll occurred
@@ -197,6 +199,9 @@ interface GameState {
         difficulty?: number;
     } | null;
     rollHistory: RollHistoryEntry[];
+
+    // Sync control - prevents Firestore sync from overwriting local state during active flows
+    syncBlockedUntil: number;
 
     // Toast notifications
     toasts: Toast[];
@@ -293,6 +298,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     pendingChoice: null,
     pendingRoll: null,
     rollHistory: [], // Will be loaded when campaign loads
+    syncBlockedUntil: 0, // Timestamp - blocks Firestore sync until this time
     toasts: [],
     editingMessage: null,
     lastFailedRequest: null,
@@ -410,6 +416,21 @@ export const useGameStore = create<GameState>((set, get) => ({
         const settings = useSettingsStore.getState();
         const diceMode = settings.diceRollMode || 'digital';
 
+        // Add roll to history IMMEDIATELY (before backend call)
+        const total = rollResult + (capturedRoll.modifier || 0);
+        const success = capturedRoll.difficulty ? total >= capturedRoll.difficulty : undefined;
+        get().addRollToHistory({
+            type: capturedRoll.type,
+            purpose: capturedRoll.purpose,
+            roll: rollResult,
+            total,
+            modifier: capturedRoll.modifier,
+            difficulty: capturedRoll.difficulty,
+            success,
+            mode: diceMode as 'auto' | 'digital' | 'physical',
+            timestamp: Date.now(),
+        });
+
         // Clear the pending roll and set loading
         set({ pendingRoll: null, isLoading: true, error: null });
 
@@ -481,23 +502,13 @@ export const useGameStore = create<GameState>((set, get) => ({
                 };
             });
 
-            // Add roll to history
-            const total = rollResult + (capturedRoll.modifier || 0);
-            const success = capturedRoll.difficulty ? total >= capturedRoll.difficulty : undefined;
-            get().addRollToHistory({
-                type: capturedRoll.type,
-                purpose: capturedRoll.purpose,
-                roll: rollResult,
-                total,
-                success,
-                mode: diceMode as 'auto' | 'digital' | 'physical',
-                timestamp: Date.now(),
-            });
-
             // Sync turns balance if provided
             if (result.data.remainingTurns !== undefined) {
                 useTurnsStore.setState({ balance: result.data.remainingTurns });
             }
+
+            // Block Firestore sync for 2 seconds to prevent race conditions
+            set({ syncBlockedUntil: Date.now() + 2000 });
         } catch (error) {
             console.error('[Game] Roll result submission error:', error);
 
@@ -513,6 +524,7 @@ export const useGameStore = create<GameState>((set, get) => ({
             set({
                 isLoading: false,
                 error: errorMessage,
+                syncBlockedUntil: Date.now() + 2000, // Block sync even on error
             });
         }
     },
@@ -541,7 +553,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         // Remove the user message and everything after it (including any narrator response)
         const newMessages = messages.slice(0, lastUserIndex);
 
-        set({ messages: newMessages, editingMessage: userMessageText });
+        // Clear dice roll and choice state when editing
+        set({
+            messages: newMessages,
+            editingMessage: userMessageText,
+            pendingRoll: null,  // Clear any pending dice roll
+            pendingChoice: null // Clear any pending choice
+        });
 
         return userMessageText;
     },
@@ -728,6 +746,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                 });
             }
 
+            // Block Firestore sync for 2 seconds to prevent race conditions
+            set({ syncBlockedUntil: Date.now() + 2000 });
+
         } catch (error) {
             console.error('[Game] Error:', error);
 
@@ -761,7 +782,8 @@ export const useGameStore = create<GameState>((set, get) => ({
             };
 
             set((state) => ({
-                messages: [...state.messages, systemErrorMessage]
+                messages: [...state.messages, systemErrorMessage],
+                syncBlockedUntil: Date.now() + 2000, // Block sync even on error
             }));
         }
     },

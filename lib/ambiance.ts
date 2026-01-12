@@ -22,19 +22,19 @@ export type AmbianceType =
     | 'night'       // Night crickets, owl hoots, quiet
     | 'rain';       // Rain falling, storm ambiance
 
-// Default fallback URLs (used if Firestore fails to load)
+// Default fallback URLs - set to null to require admin configuration
 const DEFAULT_AMBIANCE_URLS: Record<AmbianceType, string | null> = {
     none: null,
-    tavern: 'https://cdn.pixabay.com/audio/2024/02/08/audio_ac56737be4.mp3',
-    forest: 'https://cdn.pixabay.com/audio/2022/03/09/audio_c7acb35bca.mp3',
-    dungeon: 'https://cdn.pixabay.com/audio/2022/11/17/audio_fe4aaeecb0.mp3',
-    city: 'https://cdn.pixabay.com/audio/2021/09/02/audio_95e4dc3d6f.mp3',
-    combat: 'https://cdn.pixabay.com/audio/2023/10/24/audio_7fd0df0e06.mp3',
-    castle: 'https://cdn.pixabay.com/audio/2022/05/27/audio_f5462cdede.mp3',
-    cave: 'https://cdn.pixabay.com/audio/2022/06/01/audio_c067fb28ea.mp3',
-    ocean: 'https://cdn.pixabay.com/audio/2022/02/22/audio_ea1a0c0a91.mp3',
-    night: 'https://cdn.pixabay.com/audio/2022/05/31/audio_32e41c0bc6.mp3',
-    rain: 'https://cdn.pixabay.com/audio/2022/03/24/audio_bae35a2adf.mp3',
+    tavern: null,
+    forest: null,
+    dungeon: null,
+    city: null,
+    combat: null,
+    castle: null,
+    cave: null,
+    ocean: null,
+    night: null,
+    rain: null,
 };
 
 // Cached settings from Firestore
@@ -56,7 +56,7 @@ async function loadAmbianceSettings() {
             settingsLoaded = true;
             console.log('[Ambiance] Settings loaded from Firestore');
         } else {
-            console.log('[Ambiance] No settings found, using defaults');
+            console.log('[Ambiance] No settings found in Firestore');
         }
     } catch (error) {
         console.error('[Ambiance] Failed to load settings:', error);
@@ -66,18 +66,18 @@ async function loadAmbianceSettings() {
 }
 
 /**
- * Get URL for ambiance type (from Firestore or fallback)
+ * Get URL for ambiance type (from Firestore only - no fallbacks)
  */
 function getAmbianceUrl(type: AmbianceType): string | null {
     if (type === 'none') return null;
 
-    // Try cached settings first
+    // Only use admin-configured URLs from Firestore
     if (cachedSettings?.types?.[type]?.enabled && cachedSettings?.types?.[type]?.url) {
         return cachedSettings.types[type].url;
     }
 
-    // Fallback to defaults
-    return DEFAULT_AMBIANCE_URLS[type];
+    // No fallback - audio must be configured in admin panel
+    return null;
 }
 
 /**
