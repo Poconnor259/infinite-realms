@@ -1,0 +1,31 @@
+{
+    "id": "difficulty",
+    "type": "select",
+    "label": "Game Difficulty",
+    "required": true,
+    "defaultValue": "adventurer",
+    "options": [
+        {
+            "value": "story",
+            "label": "🎭 Story Mode - Narrative Focus"
+        },
+        {
+            "value": "novice",
+            "label": "📚 Novice - Learning Curve"
+        },
+        {
+            "value": "adventurer",
+            "label": "⚔️ Adventurer - Balanced (Recommended)"
+        },
+        {
+            "value": "hero",
+            "label": "🏆 Hero - Tough but Fair"
+        },
+        {
+            "value": "legendary",
+            "label": "💀 Legendary - Unforgiving"
+        }
+    ],
+    "helpText": "Affects how challenging the game master is. Story Mode focuses on narrative enjoyment, while Legendary is brutally punishing.",
+    "order": 0
+}
