@@ -296,7 +296,7 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
     },
     blueBoxText: {
         color: colors.text.primary,
-        fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+        fontFamily: typography.fontFamily.regular, // Use selected font, not monospace
         fontSize: typography.fontSize.sm, // Scale with reading settings
     },
     codeBlock: {
