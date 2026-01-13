@@ -145,7 +145,7 @@ export default function HomeScreen() {
             <FadeInView style={styles.header} delay={0}>
                 <View>
                     <Text style={styles.greeting}>Welcome to</Text>
-                    <Text style={styles.title}>Infinite Realms</Text>
+                    <Text style={styles.title}>Atlas Cortex</Text>
                     {user?.isAnonymous && (
                         <AnimatedPressable
                             style={styles.createAccountLink}

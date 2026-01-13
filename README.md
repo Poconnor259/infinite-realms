@@ -1,4 +1,4 @@
-# Infinite Realms 🎮✨
+# Atlas Cortex 🎮✨
 
 > A mobile RPG that uses Generative AI as an infinite "Dungeon Master" with hybrid AI architecture.
 
@@ -78,7 +78,7 @@ firebase functions:config:set openai.key="sk-xxx" anthropic.key="sk-ant-xxx"
 ## 📁 Project Structure
 
 ```
-infinite-realms/
+atlas-cortex/
 ├── app/                    # Expo Router screens
 │   ├── _layout.tsx         # Root navigation
 │   ├── index.tsx           # Home screen

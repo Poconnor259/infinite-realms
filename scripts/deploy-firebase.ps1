@@ -1,6 +1,6 @@
-# Deployment script for Infinite Realms to Firebase Hosting
+# Deployment script for Atlas Cortex to Firebase Hosting
 
-Write-Host "Building and deploying Infinite Realms to Firebase Hosting..." -ForegroundColor Cyan
+Write-Host "Building and deploying Atlas Cortex to Firebase Hosting..." -ForegroundColor Cyan
 Write-Host ""
 
 # Build for web

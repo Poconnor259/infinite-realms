@@ -1,4 +1,4 @@
-// Theme configuration for Infinite Realms
+// Theme configuration for Atlas Cortex
 // Modern dark fantasy theme with selectable color variants and fonts
 
 // ==================== COLOR PALETTES ====================

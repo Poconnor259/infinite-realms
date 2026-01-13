@@ -1,7 +1,7 @@
 #!/bin/bash
-# Deployment script for Infinite Realms staging environment
+# Deployment script for Atlas Cortex staging environment
 
-echo "🚀 Building Infinite Realms for staging deployment..."
+echo "🚀 Building Atlas Cortex for staging deployment..."
 
 # Build for web
 npx expo export --platform web

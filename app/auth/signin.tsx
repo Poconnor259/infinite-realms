@@ -91,7 +91,7 @@ export default function SignInScreen() {
                     {/* Header */}
                     <FadeInView style={styles.header} delay={0}>
                         <Logo size={64} />
-                        <Text style={styles.title}>Infinite Realms</Text>
+                        <Text style={styles.title}>Atlas Cortex</Text>
                         <Text style={styles.subtitle}>Sign in to continue your adventure</Text>
                     </FadeInView>
 

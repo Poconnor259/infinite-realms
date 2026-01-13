@@ -1,6 +1,6 @@
-# Deployment script for Infinite Realms to shouldersofgiants.app/IR
+# Deployment script for Atlas Cortex to shouldersofgiants.app/IR
 
-Write-Host "Building Infinite Realms for staging deployment..." -ForegroundColor Cyan
+Write-Host "Building Atlas Cortex for staging deployment..." -ForegroundColor Cyan
 Write-Host ""
 
 # Build for web
@@ -44,7 +44,7 @@ Write-Host "Committing and pushing to GitHub..." -ForegroundColor Yellow
 Set-Location $sogPath
 
 git add IR/
-git commit -m "Update Infinite Realms staging deployment"
+git commit -m "Update Atlas Cortex staging deployment"
 git push
 
 Write-Host "Deployed successfully!" -ForegroundColor Green

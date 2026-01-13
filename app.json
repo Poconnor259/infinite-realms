@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "Infinite Realms",
-    "slug": "infinite-realms",
+    "name": "Atlas Cortex",
+    "slug": "atlas-cortex",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "scheme": "infinite-realms",
+    "scheme": "atlas-cortex",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -15,14 +15,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.infiniterealms.app"
+      "bundleIdentifier": "com.atlascortex.app"
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0f0a1e"
       },
-      "package": "com.infiniterealms.app",
+      "package": "com.atlascortex.app",
       "edgeToEdgeEnabled": true
     },
     "web": {

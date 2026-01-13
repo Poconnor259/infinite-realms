@@ -2010,7 +2010,7 @@ interface KnowledgeDocument {
 }
 
 export const addKnowledgeDocument = onCall({
-    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    cors: ['https://atlas-cortex.web.app', 'https://atlas-cortex.firebaseapp.com'],
     invoker: 'public'
 }, async (request) => {
     if (!request.auth) {
@@ -2049,7 +2049,7 @@ export const addKnowledgeDocument = onCall({
 });
 
 export const getKnowledgeDocuments = onCall({
-    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    cors: ['https://atlas-cortex.web.app', 'https://atlas-cortex.firebaseapp.com'],
     invoker: 'public'
 }, async (request) => {
     if (!request.auth) {
@@ -2087,7 +2087,7 @@ export const getKnowledgeDocuments = onCall({
 });
 
 export const updateKnowledgeDocument = onCall({
-    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    cors: ['https://atlas-cortex.web.app', 'https://atlas-cortex.firebaseapp.com'],
     invoker: 'public'
 }, async (request) => {
     if (!request.auth) {
@@ -2122,7 +2122,7 @@ export const updateKnowledgeDocument = onCall({
 });
 
 export const deleteKnowledgeDocument = onCall({
-    cors: ['https://infinite-realms-5dcba.web.app', 'https://infinite-realms-5dcba.firebaseapp.com'],
+    cors: ['https://atlas-cortex.web.app', 'https://atlas-cortex.firebaseapp.com'],
     invoker: 'public'
 }, async (request) => {
     if (!request.auth) {

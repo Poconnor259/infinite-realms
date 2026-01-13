@@ -1,7 +1,7 @@
 {
-    "name": "infinite-realms-functions",
+    "name": "atlas-cortex-functions",
     "version": "1.0.0",
-    "description": "Firebase Cloud Functions for Infinite Realms AI Backend",
+    "description": "Firebase Cloud Functions for Atlas Cortex AI Backend",
     "main": "lib/index.js",
     "scripts": {
         "build": "tsc",
