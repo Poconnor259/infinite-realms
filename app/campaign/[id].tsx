@@ -30,6 +30,7 @@ import { StatRow, ResourceBar } from '../../components/hud/StatCard';
 import { CharacterPanel } from '../../components/character/CharacterPanel';
 import { Logo } from '../../components/ui/Logo';
 import { DiceRoller } from '../../components/DiceRoller';
+import { ReadingSettingsPanel } from '../../components/ui/ReadingSettingsPanel';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
 import type { Message, WorldModuleType, ClassicModuleState, OutworlderModuleState, TacticalModuleState } from '../../lib/types';
 
@@ -128,6 +129,7 @@ export default function CampaignScreen() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [menuVisible, setMenuVisible] = useState(false);
     const [panelVisible, setPanelVisible] = useState(false);
+    const [readingSettingsVisible, setReadingSettingsVisible] = useState(false);
     const [hudExpanded, setHudExpanded] = useState(true);
     const [isProcessingQuest, setIsProcessingQuest] = useState(false);
     const [isRequestingQuests, setIsRequestingQuests] = useState(false);
@@ -516,6 +518,9 @@ export default function CampaignScreen() {
 
                             <View style={styles.headerRight}>
                                 <TurnCounter />
+                                <TouchableOpacity style={styles.iconButton} onPress={() => setReadingSettingsVisible(true)}>
+                                    <Text style={{ color: colors.text.primary, fontSize: 20, fontFamily: typography.fontFamily.bold }}>Aa</Text>
+                                </TouchableOpacity>
                                 <TouchableOpacity style={styles.iconButton} onPress={() => setMenuVisible(true)}>
                                     <Ionicons name="ellipsis-vertical" size={24} color={colors.text.primary} />
                                 </TouchableOpacity>
@@ -703,6 +708,12 @@ export default function CampaignScreen() {
                     </View>
                     )
                 }
+
+                {/* Reading Settings Panel */}
+                <ReadingSettingsPanel
+                    visible={readingSettingsVisible}
+                    onClose={() => setReadingSettingsVisible(false)}
+                />
             </View >
         </SafeAreaView >
     );

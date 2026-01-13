@@ -125,7 +125,14 @@ export const borderRadius = {
 
 // ==================== TYPOGRAPHY ====================
 
-export const getTypography = (fontFamilyBase: string = 'System') => {
+const fontSizeMultipliers = {
+    small: 0.85,
+    medium: 1.0,
+    large: 1.15,
+    xlarge: 1.3,
+};
+
+export const getTypography = (fontFamilyBase: string = 'System', sizeKey: 'small' | 'medium' | 'large' | 'xlarge' = 'medium') => {
     // Map of logic font names to actual font families (loaded via _layout.tsx)
     const fonts = {
         regular: fontFamilyBase === 'System' ? 'System' : `${fontFamilyBase}_400Regular`,
@@ -133,19 +140,28 @@ export const getTypography = (fontFamilyBase: string = 'System') => {
         bold: fontFamilyBase === 'System' ? 'System' : `${fontFamilyBase}_700Bold`,
     };
 
+    const multiplier = fontSizeMultipliers[sizeKey];
+
     return {
         fontFamily: fonts,
         fontSize: {
-            xs: 12, sm: 14, md: 16, lg: 18, xl: 20, xxl: 24, xxxl: 32, display: 40,
+            xs: Math.round(12 * multiplier),
+            sm: Math.round(14 * multiplier),
+            md: Math.round(16 * multiplier),
+            lg: Math.round(18 * multiplier),
+            xl: Math.round(20 * multiplier),
+            xxl: Math.round(24 * multiplier),
+            xxxl: Math.round(32 * multiplier),
+            display: Math.round(40 * multiplier),
         },
         lineHeight: { tight: 1.2, normal: 1.5, relaxed: 1.75 },
         // Presets (caller needs to apply colors)
-        h1: { fontSize: 32, fontFamily: fonts.bold },
-        h2: { fontSize: 24, fontFamily: fonts.bold },
-        h3: { fontSize: 20, fontFamily: fonts.medium },
-        h4: { fontSize: 18, fontFamily: fonts.medium },
-        body: { fontSize: 16, fontFamily: fonts.regular },
-        label: { fontSize: 14, fontFamily: fonts.medium },
+        h1: { fontSize: Math.round(32 * multiplier), fontFamily: fonts.bold },
+        h2: { fontSize: Math.round(24 * multiplier), fontFamily: fonts.bold },
+        h3: { fontSize: Math.round(20 * multiplier), fontFamily: fonts.medium },
+        h4: { fontSize: Math.round(18 * multiplier), fontFamily: fonts.medium },
+        body: { fontSize: Math.round(16 * multiplier), fontFamily: fonts.regular },
+        label: { fontSize: Math.round(14 * multiplier), fontFamily: fonts.medium },
     };
 };
 

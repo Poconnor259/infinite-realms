@@ -280,12 +280,12 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
         color: colors.text.primary,
         fontFamily: typography.fontFamily.regular,
         fontSize: typography.fontSize.md,
-        lineHeight: 24,
+        lineHeight: typography.fontSize.md * 1.5,
     },
     narratorText: {
         color: colors.text.secondary, // Slightly softer than pure white
-        fontSize: 17, // Slightly larger for reading
-        lineHeight: 28, // Relaxed line height for storytelling
+        fontSize: typography.fontSize.lg, // Slightly larger for reading (18 base, scales with setting)
+        lineHeight: typography.fontSize.lg * 1.6, // Relaxed line height for storytelling
         fontFamily: typography.fontFamily.regular,
     },
     systemText: {
@@ -297,7 +297,7 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
     blueBoxText: {
         color: colors.text.primary,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-        fontSize: 14,
+        fontSize: typography.fontSize.sm, // Scale with reading settings
     },
     codeBlock: {
         backgroundColor: colors.background.tertiary,
@@ -308,7 +308,7 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
     codeText: {
         color: colors.text.secondary,
         fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-        fontSize: 13,
+        fontSize: typography.fontSize.xs, // Scale with reading settings
     },
     messageActions: {
         flexDirection: 'row',

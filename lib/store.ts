@@ -888,6 +888,7 @@ interface SettingsState {
     themeMode: 'light' | 'dark' | 'system';
     themeVariant: 'default' | 'midnight' | 'forest' | 'ocean';
     fontFamily: 'inter' | 'roboto' | 'outfit' | 'system';
+    fontSize: 'small' | 'medium' | 'large' | 'xlarge';
     diceRollMode: 'auto' | 'digital' | 'physical';
 
     // Actions
@@ -908,6 +909,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     themeMode: 'system',
     themeVariant: 'default',
     fontFamily: 'inter',
+    fontSize: 'medium',
     diceRollMode: 'digital',
 
     setApiKey: (provider, key) => {
@@ -941,6 +943,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const themeMode = storage.getString('pref_themeMode');
         const themeVariant = storage.getString('pref_themeVariant');
         const fontFamily = storage.getString('pref_fontFamily');
+        const fontSize = storage.getString('pref_fontSize');
         const diceRollMode = storage.getString('pref_diceRollMode');
 
         set({
@@ -955,6 +958,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             themeMode: themeMode ? JSON.parse(themeMode) : 'system',
             themeVariant: themeVariant ? JSON.parse(themeVariant) : 'default',
             fontFamily: fontFamily ? JSON.parse(fontFamily) : 'inter',
+            fontSize: fontSize ? JSON.parse(fontSize) : 'medium',
             diceRollMode: diceRollMode ? JSON.parse(diceRollMode) : 'digital',
         });
     },

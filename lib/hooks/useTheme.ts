@@ -3,7 +3,7 @@ import { useSettingsStore } from '../store';
 import { getColorsByVariant, getTypography } from '../theme';
 
 export function useThemeColors() {
-    const { themeMode, themeVariant, fontFamily } = useSettingsStore();
+    const { themeMode, themeVariant, fontFamily, fontSize } = useSettingsStore();
     const systemScheme = useColorScheme();
 
     const activeTheme = themeMode === 'system'
@@ -13,7 +13,7 @@ export function useThemeColors() {
     const isDark = activeTheme === 'dark';
     const colors = getColorsByVariant(themeVariant, isDark);
     const formattedFontFamily = fontFamily.charAt(0).toUpperCase() + fontFamily.slice(1);
-    const typography = getTypography(formattedFontFamily);
+    const typography = getTypography(formattedFontFamily, fontSize);
 
     return {
         colors,
