@@ -4,6 +4,9 @@ import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useFonts } from 'expo-font';
+import { Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-fonts/inter';
+import { Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
+import { Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { Ionicons } from '@expo/vector-icons';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore, useTurnsStore, useConfigStore } from '../lib/store';
@@ -19,9 +22,12 @@ export default function RootLayout() {
     const setTier = useTurnsStore((state) => state.setTier);
     const { colors, isDark } = useThemeColors();
 
-    // Load Ionicons font for web
+    // Load fonts
     const [fontsLoaded] = useFonts({
         ...Ionicons.font,
+        Inter_400Regular, Inter_500Medium, Inter_700Bold,
+        Roboto_400Regular, Roboto_500Medium, Roboto_700Bold,
+        Outfit_400Regular, Outfit_500Medium, Outfit_700Bold,
     });
 
     const user = useUserStore((state) => state.user);

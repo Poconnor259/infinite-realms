@@ -20,8 +20,8 @@ interface ChatInputProps {
 
 export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' }: ChatInputProps) {
     const [text, setText] = useState('');
-    const { colors } = useThemeColors();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const { colors, typography } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
     // Listen for editing state from store
     const { editingMessage, setEditingMessage } = useGameStore();
@@ -113,7 +113,7 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
     );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, typography: any) => StyleSheet.create({
     container: {
         backgroundColor: colors.background.primary, // Seamless background
         paddingBottom: Platform.OS === 'ios' ? spacing.lg : spacing.md,
@@ -142,7 +142,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     quickActionLabel: {
         color: colors.text.secondary,
         fontSize: 12,
-        fontWeight: '500',
+        fontFamily: typography.fontFamily.medium,
     },
     inputWrapper: {
         width: '100%',
@@ -165,6 +165,7 @@ const createStyles = (colors: any) => StyleSheet.create({
         flex: 1,
         color: colors.text.primary,
         fontSize: 16,
+        fontFamily: typography.fontFamily.regular,
         lineHeight: 24,
         paddingVertical: 8, // Center vertically
         paddingRight: spacing.sm,

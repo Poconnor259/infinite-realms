@@ -886,6 +886,8 @@ interface SettingsState {
     backgroundAmbiance: boolean;
     showFavoritesOnly: boolean;
     themeMode: 'light' | 'dark' | 'system';
+    themeVariant: 'default' | 'midnight' | 'forest' | 'ocean';
+    fontFamily: 'inter' | 'roboto' | 'outfit' | 'system';
     diceRollMode: 'auto' | 'digital' | 'physical';
 
     // Actions
@@ -904,6 +906,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     backgroundAmbiance: false,
     showFavoritesOnly: false,
     themeMode: 'system',
+    themeVariant: 'default',
+    fontFamily: 'inter',
     diceRollMode: 'digital',
 
     setApiKey: (provider, key) => {
@@ -935,6 +939,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const backgroundAmbiance = storage.getString('pref_backgroundAmbiance');
         const showFavoritesOnly = storage.getString('pref_showFavoritesOnly');
         const themeMode = storage.getString('pref_themeMode');
+        const themeVariant = storage.getString('pref_themeVariant');
+        const fontFamily = storage.getString('pref_fontFamily');
         const diceRollMode = storage.getString('pref_diceRollMode');
 
         set({
@@ -947,6 +953,8 @@ export const useSettingsStore = create<SettingsState>((set) => ({
             backgroundAmbiance: backgroundAmbiance ? JSON.parse(backgroundAmbiance) : false,
             showFavoritesOnly: showFavoritesOnly ? JSON.parse(showFavoritesOnly) : false,
             themeMode: themeMode ? JSON.parse(themeMode) : 'system',
+            themeVariant: themeVariant ? JSON.parse(themeVariant) : 'default',
+            fontFamily: fontFamily ? JSON.parse(fontFamily) : 'inter',
             diceRollMode: diceRollMode ? JSON.parse(diceRollMode) : 'digital',
         });
     },

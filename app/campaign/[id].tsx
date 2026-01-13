@@ -79,7 +79,7 @@ function TurnCounter() {
                 style={{
                     color: lowTurns ? colors.hp.low : colors.text.secondary,
                     fontSize: typography.fontSize.sm,
-                    fontWeight: '600',
+                    fontFamily: typography.fontFamily.bold,
                 }}
             >
                 {displayText}
@@ -101,8 +101,8 @@ export default function CampaignScreen() {
         setIsMounted(true);
     }, []);
 
-    const { colors, isDark } = useThemeColors();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const { colors, typography, isDark } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
     const {
         currentCampaign,
@@ -708,7 +708,7 @@ export default function CampaignScreen() {
     );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, typography: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,
@@ -795,23 +795,19 @@ const createStyles = (colors: any) => StyleSheet.create({
         alignItems: 'center',
         backgroundColor: colors.background.tertiary,
     },
-    courseTitle: { // formerly campaignTitle
-        color: colors.text.primary,
-        fontSize: typography.fontSize.md,
-        fontWeight: 'bold',
-        textAlign: 'center',
-    },
     campaignName: {
         color: colors.text.primary,
         fontSize: typography.fontSize.md,
-        fontWeight: '600',
+        fontFamily: typography.fontFamily.bold,
         textAlign: 'center',
     },
     worldName: {
         color: colors.text.muted,
         fontSize: 11,
+        fontFamily: typography.fontFamily.medium,
         marginTop: 2,
         textAlign: 'center',
+        textTransform: 'uppercase',
     },
     characterInfo: {
         color: colors.text.muted,

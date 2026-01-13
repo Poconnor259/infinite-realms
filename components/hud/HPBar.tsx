@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { spacing, borderRadius } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 
 interface HPBarProps {
     current: number;
@@ -10,6 +11,8 @@ interface HPBarProps {
 }
 
 export function HPBar({ current, max, size = 'md', showLabel = true }: HPBarProps) {
+    const { colors, typography } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
     const percentage = Math.max(0, Math.min(100, (current / max) * 100));
 
     const getColor = () => {
@@ -49,7 +52,7 @@ export function HPBar({ current, max, size = 'md', showLabel = true }: HPBarProp
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, typography: any) => StyleSheet.create({
     container: {
         width: '100%',
     },
@@ -61,11 +64,12 @@ const styles = StyleSheet.create({
     label: {
         color: colors.text.muted,
         fontSize: typography.fontSize.xs,
-        fontWeight: '600',
+        fontFamily: typography.fontFamily.bold,
     },
     value: {
         color: colors.text.secondary,
         fontSize: typography.fontSize.xs,
+        fontFamily: typography.fontFamily.regular,
     },
     track: {
         backgroundColor: colors.background.tertiary,

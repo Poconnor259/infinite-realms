@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colors, spacing, borderRadius, typography } from '../../lib/theme';
+import { spacing, borderRadius } from '../../lib/theme';
 import { GlassCard } from '../ui/GlassCard';
+import { useThemeColors } from '../../lib/hooks/useTheme';
 
 interface StatCardProps {
     label: string;
@@ -11,6 +12,9 @@ interface StatCardProps {
 }
 
 export function StatCard({ label, value, icon, color }: StatCardProps) {
+    const { colors, typography } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
+
     return (
         <GlassCard variant="light" style={styles.statCard}>
             {icon && <Text style={styles.statIcon}>{icon}</Text>}
@@ -27,6 +31,8 @@ interface CompactStatProps {
 }
 
 export function CompactStat({ label, value, modifier }: CompactStatProps) {
+    const { colors, typography } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
     const modifierText = modifier !== undefined ?
         (modifier >= 0 ? `+${modifier}` : `${modifier}`) : null;
 
@@ -70,8 +76,11 @@ interface ResourceBarProps {
     icon?: string;
 }
 
-export function ResourceBar({ label, current, max, color = colors.primary[400], icon }: ResourceBarProps) {
+export function ResourceBar({ label, current, max, color, icon }: ResourceBarProps) {
+    const { colors, typography } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
     const percentage = Math.max(0, Math.min(100, (current / max) * 100));
+    const fillColor = color || colors.primary[400];
 
     return (
         <View style={styles.resourceContainer}>
@@ -84,7 +93,7 @@ export function ResourceBar({ label, current, max, color = colors.primary[400], 
                 <View
                     style={[
                         styles.resourceFill,
-                        { width: `${percentage}%`, backgroundColor: color },
+                        { width: `${percentage}%`, backgroundColor: fillColor },
                     ]}
                 />
             </View>
@@ -92,7 +101,7 @@ export function ResourceBar({ label, current, max, color = colors.primary[400], 
     );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any, typography: any) => StyleSheet.create({
     statCard: {
         backgroundColor: colors.background.tertiary,
         padding: spacing.md,
@@ -107,12 +116,14 @@ const styles = StyleSheet.create({
     statValue: {
         color: colors.text.primary,
         fontSize: typography.fontSize.xl,
-        fontWeight: 'bold',
+        fontFamily: typography.fontFamily.bold,
     },
     statLabel: {
         color: colors.text.muted,
         fontSize: typography.fontSize.xs,
+        fontFamily: typography.fontFamily.medium,
         marginTop: spacing.xs,
+        textTransform: 'uppercase',
     },
     compactStat: {
         backgroundColor: colors.background.tertiary,
@@ -125,16 +136,18 @@ const styles = StyleSheet.create({
     compactLabel: {
         color: colors.text.muted,
         fontSize: 10,
-        fontWeight: '600',
+        fontFamily: typography.fontFamily.bold,
+        textTransform: 'uppercase',
     },
     compactValue: {
         color: colors.text.primary,
         fontSize: typography.fontSize.md,
-        fontWeight: 'bold',
+        fontFamily: typography.fontFamily.bold,
     },
     compactModifier: {
         color: colors.text.secondary,
         fontSize: 10,
+        fontFamily: typography.fontFamily.regular,
     },
     statRow: {
         flexDirection: 'row',
@@ -147,7 +160,7 @@ const styles = StyleSheet.create({
     resourceHeader: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: spacing.xs,
+        marginBottom: 2,
     },
     resourceIcon: {
         fontSize: 14,
@@ -156,14 +169,17 @@ const styles = StyleSheet.create({
     resourceLabel: {
         color: colors.text.muted,
         fontSize: typography.fontSize.xs,
+        fontFamily: typography.fontFamily.bold,
         flex: 1,
+        textTransform: 'uppercase',
     },
     resourceValue: {
         color: colors.text.secondary,
         fontSize: typography.fontSize.xs,
+        fontFamily: typography.fontFamily.regular,
     },
     resourceTrack: {
-        height: 8,
+        height: 6,
         backgroundColor: colors.background.tertiary,
         borderRadius: borderRadius.full,
         overflow: 'hidden',
@@ -171,5 +187,13 @@ const styles = StyleSheet.create({
     resourceFill: {
         height: '100%',
         borderRadius: borderRadius.full,
+    },
+});
+
+const styles = StyleSheet.create({
+    statRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
     },
 });

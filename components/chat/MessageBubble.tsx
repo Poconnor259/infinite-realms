@@ -18,6 +18,7 @@ interface MessageBubbleProps {
 export function MessageBubble({ message, index, isLastUserMessage = false }: MessageBubbleProps) {
     const isUser = message.role === 'user';
     const isSystem = message.role === 'system';
+    const isNarrator = message.role === 'narrator';
     const [debugExpanded, setDebugExpanded] = useState(false);
     const user = useUserStore((state) => state.user);
 
@@ -26,8 +27,8 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
 
     const isBlueBox = content.includes('『') || content.includes('[DAILY QUEST]');
 
-    const { colors, isDark } = useThemeColors();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+    const { colors, typography, isDark } = useThemeColors();
+    const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
 
     // Game store for edit/retry
     const { deleteLastUserMessageAndResponse, retryLastRequest, lastFailedRequest } = useGameStore();
@@ -37,7 +38,7 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     const canRetry = isError && lastFailedRequest !== null;
 
     const handleEdit = () => {
-        const deletedText = deleteLastUserMessageAndResponse();
+        deleteLastUserMessageAndResponse();
         // The store will set editingMessage which ChatInput listens to
     };
 
@@ -48,7 +49,6 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     // TTS state
     const [isSpeaking, setIsSpeaking] = useState(false);
     const narratorVoice = useSettingsStore((state) => state.narratorVoice);
-    const isNarrator = message.role === 'narrator';
 
     const handleSpeak = async () => {
         if (isSpeaking) {
@@ -211,7 +211,7 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, typography: any) => StyleSheet.create({
     container: {
         marginBottom: spacing.lg, // increased spacing between messages
         paddingHorizontal: 0,
@@ -234,7 +234,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     narratorName: {
         fontSize: 12,
-        fontWeight: '600',
+        fontFamily: typography.fontFamily.bold,
         color: colors.primary[400],
         textTransform: 'uppercase',
         letterSpacing: 0.5,
@@ -278,6 +278,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     userText: {
         color: colors.text.primary,
+        fontFamily: typography.fontFamily.regular,
         fontSize: typography.fontSize.md,
         lineHeight: 24,
     },
@@ -285,10 +286,11 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.text.secondary, // Slightly softer than pure white
         fontSize: 17, // Slightly larger for reading
         lineHeight: 28, // Relaxed line height for storytelling
-        fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto', // Ideally Serif if available
+        fontFamily: typography.fontFamily.regular,
     },
     systemText: {
         color: colors.status.info,
+        fontFamily: typography.fontFamily.medium,
         fontSize: 13,
         textAlign: 'center',
     },
@@ -320,7 +322,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     // Debug styles simplified
     debugPanel: { marginTop: 8, padding: 8, borderRadius: 4, borderWidth: 1, opacity: 0.8 },
     debugHeader: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-    debugTitle: { fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+    debugTitle: { fontSize: 10, fontFamily: typography.fontFamily.bold, textTransform: 'uppercase' },
     debugContent: { marginTop: 4 },
     debugJson: { fontSize: 9, fontFamily: 'monospace' },
 });

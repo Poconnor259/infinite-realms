@@ -22,6 +22,9 @@ import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
 import { getGlobalConfig } from '../lib/firebase';
 import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
+import { Card } from '../components/ui/Card';
+import { Button } from '../components/ui/Button';
+import { ThemeSelector } from '../components/ui/ThemeSelector';
 import { VoiceModelSelector } from '../components/VoiceModelSelector';
 
 // Helper types
@@ -171,92 +174,10 @@ export default function SettingsScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* AI Models Section */}
-                <FadeInView delay={50}>
-                    <Section title="AI Voice Model">
-                        <VoiceModelSelector
-                            user={user}
-                            mode="settings"
-                            modelType="voice"
-                            onShowUpgrade={handleUpgradePrompt}
-                            modelCosts={config?.modelCosts}
-                            tierMapping={config?.tierMapping}
-                            subscriptionPermissions={config?.subscriptionPermissions}
-                            showFavoritesOnly={showFavoritesOnly}
-                        />
-                    </Section>
-                </FadeInView>
-                {/* Account Section */}
-                <FadeInView delay={0}>
-                    <Section title="Account">
-                        {user?.role === 'admin' && (
-                            <Row
-                                label="Admin Dashboard"
-                                sublabel="Manage users and system settings"
-                                icon="shield-checkmark-outline"
-                                iconColor={colors.status.info}
-                                onPress={() => router.push('/admin')}
-                            />
-                        )}
-                        {user?.isAnonymous ? (
-                            <Row
-                                label="Sign In / Create Account"
-                                sublabel="Sync your campaigns across devices"
-                                icon="person-circle-outline"
-                                iconColor={colors.primary[400]}
-                                onPress={() => router.push('/auth/signin')}
-                            />
-                        ) : (
-                            <>
-                                <Row
-                                    label="Account"
-                                    sublabel={user?.email || 'Signed In'}
-                                    icon="person-outline"
-                                    iconColor={colors.primary[400]}
-                                    onPress={() => router.push('/account')}
-                                />
-                                <Row
-                                    label="Sign Out"
-                                    sublabel="Log out of your account"
-                                    icon="log-out-outline"
-                                    iconColor={colors.status.error}
-                                    onPress={async () => {
-                                        if (Platform.OS === 'web') {
-                                            // @ts-ignore
-                                            if (window.confirm('Are you sure you want to sign out?')) {
-                                                await signOut();
-                                                router.replace('/');
-                                            }
-                                        } else {
-                                            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
-                                                { text: 'Cancel', style: 'cancel' },
-                                                {
-                                                    text: 'Sign Out',
-                                                    style: 'destructive',
-                                                    onPress: async () => {
-                                                        await signOut();
-                                                        router.replace('/');
-                                                    }
-                                                }
-                                            ]);
-                                        }
-                                    }}
-                                />
-                            </>
-                        )}
-                        <Row
-                            label="Subscription"
-                            sublabel={user?.tier ? (user.tier.charAt(0).toUpperCase() + user.tier.slice(1)) : 'Scout (Free)'}
-                            icon="star-outline"
-                            iconColor={colors.gold.main}
-                            onPress={() => router.push('/subscription')}
-                        />
-                    </Section>
-                </FadeInView>
-
                 {/* Preferences Section */}
-                <FadeInView delay={100}>
+                <FadeInView delay={0}>
                     <Section title="Preferences">
+                        <ThemeSelector />
                         <Row
                             label="Appearance"
                             sublabel={getThemeLabel(themeMode)}
@@ -323,6 +244,99 @@ export default function SettingsScreen() {
                         />
                     </Section>
                 </FadeInView>
+
+                {/* AI Models Section */}
+                <FadeInView delay={50}>
+                    <Section title="AI Voice Model">
+                        <VoiceModelSelector
+                            user={user}
+                            mode="settings"
+                            modelType="voice"
+                            onShowUpgrade={handleUpgradePrompt}
+                            modelCosts={config?.modelCosts}
+                            tierMapping={config?.tierMapping}
+                            subscriptionPermissions={config?.subscriptionPermissions}
+                            showFavoritesOnly={showFavoritesOnly}
+                        />
+                    </Section>
+                </FadeInView>
+
+                {/* Account Section */}
+                <FadeInView delay={100}>
+                    <Section title="Account">
+                        {user?.role === 'admin' && (
+                            <Row
+                                label="Admin Dashboard"
+                                sublabel="Manage users and system settings"
+                                icon="shield-checkmark-outline"
+                                iconColor={colors.status.info}
+                                onPress={() => router.push('/admin')}
+                            />
+                        )}
+                        {user?.isAnonymous ? (
+                            <Row
+                                label="Sign In / Create Account"
+                                sublabel="Sync your campaigns across devices"
+                                icon="person-circle-outline"
+                                iconColor={colors.primary[400]}
+                                onPress={() => router.push('/auth/signin')}
+                            />
+                        ) : (
+                            <>
+                                <Row
+                                    label="Account"
+                                    sublabel={user?.email || 'Signed In'}
+                                    icon="person-outline"
+                                    iconColor={colors.primary[400]}
+                                    onPress={() => router.push('/account')}
+                                />
+                                <Row
+                                    label="Sign Out"
+                                    sublabel="Log out of your account"
+                                    icon="log-out-outline"
+                                    iconColor={colors.status.error}
+                                    onPress={async () => {
+                                        if (Platform.OS === 'web') {
+                                            // @ts-ignore
+                                            if (window.confirm('Are you sure you want to sign out?')) {
+                                                await signOut();
+                                                router.replace('/');
+                                            }
+                                        } else {
+                                            Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
+                                                { text: 'Cancel', style: 'cancel' },
+                                                {
+                                                    text: 'Sign Out',
+                                                    style: 'destructive',
+                                                    onPress: async () => {
+                                                        await signOut();
+                                                        router.replace('/');
+                                                    }
+                                                }
+                                            ]);
+                                        }
+                                    }}
+                                />
+                            </>
+                        )}
+                        <Row
+                            label="Subscription"
+                            sublabel={user?.tier ? (user.tier.charAt(0).toUpperCase() + user.tier.slice(1)) : 'Scout (Free)'}
+                            icon="star-outline"
+                            iconColor={colors.gold.main}
+                            rightElement={
+                                <Button
+                                    title="Upgrade"
+                                    onPress={() => router.push('/subscription')}
+                                    size="sm"
+                                    variant="gold"
+                                    style={{ paddingVertical: 4, minWidth: 70 }}
+                                />
+                            }
+                        />
+                    </Section>
+                </FadeInView>
+
 
                 {/* Gameplay Preferences Section */}
                 <FadeInView delay={150}>

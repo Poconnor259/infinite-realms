@@ -1,318 +1,182 @@
 // Theme configuration for Infinite Realms
-// Dark fantasy theme with ethereal blues, deep purples, and gold accents
+// Modern dark fantasy theme with selectable color variants and fonts
 
-export const darkColors = {
-    // Primary palette
-    primary: {
-        50: '#f0e6ff',
-        100: '#d4bfff',
-        200: '#b794ff',
-        300: '#9966ff',
-        400: '#7c3aed',
-        500: '#6d28d9',
-        600: '#5b21b6',
-        700: '#4c1d95',
-        800: '#3b1578',
-        900: '#2e1065',
-    },
+// ==================== COLOR PALETTES ====================
 
-    // Gold accent
-    gold: {
-        light: '#fcd34d',
-        main: '#f59e0b',
-        dark: '#d97706',
+export const palettes = {
+    default: { // Alias for midnight
+        primary: {
+            50: '#f0e6ff', 100: '#d4bfff', 200: '#b794ff', 300: '#9966ff',
+            400: '#7c3aed', 500: '#6d28d9', 600: '#5b21b6', 700: '#4c1d95',
+            800: '#3b1578', 900: '#2e1065',
+        },
+        background: {
+            primary: '#0f0a1e', secondary: '#1a1332', tertiary: '#241b47', elevated: '#2d2354',
+        },
+        border: { default: '#3b1578', light: '#4c1d95', glow: '#9966ff' },
+        chat: { user: '#4c1d95' }
     },
-
-    // Background colors (deep space theme)
-    background: {
-        primary: '#0f0a1e',    // Deepest purple-black
-        secondary: '#1a1332',  // Slightly lighter
-        tertiary: '#241b47',   // Card backgrounds
-        elevated: '#2d2354',   // Elevated surfaces
+    midnight: { // Default Deep Purple
+        primary: {
+            50: '#f0e6ff', 100: '#d4bfff', 200: '#b794ff', 300: '#9966ff',
+            400: '#7c3aed', 500: '#6d28d9', 600: '#5b21b6', 700: '#4c1d95',
+            800: '#3b1578', 900: '#2e1065',
+        },
+        background: {
+            primary: '#0f0a1e', secondary: '#1a1332', tertiary: '#241b47', elevated: '#2d2354',
+        },
+        border: { default: '#3b1578', light: '#4c1d95', glow: '#9966ff' },
+        chat: { user: '#4c1d95' }
     },
-
-    // Text colors
-    text: {
-        primary: '#f8fafc',    // Pure white for headers
-        secondary: '#cbd5e1',  // Light gray for body
-        muted: '#94a3b8',      // Muted text
-        inverse: '#ffffff',    // White text on colored backgrounds (user bubbles)
+    forest: { // Deep Green
+        primary: {
+            50: '#ecfdf5', 100: '#d1fae5', 200: '#a7f3d0', 300: '#6ee7b7',
+            400: '#34d399', 500: '#10b981', 600: '#059669', 700: '#047857',
+            800: '#065f46', 900: '#064e3b',
+        },
+        background: {
+            primary: '#06130e', secondary: '#0a1d15', tertiary: '#11291e', elevated: '#1a3528',
+        },
+        border: { default: '#065f46', light: '#047857', glow: '#10b981' },
+        chat: { user: '#047857' }
     },
-
-    // Status colors
-    status: {
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
-        info: '#3b82f6',
-    },
-
-    // HP Bar gradient colors
-    hp: {
-        full: '#10b981',       // Green
-        medium: '#f59e0b',     // Yellow
-        low: '#ef4444',        // Red
-        critical: '#991b1b',   // Dark red
-    },
-
-    // Chat bubble colors
-    chat: {
-        user: '#4c1d95',       // User message background
-        narrator: '#1e293b',   // Narrator message background
-        system: '#1e3a5f',     // System alert background
-        blueBox: '#1e40af',    // Special "Blue Box" alerts
-    },
-
-    // Border colors
-    border: {
-        default: '#3b1578',
-        light: '#4c1d95',
-        glow: '#9966ff',
-    },
+    ocean: { // Deep Blue
+        primary: {
+            50: '#eff6ff', 100: '#dbeafe', 200: '#bfdbfe', 300: '#93c5fd',
+            400: '#60a5fa', 500: '#3b82f6', 600: '#2563eb', 700: '#1d4ed8',
+            800: '#1e40af', 900: '#1e3a8a',
+        },
+        background: {
+            primary: '#050b18', secondary: '#0a1428', tertiary: '#111e3c', elevated: '#1a2a4f',
+        },
+        border: { default: '#1e40af', light: '#1d4ed8', glow: '#3b82f6' },
+        chat: { user: '#1e40af' }
+    }
 };
 
-export const lightColors = {
-    // Primary palette (same as dark for now, might tune later)
-    primary: {
-        50: '#f0e6ff',
-        100: '#d4bfff',
-        200: '#b794ff',
-        300: '#9966ff',
-        400: '#7c3aed',
-        500: '#6d28d9',
-        600: '#5b21b6',
-        700: '#4c1d95',
-        800: '#3b1578',
-        900: '#2e1065',
-    },
-
-    // Gold accent
-    gold: {
-        light: '#fcd34d',
-        main: '#f59e0b',
-        dark: '#d97706',
-    },
-
-    // Background colors (Clean white/slate theme)
-    background: {
-        primary: '#f8fafc',    // Slate 50 (App background)
-        secondary: '#ffffff',  // White (Content background)
-        tertiary: '#ffffff',   // Card backgrounds (with shadow)
-        elevated: '#f1f5f9',   // Slate 100
-    },
-
-    // Text colors
-    text: {
-        primary: '#0f172a',    // Slate 900 (Headers)
-        secondary: '#334155',  // Slate 700 (Body)
-        muted: '#64748b',      // Slate 500
-        inverse: '#f8fafc',    // White text on dark accents
-    },
-
-    // Status colors (same)
-    status: {
-        success: '#10b981',
-        warning: '#f59e0b',
-        error: '#ef4444',
-        info: '#3b82f6',
-    },
-
-    // HP Bar
-    hp: {
-        full: '#10b981',
-        medium: '#f59e0b',
-        low: '#ef4444',
-        critical: '#991b1b',
-    },
-
-    // Chat bubble colors
-    chat: {
-        user: '#7c3aed',       // Primary 400 (Lighter than dark mode user)
-        narrator: '#f1f5f9',   // Slate 100
-        system: '#eff6ff',     // Blue 50
-        blueBox: '#dbeafe',    // Blue 100
-    },
-
-    // Border colors
-    border: {
-        default: '#e2e8f0',    // Slate 200
-        light: '#cbd5e1',      // Slate 300
-        glow: '#7c3aed',       // Primary 400
-    },
+// Common accents and statuses independent of variant
+const sharedColors = {
+    gold: { light: '#fcd34d', main: '#f59e0b', dark: '#d97706' },
+    status: { success: '#10b981', warning: '#f59e0b', error: '#ef4444', info: '#3b82f6' },
+    hp: { full: '#10b981', medium: '#f59e0b', low: '#ef4444', critical: '#991b1b' },
 };
 
-// Default export for backward compatibility
+// Generate full color set based on variant and dark/light mode
+export const getColorsByVariant = (variant: keyof typeof palettes = 'midnight', isDark: boolean = true) => {
+    const palette = palettes[variant] || palettes.midnight;
+
+    if (isDark) {
+        return {
+            ...sharedColors,
+            primary: palette.primary,
+            background: palette.background,
+            border: palette.border,
+            text: {
+                primary: '#f8fafc',
+                secondary: '#cbd5e1',
+                muted: '#94a3b8',
+                inverse: '#ffffff',
+            },
+            chat: {
+                ...palette.chat,
+                narrator: '#1e293b',
+                system: '#1e3a5f',
+                blueBox: '#1e40af',
+            },
+        };
+    } else {
+        // Light mode adaptation (could be further specialized per variant)
+        return {
+            ...sharedColors,
+            primary: palette.primary,
+            background: {
+                primary: '#f8fafc', secondary: '#ffffff', tertiary: '#ffffff', elevated: '#f1f5f9',
+            },
+            text: {
+                primary: '#0f172a', secondary: '#334155', muted: '#64748b', inverse: '#f8fafc',
+            },
+            border: {
+                default: '#e2e8f0', light: '#cbd5e1', glow: palette.primary[400],
+            },
+            chat: {
+                user: palette.primary[400],
+                narrator: '#f1f5f9',
+                system: '#eff6ff',
+                blueBox: '#dbeafe',
+            },
+        };
+    }
+};
+
+// Legacy exports for backward compatibility
+export const darkColors = getColorsByVariant('midnight', true);
+export const lightColors = getColorsByVariant('midnight', false);
 export const colors = darkColors;
 
+// ==================== SPACING & RADIUS ====================
+
 export const spacing = {
-    xs: 4,
-    sm: 8,
-    md: 16,
-    lg: 24,
-    xl: 32,
-    xxl: 48,
+    xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48,
 };
 
 export const borderRadius = {
-    xs: 2,
-    sm: 4,
-    md: 8,
-    lg: 12,
-    xl: 16,
-    xxl: 24,
-    full: 9999,
+    xs: 2, sm: 4, md: 8, lg: 12, xl: 16, xxl: 24, full: 9999,
 };
 
-export const typography = {
-    // Font families (we'll load custom fonts later)
-    fontFamily: {
-        regular: 'System',
-        medium: 'System',
-        bold: 'System',
-        fantasy: 'System', // Will be replaced with a fantasy font
-    },
+// ==================== TYPOGRAPHY ====================
 
-    // Font sizes
-    fontSize: {
-        xs: 12,
-        sm: 14,
-        md: 16,
-        lg: 18,
-        xl: 20,
-        xxl: 24,
-        xxxl: 32,
-        display: 40,
-    },
+export const getTypography = (fontFamilyBase: string = 'System') => {
+    // Map of logic font names to actual font families (loaded via _layout.tsx)
+    const fonts = {
+        regular: fontFamilyBase === 'System' ? 'System' : `${fontFamilyBase}_400Regular`,
+        medium: fontFamilyBase === 'System' ? 'System' : `${fontFamilyBase}_500Medium`,
+        bold: fontFamilyBase === 'System' ? 'System' : `${fontFamilyBase}_700Bold`,
+    };
 
-    // Line heights
-    lineHeight: {
-        tight: 1.2,
-        normal: 1.5,
-        relaxed: 1.75,
-    },
-
-    // Presets
-    h1: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: '#f8fafc',
-    },
-    h2: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#f8fafc',
-    },
-    h3: {
-        fontSize: 20,
-        fontWeight: '600',
-        color: '#f8fafc',
-    },
-    h4: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#f8fafc',
-    },
-    body: {
-        fontSize: 16,
-        color: '#cbd5e1',
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#94a3b8',
-    },
+    return {
+        fontFamily: fonts,
+        fontSize: {
+            xs: 12, sm: 14, md: 16, lg: 18, xl: 20, xxl: 24, xxxl: 32, display: 40,
+        },
+        lineHeight: { tight: 1.2, normal: 1.5, relaxed: 1.75 },
+        // Presets (caller needs to apply colors)
+        h1: { fontSize: 32, fontFamily: fonts.bold },
+        h2: { fontSize: 24, fontFamily: fonts.bold },
+        h3: { fontSize: 20, fontFamily: fonts.medium },
+        h4: { fontSize: 18, fontFamily: fonts.medium },
+        body: { fontSize: 16, fontFamily: fonts.regular },
+        label: { fontSize: 14, fontFamily: fonts.medium },
+    };
 };
+
+// Legacy export
+export const typography = getTypography('System');
+
+// ==================== EFFECTS & ANIMATION ====================
 
 export const shadows = {
-    sm: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.2,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    md: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 4,
-        elevation: 4,
-    },
-    lg: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-        elevation: 8,
-    },
-    glow: {
-        shadowColor: '#9966ff',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.5,
-        shadowRadius: 12,
-        elevation: 12,
-    },
-    none: {
-        shadowColor: 'transparent',
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0,
-        shadowRadius: 0,
-        elevation: 0,
-    },
+    sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
+    md: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 4 },
+    lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 8 },
+    glow: (color: string = '#9966ff') => ({
+        shadowColor: color, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.5, shadowRadius: 12, elevation: 12
+    }),
 };
 
-// Glassmorphism effects (frosted glass UI)
 export const glassmorphism = {
-    // Light glass effect (for cards, bubbles)
-    light: {
-        backgroundColor: 'rgba(255, 255, 255, 0.1)',
-        backdropFilter: 'blur(10px)',
-        WebkitBackdropFilter: 'blur(10px)', // Safari support
-        borderColor: 'rgba(255, 255, 255, 0.2)',
-        borderWidth: 1,
-    },
-    // Medium glass effect (for modals, overlays)
-    medium: {
-        backgroundColor: 'rgba(255, 255, 255, 0.15)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderColor: 'rgba(255, 255, 255, 0.3)',
-        borderWidth: 1,
-    },
-    // Strong glass effect (for prominent UI elements)
-    strong: {
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        backdropFilter: 'blur(30px)',
-        WebkitBackdropFilter: 'blur(30px)',
-        borderColor: 'rgba(255, 255, 255, 0.4)',
-        borderWidth: 1,
-    },
-    // Dark glass (for dark-themed components)
-    dark: {
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-        backdropFilter: 'blur(15px)',
-        WebkitBackdropFilter: 'blur(15px)',
-        borderColor: 'rgba(255, 255, 255, 0.1)',
-        borderWidth: 1,
-    },
+    light: { backgroundColor: 'rgba(255, 255, 255, 0.1)', borderColor: 'rgba(255, 255, 255, 0.2)', borderWidth: 1 },
+    medium: { backgroundColor: 'rgba(255, 255, 255, 0.15)', borderColor: 'rgba(255, 255, 255, 0.3)', borderWidth: 1 },
+    dark: { backgroundColor: 'rgba(0, 0, 0, 0.3)', borderColor: 'rgba(255, 255, 255, 0.1)', borderWidth: 1 },
 };
 
-// Animation durations
-export const animation = {
-    fast: 150,
-    normal: 300,
-    slow: 500,
-};
+export const animation = { fast: 150, normal: 300, slow: 500 };
 
 export const theme = {
-    colors,
     spacing,
     borderRadius,
-    typography,
     shadows,
     glassmorphism,
     animation,
 };
 
-export type Theme = typeof theme;
 export default theme;
