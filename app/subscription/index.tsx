@@ -17,6 +17,8 @@ import * as Linking from 'expo-linking';
 import { functions } from '../../lib/firebase';
 import { httpsCallable } from 'firebase/functions';
 import { Alert, ActivityIndicator } from 'react-native';
+import { Logo } from '../../components/ui/Logo';
+import { AnimatedPressable } from '../../components/ui/Animated';
 
 interface TierCardProps {
     tier: SubscriptionTier;
@@ -150,7 +152,17 @@ export default function SubscriptionScreen() {
     };
 
     return (
-        <SafeAreaView style={styles.container} edges={['bottom']}>
+        <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+            {/* Header with Back Button and Logo */}
+            <View style={styles.header}>
+                <AnimatedPressable onPress={() => router.back()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color={colors.text.primary} />
+                </AnimatedPressable>
+                <Text style={styles.headerTitle}>Subscription</Text>
+                <AnimatedPressable onPress={() => router.push('/')} style={styles.logoButton}>
+                    <Logo size={28} />
+                </AnimatedPressable>
+            </View>
             <ScrollView
                 style={styles.scrollView}
                 contentContainerStyle={styles.scrollContent}
@@ -296,6 +308,27 @@ const createStyles = (colors: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.primary,
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderBottomWidth: 1,
+        borderBottomColor: colors.border.default,
+    },
+    backButton: {
+        padding: spacing.sm,
+        borderRadius: borderRadius.md,
+    },
+    headerTitle: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: '600',
+        color: colors.text.primary,
+    },
+    logoButton: {
+        padding: spacing.sm,
     },
     scrollView: {
         flex: 1,

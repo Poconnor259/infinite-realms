@@ -20,6 +20,7 @@ import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 export { createCheckoutSession, handleStripeWebhook };
 export { addDifficultyToWorlds } from './addDifficultyField';
 export { seedAmbianceSettings } from './seedAmbiance';
+export { seedAllData } from './seedAllData';
 
 
 // Initialize Firebase Admin

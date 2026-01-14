@@ -36,13 +36,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase configuration - with fallback for static export
 const firebaseConfig = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyCuCsTTt0DMv9dDhzxgveviyV6LJIjr7IY',
+    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY || 'AIzaSyAtTqVMEKSp4PHVPGoi84FwQygdkNXpiEM',
     authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN || 'atlas-cortex.firebaseapp.com',
     projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID || 'atlas-cortex',
     storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET || 'atlas-cortex.firebasestorage.app',
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '714188392386',
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:714188392386:web:c877b12b8068343571b85b',
-    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-GNFMNEW2TZ'
+    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || '1041136045208',
+    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID || '1:1041136045208:web:977d9c9c22926f2b6b94ed',
+    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID || 'G-06FCNSPY5M'
 };
 
 // Initialize Firebase (only once)
