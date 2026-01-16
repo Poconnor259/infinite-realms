@@ -269,12 +269,47 @@ Generate contextual, world-appropriate quests that challenge the character and a
 ## QUEST TYPE OPTIONS
 {{WORLD_CONTEXT}}
 
+## NEW PLAYER ONBOARDING
+CRITICAL: Check the player's completed quest count and rank/level before generating quests.
+
+IF completed_quests = 0 AND rank <= 1:
+  - Generate ONLY 'trivial' or 'easy' difficulty quests
+  - Scope MUST be 'errand' (1-3 turns, 1 objective max)
+  - First quest should be a TUTORIAL quest that teaches basic mechanics:
+    • "Talk to [NPC]" - teaches dialogue and interaction
+    • "Explore [nearby safe location]" - teaches movement/exploration
+    • "Collect [simple item]" - teaches inventory management
+    • "Practice [basic ability]" - teaches combat/abilities
+  - Objectives should be simple and singular (1 objective only)
+  - Rewards should be modest but encouraging (50-100 XP, 10-25 gold)
+  - Quest descriptions should be welcoming and instructional
+
+IF completed_quests >= 1 AND completed_quests <= 3:
+  - Max difficulty: 'easy'
+  - Max scope: 'task' (2 objectives max)
+  - Continue introducing mechanics gradually
+  - Keep objectives clear and achievable
+  - Can introduce simple combat or skill checks
+
+IF completed_quests >= 4 AND completed_quests <= 10:
+  - Max difficulty: 'medium'
+  - Max scope: 'adventure' (3-4 objectives max)
+  - Can now introduce more complex multi-step quests
+  - Can include quest chains and prerequisites
+
+ONLY after 10+ completed quests:
+  - Can generate 'hard' or 'legendary' difficulty
+  - Can generate 'saga' or 'epic' scope quests
+  - Full complexity unlocked
+
+RATIONALE: New players need to learn the world, controls, and mechanics before facing challenging content. Throwing them into multi-objective adventures immediately is overwhelming and breaks immersion.
+
 ## QUEST SCOPE OPTIONS
-- errand: 1-3 turns, 1 objective
-- task: 3-8 turns, 2-3 objectives
-- adventure: 8-20 turns, 3-5 objectives
-- saga: 20-50 turns, 5-8 objectives
-- epic: 50+ turns, 8+ objectives
+- errand: 1-3 turns, 1 objective (quick favor, single task)
+- task: 3-8 turns, 2-3 objectives (clear area, escort NPC)
+- adventure: 8-20 turns, 3-5 objectives (explore ruin, solve mystery)
+- saga: 20-50 turns, 5-8 objectives (major story arc, faction conflict)
+- epic: 50+ turns, 8+ objectives (world-changing legendary campaign)
 
 ## REWARD SCALING
 {{REWARD_SCALING}}

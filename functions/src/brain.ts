@@ -100,9 +100,86 @@ const BrainResponseSchema = z.object({
     }).optional().describe('Pending dice roll when user needs to roll interactively'),
 });
 
+// ==================== JSON REPAIR HELPER ====================
+
+/**
+ * Attempt to repair malformed JSON by extracting valid objects
+ * Tries multiple patterns to find usable Brain response data
+ */
+function repairJsonResponse(raw: string): object | null {
+    console.log('[Brain] Attempting JSON repair with multiple strategies...');
+
+    // Strategy 1: Try to find complete JSON object with stateUpdates
+    const patterns = [
+        /\{[\s\S]*"stateUpdates"[\s\S]*"narrativeCues"[\s\S]*\}/,
+        /\{[\s\S]*"narrativeCues"[\s\S]*"diceRolls"[\s\S]*\}/,
+        /\{[\s\S]*"narrativeCue"[\s\S]*\}/,
+    ];
+
+    for (const pattern of patterns) {
+        const match = raw.match(pattern);
+        if (match) {
+            try {
+                const parsed = JSON.parse(match[0]);
+                console.log('[Brain] Repair successful with pattern match');
+                return parsed;
+            } catch {
+                // Continue to next pattern
+            }
+        }
+    }
+
+    // Strategy 2: Try to extract just the first complete object
+    const firstBrace = raw.indexOf('{');
+    if (firstBrace !== -1) {
+        let braceCount = 0;
+        let inString = false;
+        let escapeNext = false;
+
+        for (let i = firstBrace; i < raw.length; i++) {
+            const char = raw[i];
+
+            if (escapeNext) {
+                escapeNext = false;
+                continue;
+            }
+
+            if (char === '\\') {
+                escapeNext = true;
+                continue;
+            }
+
+            if (char === '"') {
+                inString = !inString;
+                continue;
+            }
+
+            if (!inString) {
+                if (char === '{') braceCount++;
+                if (char === '}') braceCount--;
+
+                if (braceCount === 0) {
+                    const extracted = raw.substring(firstBrace, i + 1);
+                    try {
+                        const parsed = JSON.parse(extracted);
+                        console.log('[Brain] Repair successful with brace matching');
+                        return parsed;
+                    } catch {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    console.log('[Brain] All repair strategies failed');
+    return null;
+}
+
 // ==================== MAIN BRAIN FUNCTION ====================
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
+
     const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true, interactiveDiceRolls = false, rollResult } = input;
 
     console.log(`[Brain] ========== NEW REQUEST ==========`);
@@ -592,12 +669,22 @@ Respond with JSON only. No markdown, no explanation.`;
         try {
             parsed = JSON.parse(jsonText);
         } catch (parseError) {
-            console.error('Failed to parse Brain response:', content);
-            return {
-                success: false,
-                error: 'Invalid JSON response from Brain',
-            };
+            console.error('[Brain] Failed to parse JSON, attempting repair...', parseError);
+
+            // Try to repair JSON by extracting valid objects
+            const repaired = repairJsonResponse(jsonText);
+            if (repaired) {
+                console.log('[Brain] Successfully repaired JSON response');
+                parsed = repaired;
+            } else {
+                console.error('[Brain] JSON repair failed. Original content:', content.substring(0, 500));
+                return {
+                    success: false,
+                    error: 'Invalid JSON response from Brain (repair failed)',
+                };
+            }
         }
+
 
         // Log the raw parsed response
         console.log(`[Brain] 📦 RAW RESPONSE:`);

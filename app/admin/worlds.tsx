@@ -388,6 +388,52 @@ export default function AdminWorldsScreen() {
         }
     };
 
+    // Add difficulty field to all existing game engines
+    const updateEnginesWithDifficulty = async () => {
+        const difficultyField: FormFieldDefinition = {
+            id: 'difficulty',
+            type: 'select',
+            label: 'Game Difficulty',
+            required: true,
+            defaultValue: 'adventurer',
+            options: [
+                { value: 'story', label: '🎭 Story Mode - Narrative Focus' },
+                { value: 'novice', label: '📚 Novice - Learning Curve' },
+                { value: 'adventurer', label: '⚔️ Adventurer - Balanced (Recommended)' },
+                { value: 'hero', label: '🏆 Hero - Tough but Fair' },
+                { value: 'legendary', label: '💀 Legendary - Unforgiving' }
+            ],
+            helpText: 'Affects how challenging the game master is. Story Mode focuses on narrative enjoyment, while Legendary is brutally punishing.'
+        };
+
+        setIsSaving(true);
+        let updated = 0;
+        let skipped = 0;
+
+        try {
+            for (const engine of gameEngines) {
+                // Check if difficulty already exists
+                const hasDifficulty = engine.creationFields?.some((f: any) => f.id === 'difficulty');
+                if (hasDifficulty) {
+                    skipped++;
+                    continue;
+                }
+
+                // Add difficulty at the beginning of creationFields
+                const updatedFields = [difficultyField, ...(engine.creationFields || [])];
+                await saveGameEngine({ ...engine, creationFields: updatedFields });
+                updated++;
+            }
+            Alert.alert('Success', `Updated ${updated} engines, skipped ${skipped} (already have difficulty)`);
+            loadData();
+        } catch (error) {
+            console.error(error);
+            Alert.alert('Error', 'Failed to update engines with difficulty');
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
 
     const addFeature = () => {
         if (!newFeature.trim()) return;
@@ -634,6 +680,18 @@ export default function AdminWorldsScreen() {
                             >
                                 <Ionicons name="download-outline" size={20} color={colors.primary[500]} />
                                 <Text style={[styles.seedText, { color: colors.primary[500] }]}>Seed Default Engines</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {/* Add Difficulty Field Button */}
+                        {gameEngines.length > 0 && (
+                            <TouchableOpacity
+                                style={[styles.seedButton, { backgroundColor: colors.background.secondary, marginBottom: spacing.md }]}
+                                onPress={updateEnginesWithDifficulty}
+                                disabled={isSaving}
+                            >
+                                <Ionicons name="options-outline" size={20} color={colors.status.warning} />
+                                <Text style={[styles.seedText, { color: colors.status.warning }]}>Add Difficulty Field to All Engines</Text>
                             </TouchableOpacity>
                         )}
 

@@ -19,8 +19,9 @@ import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 
 export { createCheckoutSession, handleStripeWebhook };
 export { addDifficultyToWorlds } from './addDifficultyField';
-export { seedAmbianceSettings } from './seedAmbiance';
+// export { seedAmbianceSettings } from './seedAmbiance';
 export { seedAllData } from './seedAllData';
+export { seedKnowledgeDocuments } from './seedKnowledge';
 
 
 // Initialize Firebase Admin
@@ -437,7 +438,8 @@ export const processGameAction = onCall(
                 console.log('[Brain] Pending dice roll required, pausing for user input');
 
                 // Save user message before returning (Fix: preserve original user input)
-                if (auth?.uid) {
+                // But skip if this is a dice roll continuation marker
+                if (auth?.uid && !userInput.startsWith('[DICE ROLL RESULT:')) {
                     const messagesRef = db.collection('users')
                         .doc(auth.uid)
                         .collection('campaigns')
@@ -2011,7 +2013,7 @@ interface KnowledgeDocument {
 }
 
 export const addKnowledgeDocument = onCall({
-    cors: ['https://atlas-cortex.web.app', 'https://atlas-cortex.firebaseapp.com'],
+    cors: true,
     invoker: 'public'
 }, async (request) => {
     if (!request.auth) {
@@ -2050,7 +2052,7 @@ export const addKnowledgeDocument = onCall({
 });
 
 export const getKnowledgeDocuments = onCall({
-    cors: ['https://atlas-cortex.web.app', 'https://atlas-cortex.firebaseapp.com'],
+    cors: true,
     invoker: 'public'
 }, async (request) => {
     if (!request.auth) {

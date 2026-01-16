@@ -677,6 +677,15 @@ export default function CampaignScreen() {
                     </KeyboardAvoidingView>
                 </View>
 
+                {/* Mobile Panel Backdrop */}
+                {!isDesktop && panelVisible && (
+                    <TouchableOpacity
+                        style={styles.panelBackdrop}
+                        onPress={() => setPanelVisible(false)}
+                        activeOpacity={1}
+                    />
+                )}
+
                 {/* Character Panel - Desktop Sidebar / Mobile Drawer */}
                 {
                     (isDesktop || panelVisible) && currentCampaign && (<View style={[
@@ -708,6 +717,7 @@ export default function CampaignScreen() {
                     </View>
                     )
                 }
+
 
                 {/* Reading Settings Panel */}
                 <ReadingSettingsPanel
@@ -762,6 +772,16 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
         shadowRadius: 16,
         elevation: 16,
     },
+    panelBackdrop: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        zIndex: 99, // Just below the panel
+    },
+
     keyboardView: {
         flex: 1,
     },

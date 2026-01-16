@@ -25,7 +25,17 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     // Ensure content is always a string to prevent React error #31
     const content = typeof message.content === 'string' ? message.content : String(message.content ?? '');
 
-    const isBlueBox = content.includes('『') || content.includes('[DAILY QUEST]');
+    // Use metadata for Blue Box detection (preferred), fallback to string matching for backward compatibility
+    const isBlueBox = message.metadata?.alertType === 'blueBox' ||
+        ((content.includes('[') && content.includes(']')) &&
+            (content.includes('[DAILY QUEST]') ||
+                content.includes('[ABILITY') ||
+                content.includes('[WARNING') ||
+                content.includes('[SYSTEM') ||
+                content.includes('[RANK UP') ||
+                content.includes('[LOOT') ||
+                content.includes('[PROGRESS')));
+
 
     const { colors, typography, isDark } = useThemeColors();
     const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
@@ -111,13 +121,54 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     };
 
     const formatInlineContent = (text: string, key: number) => {
-        // Simple parsing for bold and italic
+        // Parse inline formatting for bold and italic
+        const parseInlineStyles = (line: string, lineKey: number) => {
+            const parts: React.ReactNode[] = [];
+            let currentIndex = 0;
+
+            // Regex to match **bold** or *italic* patterns
+            const regex = /(\*\*(.+?)\*\*|\*(.+?)\*)/g;
+            let match;
+
+            while ((match = regex.exec(line)) !== null) {
+                // Add text before this match
+                if (match.index > currentIndex) {
+                    parts.push(line.substring(currentIndex, match.index));
+                }
+
+                if (match[2]) {
+                    // Bold text (**text**)
+                    parts.push(
+                        <Text key={`${lineKey}-bold-${match.index}`} style={{ fontWeight: 'bold' }}>
+                            {match[2]}
+                        </Text>
+                    );
+                } else if (match[3]) {
+                    // Italic text (*text*)
+                    parts.push(
+                        <Text key={`${lineKey}-italic-${match.index}`} style={{ fontStyle: 'italic' }}>
+                            {match[3]}
+                        </Text>
+                    );
+                }
+
+                currentIndex = regex.lastIndex;
+            }
+
+            // Add remaining text after last match
+            if (currentIndex < line.length) {
+                parts.push(line.substring(currentIndex));
+            }
+
+            return parts.length > 0 ? parts : [line];
+        };
+
         const lines = text.split('\n');
         return (
             <Text key={key} style={getTextStyle()}>
                 {lines.map((line, i) => (
                     <Text key={i}>
-                        {line.replace(/\*\*(.*?)\*\*/g, '«$1»').replace(/\*(.*?)\*/g, '‹$1›')}
+                        {parseInlineStyles(line, i)}
                         {i < lines.length - 1 ? '\n' : ''}
                     </Text>
                 ))}

@@ -6,7 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { spacing, typography, borderRadius, shadows } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
 import { AnimatedPressable, FadeInView, StaggeredList } from '../../components/ui/Animated';
-import { getKnowledgeDocs, addKnowledgeDoc, updateKnowledgeDoc, deleteKnowledgeDoc, KnowledgeDocument } from '../../lib/firebase';
+import { db, auth, KnowledgeDocument } from '../../lib/firebase';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, serverTimestamp } from 'firebase/firestore';
 import * as DocumentPicker from 'expo-document-picker';
 
 type WorldModule = 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
@@ -38,6 +39,7 @@ export default function AdminTrainingScreen() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [seeding, setSeeding] = useState(false);
     const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
     const [expandedId, setExpandedId] = useState<string | null>(null);
     const { colors } = useThemeColors();
@@ -60,13 +62,80 @@ export default function AdminTrainingScreen() {
     const loadDocuments = async () => {
         try {
             setLoading(true);
-            const docs = await getKnowledgeDocs();
+            // Direct Firestore read (bypass Cloud Function CORS issues)
+            const docsRef = collection(db, 'knowledgeDocuments');
+            const q = query(docsRef, orderBy('createdAt', 'desc'));
+            const snapshot = await getDocs(q);
+            const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as KnowledgeDocument));
             setDocuments(docs);
         } catch (error) {
             console.error('Failed to load documents:', error);
             Alert.alert('Error', 'Failed to load knowledge base: ' + (error as any).message);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // Default knowledge documents for seeding
+    const DEFAULT_KNOWLEDGE_DOCS = [
+        // GLOBAL
+        { name: 'Core RPG Mechanics', worldModule: 'global' as WorldModule, category: 'rules' as Category, targetModel: 'brain' as TargetModel, content: `# Core RPG Mechanics\n\n## Dice Rolling\n- d20: Primary resolution die for skill checks and attacks\n- Modifiers: Stats, proficiency, and situational bonuses\n\n## Combat Flow\n1. Initiative: Determines turn order\n2. Action Phase: Move, Attack, Cast Spell, or Use Item\n3. Resolution: Roll to hit, calculate damage, apply effects\n\n## Skill Checks\n- Base DC 10 (Easy), 15 (Medium), 20 (Hard), 25 (Very Hard)\n- Natural 1 = Critical Failure, Natural 20 = Critical Success` },
+        { name: 'Narrative Guidelines', worldModule: 'global' as WorldModule, category: 'other' as Category, targetModel: 'voice' as TargetModel, content: `# Narrative Voice Guidelines\n\n## Perspective\n- Always use second person ("You walk...")\n- NPCs speak in first person with distinct voices\n\n## Scene Structure\n- Opening: Set the scene\n- Action: React to player input\n- Resolution: Provide clear outcomes\n\n## Word Count\n- Standard: 150-250 words\n- Combat: Shorter, punchier` },
+        { name: 'Player Interaction Patterns', worldModule: 'global' as WorldModule, category: 'rules' as Category, targetModel: 'both' as TargetModel, content: `# Player Interaction Patterns\n\n## When to Present Choices\n- Ambiguous situations\n- Moral dilemmas\n- Combat tactical decisions\n- Resource allocation\n\n## Choice Formatting\n- Use bullet points (•)\n- Limit to 2-4 choices\n- Make choices meaningfully different` },
+        // CLASSIC
+        { name: 'D&D 5e Core Rules', worldModule: 'classic' as WorldModule, category: 'rules' as Category, targetModel: 'brain' as TargetModel, content: `# D&D 5e Core Rules\n\n## Ability Scores (1-20)\n- STR, DEX, CON, INT, WIS, CHA\n\n## Modifier: (Score - 10) / 2\n\n## Combat\n- Attack: d20 + mod + proficiency vs AC\n- Critical Hit (Nat 20): Double damage dice\n- Death Saves: 3 successes = stable, 3 failures = death\n\n## Spell Slots\n- Cantrips: Unlimited\n- Long Rest: Recover all HP and spell slots` },
+        { name: 'Forgotten Realms Lore', worldModule: 'classic' as WorldModule, category: 'lore' as Category, targetModel: 'voice' as TargetModel, content: `# The Forgotten Realms\n\n## Major Locations\n- Waterdeep: City of Splendors\n- Baldur's Gate: City of intrigue\n- Neverwinter: Jewel of the North\n\n## Common Gods\n- Tymora (luck), Tempus (war), Mystra (magic)\n\n## Tone: Epic fantasy, heroes rise from humble beginnings` },
+        { name: 'Classic Character Classes', worldModule: 'classic' as WorldModule, category: 'characters' as Category, targetModel: 'both' as TargetModel, content: `# D&D 5e Classes\n\n## Martial: Fighter, Barbarian, Rogue, Monk\n## Spellcasters: Wizard, Sorcerer, Warlock, Cleric, Druid\n## Hybrid: Paladin, Ranger, Bard\n\n## Notes\n- Fighters: Multiple attacks\n- Rogues: Sneak Attack needs advantage\n- Barbarians: Damage resistance while raging` },
+        // OUTWORLDER
+        { name: 'Essence System Rules', worldModule: 'outworlder' as WorldModule, category: 'rules' as Category, targetModel: 'brain' as TargetModel, content: `# Outworlder Essence System\n\n## Stats (1-100)\n- Power, Speed, Spirit, Recovery\n\n## Ranks: Iron → Bronze → Silver → Gold → Diamond\n\n## Resources: HP, Mana, Stamina\n\n## Abilities: 4 slots per essence (16 total)\n- Rarity: Common to Legendary` },
+        { name: 'Outworlder World Lore', worldModule: 'outworlder' as WorldModule, category: 'lore' as Category, targetModel: 'voice' as TargetModel, content: `# Pallimustus\n\n## Factions\n- Adventure Society: Quests and regulation\n- Magic Society: Awakening stones\n- Hegemony: Corrupt organization\n\n## Style\n- Modern protagonist in fantasy world\n- System notifications in [brackets]\n- Snarky inner monologue\n- Pop culture references OK` },
+        { name: 'Blue Box System', worldModule: 'outworlder' as WorldModule, category: 'rules' as Category, targetModel: 'both' as TargetModel, content: `# Blue Box Notifications\n\n## Format\n[ABILITY ACTIVATED: NAME]\n[WARNING: THREAT DETECTED]\n[RANK UP AVAILABLE]\n\n## Types\n- ABILITY: Blue, skill use\n- WARNING: Red, danger\n- PROGRESS: Gold, advancement\n- LOOT: Green, items` },
+        // PRAXIS
+        { name: 'PRAXIS Combat System', worldModule: 'shadowMonarch' as WorldModule, category: 'rules' as Category, targetModel: 'brain' as TargetModel, content: `# PRAXIS Combat\n\n## Stats (max 999)\n- STR, AGI, VIT, INT, SEN\n\n## Resources: HP, MP\n\n## Levels: Max 100\n\n## Combat\n- Cover: +25% (partial), +50% (full)\n- Critical: 2x damage\n\n## Skills: Active, Passive, Ultimate` },
+        { name: 'PRAXIS World Setting', worldModule: 'shadowMonarch' as WorldModule, category: 'lore' as Category, targetModel: 'voice' as TargetModel, content: `# PRAXIS: Operation Dark Tide\n\n## Gates: Dimensional rifts with monsters\n- Ranks: E (weak) through S (catastrophic)\n- Uncleared = Gate Break\n\n## PRAXIS Organization\n- Government supernatural response\n- Classes: Fighter, Mage, Assassin, Tank, Healer\n\n## Style: Military tone, [SYSTEM] notifications` },
+        { name: 'PRAXIS Mission Structure', worldModule: 'shadowMonarch' as WorldModule, category: 'rules' as Category, targetModel: 'both' as TargetModel, content: `# PRAXIS Missions\n\n## Types\n- Gate Assault, Rescue, Elimination, Recon, Defense\n\n## Ranks: E → D → C → B → A → S Class\n\n## Rewards\n- XP, Credits, Equipment, Reputation\n\n## Notifications\n[MISSION START]\n[OBJECTIVE UPDATED]\n[MISSION COMPLETE: Grade]` },
+    ];
+
+    const handleSeedDefaults = async () => {
+        const confirm = Platform.OS === 'web'
+            ? window.confirm('Seed 12 default knowledge documents? This will not overwrite existing documents with the same name.')
+            : await new Promise<boolean>(resolve => {
+                Alert.alert('Seed Defaults', 'Add 12 default knowledge documents? Existing documents will not be overwritten.',
+                    [{ text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
+                    { text: 'Seed', onPress: () => resolve(true) }]);
+            });
+        if (!confirm) return;
+
+        setSeeding(true);
+        let added = 0;
+        let skipped = 0;
+
+        try {
+            const docsRef = collection(db, 'knowledgeDocuments');
+            for (const docData of DEFAULT_KNOWLEDGE_DOCS) {
+                // Check if already exists
+                const exists = documents.some(d => d.name === docData.name && d.worldModule === docData.worldModule);
+                if (exists) {
+                    skipped++;
+                    continue;
+                }
+                // Direct Firestore write (bypass Cloud Function CORS issues)
+                await addDoc(docsRef, {
+                    ...docData,
+                    enabled: true,
+                    uploadedBy: auth.currentUser?.uid || 'system',
+                    createdAt: serverTimestamp(),
+                    updatedAt: serverTimestamp()
+                });
+                added++;
+            }
+            await loadDocuments();
+            Alert.alert('Success', `Added ${added} documents, skipped ${skipped} (already exist)`);
+        } catch (error: any) {
+            console.error('Seed error:', error);
+            Alert.alert('Error', 'Failed to seed: ' + error.message);
+        } finally {
+            setSeeding(false);
         }
     };
 
@@ -108,22 +177,27 @@ export default function AdminTrainingScreen() {
         try {
             setSaving(true);
             setFormError(null); // Clear previous errors
-            const id = await addKnowledgeDoc({
+            // Direct Firestore write (bypass Cloud Function CORS issues)
+            const docsRef = collection(db, 'knowledgeDocuments');
+            const docRef = await addDoc(docsRef, {
                 name: formName.trim(),
                 worldModule: formModule,
                 category: formCategory,
                 targetModel: formTargetModel,
                 content: formContent.trim(),
                 enabled: true,
+                uploadedBy: auth.currentUser?.uid || 'system',
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
             });
 
             // Add to local state
             setDocuments([{
-                id,
+                id: docRef.id,
                 name: formName.trim(),
-                worldModule: formModule,
-                category: formCategory,
-                targetModel: formTargetModel,
+                worldModule: formModule as any,
+                category: formCategory as any,
+                targetModel: formTargetModel as any,
                 content: formContent.trim(),
                 enabled: true,
             }, ...documents]);
@@ -169,12 +243,15 @@ export default function AdminTrainingScreen() {
         try {
             setSaving(true);
             setFormError(null);
-            await updateKnowledgeDoc(editingId, {
+            // Direct Firestore update (bypass Cloud Function CORS issues)
+            const docRef = doc(db, 'knowledgeDocuments', editingId);
+            await updateDoc(docRef, {
                 name: formName.trim(),
                 worldModule: formModule,
                 category: formCategory,
                 targetModel: formTargetModel,
                 content: formContent.trim(),
+                updatedAt: serverTimestamp()
             });
 
             // Update local state
@@ -221,24 +298,26 @@ export default function AdminTrainingScreen() {
         setShowForm(false);
     };
 
-    const handleToggle = async (doc: KnowledgeDocument) => {
+    const handleToggle = async (knowledgeDoc: KnowledgeDocument) => {
         try {
-            await updateKnowledgeDoc(doc.id, { enabled: !doc.enabled });
+            // Direct Firestore update (bypass Cloud Function CORS issues)
+            const docRef = doc(db, 'knowledgeDocuments', knowledgeDoc.id);
+            await updateDoc(docRef, { enabled: !knowledgeDoc.enabled, updatedAt: serverTimestamp() });
             setDocuments(documents.map(d =>
-                d.id === doc.id ? { ...d, enabled: !d.enabled } : d
+                d.id === knowledgeDoc.id ? { ...d, enabled: !d.enabled } : d
             ));
         } catch (error) {
             Alert.alert('Error', 'Failed to update document');
         }
     };
 
-    const handleDelete = async (doc: KnowledgeDocument) => {
+    const handleDelete = async (knowledgeDoc: KnowledgeDocument) => {
         const confirm = Platform.OS === 'web'
-            ? window.confirm(`Delete "${doc.name}"? This cannot be undone.`)
+            ? window.confirm(`Delete "${knowledgeDoc.name}"? This cannot be undone.`)
             : await new Promise<boolean>(resolve => {
                 Alert.alert(
                     'Delete Document',
-                    `Delete "${doc.name}"? This cannot be undone.`,
+                    `Delete "${knowledgeDoc.name}"? This cannot be undone.`,
                     [
                         { text: 'Cancel', onPress: () => resolve(false), style: 'cancel' },
                         { text: 'Delete', onPress: () => resolve(true), style: 'destructive' }
@@ -249,8 +328,10 @@ export default function AdminTrainingScreen() {
         if (!confirm) return;
 
         try {
-            await deleteKnowledgeDoc(doc.id);
-            setDocuments(documents.filter(d => d.id !== doc.id));
+            // Direct Firestore delete (bypass Cloud Function CORS issues)
+            const docRef = doc(db, 'knowledgeDocuments', knowledgeDoc.id);
+            await deleteDoc(docRef);
+            setDocuments(documents.filter(d => d.id !== knowledgeDoc.id));
         } catch (error) {
             Alert.alert('Error', 'Failed to delete document');
         }
@@ -320,22 +401,41 @@ export default function AdminTrainingScreen() {
                 </View>
             </FadeInView>
 
-            {/* Add Button */}
-            <AnimatedPressable
-                style={styles.addButton}
-                onPress={() => {
-                    if (showForm && editingId) {
-                        handleCancelEdit();
-                    } else {
-                        setShowForm(!showForm);
-                    }
-                }}
-            >
-                <Ionicons name={showForm ? "close" : "add"} size={20} color={colors.text.primary} />
-                <Text style={styles.addButtonText}>
-                    {showForm ? (editingId ? 'Cancel Edit' : 'Cancel') : 'Add Document'}
-                </Text>
-            </AnimatedPressable>
+            {/* Action Buttons */}
+            <View style={{ flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.lg }}>
+                <AnimatedPressable
+                    style={[styles.addButton, { flex: 1, marginBottom: 0 }]}
+                    onPress={() => {
+                        if (showForm && editingId) {
+                            handleCancelEdit();
+                        } else {
+                            setShowForm(!showForm);
+                        }
+                    }}
+                >
+                    <Ionicons name={showForm ? "close" : "add"} size={20} color={colors.text.primary} />
+                    <Text style={styles.addButtonText}>
+                        {showForm ? (editingId ? 'Cancel Edit' : 'Cancel') : 'Add Document'}
+                    </Text>
+                </AnimatedPressable>
+
+                {documents.length === 0 && (
+                    <AnimatedPressable
+                        style={[styles.addButton, { flex: 1, marginBottom: 0, backgroundColor: colors.status.success + '20', borderWidth: 1, borderColor: colors.status.success }]}
+                        onPress={handleSeedDefaults}
+                        disabled={seeding}
+                    >
+                        {seeding ? (
+                            <ActivityIndicator size="small" color={colors.status.success} />
+                        ) : (
+                            <>
+                                <Ionicons name="leaf" size={20} color={colors.status.success} />
+                                <Text style={[styles.addButtonText, { color: colors.status.success }]}>Seed Defaults</Text>
+                            </>
+                        )}
+                    </AnimatedPressable>
+                )}
+            </View>
 
             {/* Add Form */}
             {showForm && (

@@ -85,6 +85,30 @@ const TRIGGER_GUIDANCE: Record<string, string> = {
     'manual': 'User requested new quests. Provide varied options across different quest types and scopes.'
 };
 
+// World-specific tutorial quest examples for new players (0 completed quests)
+const TUTORIAL_QUEST_EXAMPLES: Record<string, string> = {
+    classic: `TUTORIAL QUEST EXAMPLES (for new players):
+- "Welcome to the Adventurer's Guild" - Talk to the Guild Master to learn about quests
+- "Training Yard Basics" - Visit the training yard and practice with a training dummy
+- "First Steps" - Explore the town square and speak with 3 townsfolk
+- "Gather Supplies" - Collect a simple healing potion from the local apothecary
+- "Test Your Mettle" - Defeat a single training dummy or weak creature`,
+
+    outworlder: `TUTORIAL QUEST EXAMPLES (for new players):
+- "System Initialization" - Access your personal interface and review your essences
+- "First Contact" - Speak with your assigned liaison about the Outworlder program
+- "Essence Basics" - Use a basic ability from one of your essences
+- "Dimensional Acclimation" - Explore the arrival district and locate the Adventure Society
+- "Resource Gathering" - Collect spirit coins from a simple monster core`,
+
+    tactical: `TUTORIAL QUEST EXAMPLES (for new players):
+- "Basic Training: Orientation" - Report to your commanding officer for briefing
+- "Equipment Check" - Visit the armory and familiarize yourself with standard gear
+- "Physical Assessment" - Complete a basic training exercise (run, climb, or shoot)
+- "Squad Introduction" - Meet your squad members and learn the chain of command
+- "First Mission Prep" - Review mission parameters and prepare your loadout`
+};
+
 const REWARD_SCALING: Record<number, { experience: number; gold: number; itemRarity: string }> = {
     1: { experience: 50, gold: 10, itemRarity: 'common' },
     2: { experience: 100, gold: 25, itemRarity: 'common' },
@@ -198,6 +222,10 @@ function buildPrompt(input: QuestMasterInput): string {
     // Build Campaign Ledger for consistent context
     const ledger = buildCampaignLedger(currentState, worldModule);
 
+    // Get completed quest count for tutorial logic
+    const completedQuests = (currentState.questLog || []).filter(q => q.status === 'completed').length;
+    const tutorialExamples = completedQuests === 0 ? TUTORIAL_QUEST_EXAMPLES[worldModule] || '' : '';
+
     let prompt = `You are the Quest Master for a ${worldModule} RPG campaign.
 
 ${ledger}
@@ -213,6 +241,44 @@ ${ledger}
 
 ## QUEST TYPE OPTIONS
 {{WORLD_CONTEXT}}
+
+${tutorialExamples ? `## TUTORIAL QUEST EXAMPLES
+${tutorialExamples}
+
+` : ''}## NEW PLAYER ONBOARDING
+CRITICAL: Check the player's completed quest count and rank/level before generating quests.
+
+IF completed_quests = 0 AND rank <= 1:
+  - Generate ONLY 'trivial' or 'easy' difficulty quests
+  - Scope MUST be 'errand' (1-3 turns, 1 objective max)
+  - First quest should be a TUTORIAL quest that teaches basic mechanics:
+    • "Talk to [NPC]" - teaches dialogue and interaction
+    • "Explore [nearby safe location]" - teaches movement/exploration
+    • "Collect [simple item]" - teaches inventory management
+    • "Practice [basic ability]" - teaches combat/abilities
+  - Objectives should be simple and singular (1 objective only)
+  - Rewards should be modest but encouraging (50-100 XP, 10-25 gold)
+  - Quest descriptions should be welcoming and instructional
+
+IF completed_quests >= 1 AND completed_quests <= 3:
+  - Max difficulty: 'easy'
+  - Max scope: 'task' (2 objectives max)
+  - Continue introducing mechanics gradually
+  - Keep objectives clear and achievable
+  - Can introduce simple combat or skill checks
+
+IF completed_quests >= 4 AND completed_quests <= 10:
+  - Max difficulty: 'medium'
+  - Max scope: 'adventure' (3-4 objectives max)
+  - Can now introduce more complex multi-step quests
+  - Can include quest chains and prerequisites
+
+ONLY after 10+ completed quests:
+  - Can generate 'hard' or 'legendary' difficulty
+  - Can generate 'saga' or 'epic' scope quests
+  - Full complexity unlocked
+
+RATIONALE: New players need to learn the world, controls, and mechanics before facing challenging content. Throwing them into multi-objective adventures immediately is overwhelming and breaks immersion.
 
 ## QUEST SCOPE OPTIONS
 - errand: 1-3 turns, 1 objective (quick favor, single task)

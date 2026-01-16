@@ -109,7 +109,23 @@ export function AvatarSkeleton({ size = 40 }: { size?: number }) {
     return <Skeleton width={size} height={size} borderRadius={size / 2} />;
 }
 
+/**
+ * Skeleton placeholder for a chat message
+ */
+export function MessageSkeleton({ isUser = false }: { isUser?: boolean }) {
+    return (
+        <View style={[styles.messageContainer, isUser && styles.messageUser]}>
+            <View style={styles.messageBubble}>
+                <Skeleton width="90%" height={16} style={{ marginBottom: 8 }} />
+                <Skeleton width="75%" height={16} style={{ marginBottom: 8 }} />
+                <Skeleton width="60%" height={16} />
+            </View>
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
+
     campaignCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -129,5 +145,18 @@ const styles = StyleSheet.create({
         borderRadius: borderRadius.xl,
         alignItems: 'center',
         marginRight: spacing.md,
+    },
+    messageContainer: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        maxWidth: '80%',
+    },
+    messageUser: {
+        alignSelf: 'flex-end',
+    },
+    messageBubble: {
+        padding: spacing.md,
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.lg,
     },
 });

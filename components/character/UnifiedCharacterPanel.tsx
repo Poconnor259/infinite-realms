@@ -170,6 +170,18 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                 </CollapsibleSection>
             )}
 
+            {/* Fate Engine Indicator - Show momentum and luck mechanics */}
+            {character.extras.fateEngine && (
+                <CollapsibleSection
+                    title="⚡ Fate Engine"
+                    colors={colors}
+                    styles={styles}
+                    defaultExpanded={false}
+                >
+                    <FateEngineIndicator fateEngine={character.extras.fateEngine} colors={colors} />
+                </CollapsibleSection>
+            )}
+
             {/* Quests Section - Always visible */}
             <CollapsibleSection
                 title="Adventures"
@@ -212,7 +224,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                                 <Text style={styles.newBadgeText}>NEW</Text>
                             </View>
                         </View>
-                        <Text style={styles.questDescription} numberOfLines={2}>{quest.description}</Text>
+                        <Text style={styles.questDescription}>{quest.description}</Text>
 
                         {/* Objectives */}
                         {quest.objectives && quest.objectives.length > 0 && (
@@ -553,7 +565,88 @@ function AbilityItem({ ability, colors }: { ability: NormalizedAbility; colors: 
     );
 }
 
+function FateEngineIndicator({ fateEngine, colors }: { fateEngine: any; colors: any }) {
+    const momentum = fateEngine.momentum_counter || 0;
+    const pityCritProgress = fateEngine.pity_crit_counter || 0;
+    const fumbleProtection = fateEngine.fumble_protection_active || false;
+    const directorMode = fateEngine.director_mode_cooldown || false;
+
+    // Calculate pity crit percentage (triggers at 5)
+    const pityCritPercentage = Math.min((pityCritProgress / 5) * 100, 100);
+
+    return (
+        <View style={{ gap: spacing.md }}>
+            {/* Momentum Counter */}
+            <View style={subStyles.fateEngineItem}>
+                <View style={subStyles.fateEngineHeader}>
+                    <Text style={[subStyles.fateEngineName, { color: colors.text.secondary }]}>
+                        🌟 Momentum
+                    </Text>
+                    <Text style={[subStyles.fateEngineValue, { color: colors.primary[400] }]}>
+                        {momentum}
+                    </Text>
+                </View>
+                <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                    Builds on successes, increases crit chance
+                </Text>
+            </View>
+
+            {/* Pity Crit Progress */}
+            <View style={subStyles.fateEngineItem}>
+                <View style={subStyles.fateEngineHeader}>
+                    <Text style={[subStyles.fateEngineName, { color: colors.text.secondary }]}>
+                        🎯 Pity Crit Progress
+                    </Text>
+                    <Text style={[subStyles.fateEngineValue, { color: colors.status.warning }]}>
+                        {pityCritProgress}/5
+                    </Text>
+                </View>
+                <View style={[subStyles.progressBarBg, { backgroundColor: colors.background.tertiary }]}>
+                    <View
+                        style={[
+                            subStyles.progressBarFill,
+                            { width: `${pityCritPercentage}%`, backgroundColor: colors.status.warning }
+                        ]}
+                    />
+                </View>
+                <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                    Guaranteed crit after 5 non-crits
+                </Text>
+            </View>
+
+            {/* Fumble Protection */}
+            {fumbleProtection && (
+                <View style={[subStyles.fateEngineItem, { backgroundColor: colors.status.success + '20' }]}>
+                    <View style={subStyles.fateEngineHeader}>
+                        <Text style={[subStyles.fateEngineName, { color: colors.status.success }]}>
+                            🛡️ Fumble Protection Active
+                        </Text>
+                    </View>
+                    <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                        Next natural 1 will be rerolled
+                    </Text>
+                </View>
+            )}
+
+            {/* Director Mode */}
+            {directorMode && (
+                <View style={[subStyles.fateEngineItem, { backgroundColor: colors.status.info + '20' }]}>
+                    <View style={subStyles.fateEngineHeader}>
+                        <Text style={[subStyles.fateEngineName, { color: colors.status.info }]}>
+                            🎬 Director Mode Active
+                        </Text>
+                    </View>
+                    <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                        Difficulty adjusted in your favor
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
+}
+
 function ExtrasSection({ extras, worldType, colors, styles, updates, onClearUpdate }: {
+
     extras: Record<string, any>;
     worldType?: string;
     colors: any;
@@ -937,5 +1030,41 @@ const subStyles = StyleSheet.create({
     confluenceName: {
         fontSize: typography.fontSize.sm,
         fontWeight: '600',
+    },
+
+    // Fate Engine Indicator
+    fateEngineItem: {
+        padding: spacing.sm,
+        borderRadius: borderRadius.md,
+        backgroundColor: 'transparent',
+        marginBottom: spacing.xs,
+    },
+    fateEngineHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.xs,
+    },
+    fateEngineName: {
+        fontSize: typography.fontSize.sm,
+        fontWeight: '600',
+    },
+    fateEngineValue: {
+        fontSize: typography.fontSize.md,
+        fontWeight: 'bold',
+    },
+    fateEngineDesc: {
+        fontSize: typography.fontSize.xs,
+        marginTop: spacing.xs,
+    },
+    progressBarBg: {
+        height: 6,
+        borderRadius: borderRadius.full,
+        overflow: 'hidden',
+        marginTop: spacing.xs,
+    },
+    progressBarFill: {
+        height: '100%',
+        borderRadius: borderRadius.full,
     },
 });

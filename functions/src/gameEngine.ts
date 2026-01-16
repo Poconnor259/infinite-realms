@@ -1,9 +1,3 @@
-/**
- * Game Engine Module
- * Handles core game action processing, model resolution, and turn management
- * Extracted from index.ts to improve maintainability
- */
-
 import * as admin from 'firebase-admin';
 import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
@@ -11,6 +5,7 @@ import { reviewStateConsistency, applyCorrections } from './stateReviewer';
 import { getStateReviewerSettings } from './promptHelper';
 import { deepMergeState, GameState } from './utils/stateHelpers';
 import { initializeFateEngine, processFateEngineRoll } from './utils/fateEngine';
+import { knowledgeCache } from './utils/cache';
 
 // ==================== TYPES ====================
 
@@ -135,13 +130,25 @@ function getTokenStatsKey(provider: string, model: string) {
     return model.replace(/\./g, '_');
 }
 
-// Helper for knowledge base fetching
+// Helper for knowledge base fetching with caching
 async function getKnowledgeForModule(
     db: admin.firestore.Firestore,
     worldModule: string,
     modelFilter: 'brain' | 'voice',
     maxDocs: number = 3
 ): Promise<string[]> {
+    // Create cache key
+    const cacheKey = `${worldModule}:${modelFilter}:${maxDocs}`;
+
+    // Check cache first
+    const cached = knowledgeCache.get(cacheKey);
+    if (cached) {
+        console.log(`[Knowledge] Cache hit for ${cacheKey}`);
+        return cached;
+    }
+
+    // Cache miss - fetch from Firestore
+    console.log(`[Knowledge] Cache miss for ${cacheKey}, fetching from Firestore`);
     try {
         const snapshot = await db.collection('knowledgeBase')
             .where('worldModule', 'in', [worldModule, 'global'])
@@ -158,12 +165,15 @@ async function getKnowledgeForModule(
             }
         });
 
+        // Store in cache
+        knowledgeCache.set(cacheKey, docs);
         return docs;
     } catch (error) {
         console.error('[KnowledgeBase] Error fetching documents:', error);
         return [];
     }
 }
+
 
 // ==================== MAIN GAME ENGINE FUNCTION ====================
 

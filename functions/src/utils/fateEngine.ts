@@ -13,7 +13,7 @@ import type {
     ClassicCharacter,
     OutworlderCharacter,
     TacticalCharacter
-} from '../../../lib/types';
+} from '../types';
 
 // ==================== HELPER FUNCTIONS ====================
 

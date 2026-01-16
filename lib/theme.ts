@@ -51,8 +51,45 @@ export const palettes = {
         },
         border: { default: '#1e40af', light: '#1d4ed8', glow: '#3b82f6' },
         chat: { user: '#1e40af' }
+    },
+    crimson: { // Deep Red
+        primary: {
+            50: '#fef2f2', 100: '#fee2e2', 200: '#fecaca', 300: '#fca5a5',
+            400: '#f87171', 500: '#ef4444', 600: '#dc2626', 700: '#b91c1c',
+            800: '#991b1b', 900: '#7f1d1d',
+        },
+        background: {
+            primary: '#1a0505', secondary: '#2d0a0a', tertiary: '#3f1010', elevated: '#521616',
+        },
+        border: { default: '#991b1b', light: '#b91c1c', glow: '#ef4444' },
+        chat: { user: '#b91c1c' }
+    },
+    parchment: { // Warm Beige (Light Theme)
+        primary: {
+            50: '#fefce8', 100: '#fef9c3', 200: '#fef08a', 300: '#fde047',
+            400: '#facc15', 500: '#eab308', 600: '#ca8a04', 700: '#a16207',
+            800: '#854d0e', 900: '#713f12',
+        },
+        background: {
+            primary: '#faf8f3', secondary: '#f5f1e8', tertiary: '#ebe5d6', elevated: '#e0d9c7',
+        },
+        border: { default: '#d4c5a0', light: '#c9b88f', glow: '#a16207' },
+        chat: { user: '#a16207' }
+    },
+    highContrast: { // Maximum Contrast (Accessibility)
+        primary: {
+            50: '#ffffff', 100: '#f0f0f0', 200: '#e0e0e0', 300: '#d0d0d0',
+            400: '#b0b0b0', 500: '#909090', 600: '#707070', 700: '#505050',
+            800: '#303030', 900: '#101010',
+        },
+        background: {
+            primary: '#000000', secondary: '#0a0a0a', tertiary: '#141414', elevated: '#1e1e1e',
+        },
+        border: { default: '#ffffff', light: '#e0e0e0', glow: '#ffffff' },
+        chat: { user: '#303030' }
     }
 };
+
 
 // Common accents and statuses independent of variant
 const sharedColors = {
