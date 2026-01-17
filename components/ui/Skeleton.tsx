@@ -124,6 +124,66 @@ export function MessageSkeleton({ isUser = false }: { isUser?: boolean }) {
     );
 }
 
+/**
+ * Skeleton placeholder for character panel
+ */
+export function CharacterPanelSkeleton() {
+    return (
+        <View style={styles.characterPanel}>
+            {/* Header */}
+            <View style={styles.characterHeader}>
+                <AvatarSkeleton size={60} />
+                <View style={{ flex: 1, marginLeft: spacing.md }}>
+                    <Skeleton width="70%" height={20} style={{ marginBottom: 8 }} />
+                    <Skeleton width="50%" height={16} style={{ marginBottom: 4 }} />
+                    <Skeleton width="40%" height={14} />
+                </View>
+            </View>
+
+            {/* Stats */}
+            <View style={styles.statsGrid}>
+                {[1, 2, 3, 4].map((i) => (
+                    <View key={i} style={styles.statItem}>
+                        <Skeleton width="100%" height={12} style={{ marginBottom: 4 }} />
+                        <Skeleton width="60%" height={18} />
+                    </View>
+                ))}
+            </View>
+
+            {/* Resources */}
+            <View style={{ gap: spacing.sm }}>
+                <Skeleton width="100%" height={24} />
+                <Skeleton width="100%" height={24} />
+                <Skeleton width="100%" height={24} />
+            </View>
+        </View>
+    );
+}
+
+/**
+ * Skeleton placeholder for quest list
+ */
+export function QuestListSkeleton({ count = 3 }: { count?: number }) {
+    return (
+        <View style={{ gap: spacing.md }}>
+            {Array.from({ length: count }).map((_, i) => (
+                <View key={i} style={styles.questCard}>
+                    <View style={styles.questHeader}>
+                        <Skeleton width="70%" height={18} />
+                        <Skeleton width={60} height={24} borderRadius={12} />
+                    </View>
+                    <Skeleton width="100%" height={14} style={{ marginBottom: 8 }} />
+                    <Skeleton width="85%" height={14} style={{ marginBottom: 12 }} />
+                    <View style={styles.questFooter}>
+                        <Skeleton width={80} height={32} borderRadius={16} />
+                        <Skeleton width={80} height={32} borderRadius={16} />
+                    </View>
+                </View>
+            ))}
+        </View>
+    );
+}
+
 const styles = StyleSheet.create({
 
     campaignCard: {
@@ -158,5 +218,38 @@ const styles = StyleSheet.create({
         padding: spacing.md,
         backgroundColor: colors.background.secondary,
         borderRadius: borderRadius.lg,
+    },
+    characterPanel: {
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.lg,
+        padding: spacing.lg,
+        gap: spacing.lg,
+    },
+    characterHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    statsGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.md,
+    },
+    statItem: {
+        width: '47%',
+    },
+    questCard: {
+        backgroundColor: colors.background.secondary,
+        borderRadius: borderRadius.lg,
+        padding: spacing.md,
+    },
+    questHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: spacing.sm,
+    },
+    questFooter: {
+        flexDirection: 'row',
+        gap: spacing.sm,
     },
 });
