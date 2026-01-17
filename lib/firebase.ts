@@ -689,10 +689,40 @@ export async function getGameEngines(): Promise<GameEngine[]> {
     }
 }
 
+/**
+ * Remove undefined values from an object recursively
+ * Firestore doesn't support undefined values
+ */
+function removeUndefined(obj: any): any {
+    if (obj === null || obj === undefined) {
+        return null;
+    }
+
+    if (Array.isArray(obj)) {
+        return obj.map(item => removeUndefined(item));
+    }
+
+    if (typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const key in obj) {
+            if (obj[key] !== undefined) {
+                cleaned[key] = removeUndefined(obj[key]);
+            }
+        }
+        return cleaned;
+    }
+
+    return obj;
+}
+
 export async function saveGameEngine(engine: GameEngine): Promise<void> {
     const ref = doc(db, 'gameEngines', engine.id);
+
+    // Remove undefined values to prevent Firestore errors
+    const cleanedEngine = removeUndefined(engine);
+
     await setDoc(ref, {
-        ...engine,
+        ...cleanedEngine,
         updatedAt: serverTimestamp(),
     }, { merge: true });
 }

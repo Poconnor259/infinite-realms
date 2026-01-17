@@ -7,6 +7,7 @@ import { db } from '../../lib/firebase';
 import { uploadAmbianceAudio } from '../../lib/audioStorage';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
+import { SoundEffectsTab } from '../../components/admin/SoundEffectsTab';
 
 interface AmbianceType {
     url: string;
@@ -48,6 +49,7 @@ const AMBIANCE_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 export default function AudioManagement() {
     const { colors } = useThemeColors();
+    const [activeTab, setActiveTab] = useState<'ambiance' | 'effects'>('ambiance');
     const [settings, setSettings] = useState<AmbianceSettings | null>(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -267,366 +269,419 @@ export default function AudioManagement() {
                     <Text style={[styles.title, { color: colors.text.primary }]}>Audio Management</Text>
                 </View>
 
-                {/* Global Settings */}
-                <View style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>⚙️ Global Settings</Text>
-
-                    <View style={styles.row}>
-                        <Text style={[styles.label, { color: colors.text.primary }]}>Auto-Detection</Text>
-                        <Switch
-                            value={settings.global.autoDetection}
-                            onValueChange={(value) => setSettings({
-                                ...settings,
-                                global: { ...settings.global, autoDetection: value }
-                            })}
+                {/* Tab Navigation */}
+                <View style={[styles.tabContainer, { borderBottomColor: colors.border.default }]}>
+                    <TouchableOpacity
+                        style={[
+                            styles.tab,
+                            activeTab === 'ambiance' && styles.activeTab,
+                            { borderBottomColor: activeTab === 'ambiance' ? colors.primary[500] : 'transparent' }
+                        ]}
+                        onPress={() => setActiveTab('ambiance')}
+                    >
+                        <Ionicons
+                            name="musical-notes-outline"
+                            size={20}
+                            color={activeTab === 'ambiance' ? colors.primary[500] : colors.text.muted}
                         />
-                    </View>
+                        <Text style={[
+                            styles.tabText,
+                            { color: activeTab === 'ambiance' ? colors.primary[500] : colors.text.muted }
+                        ]}>
+                            Background Ambiance
+                        </Text>
+                    </TouchableOpacity>
 
-                    <View style={styles.row}>
-                        <Text style={[styles.label, { color: colors.text.primary }]}>Default Volume</Text>
-                        <TextInput
-                            style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
-                            value={(settings.global.defaultVolume * 100).toString()}
-                            onChangeText={(text) => setSettings({
-                                ...settings,
-                                global: { ...settings.global, defaultVolume: parseInt(text) / 100 || 0 }
-                            })}
-                            keyboardType="numeric"
-                            placeholder="30"
+                    <TouchableOpacity
+                        style={[
+                            styles.tab,
+                            activeTab === 'effects' && styles.activeTab,
+                            { borderBottomColor: activeTab === 'effects' ? colors.primary[500] : 'transparent' }
+                        ]}
+                        onPress={() => setActiveTab('effects')}
+                    >
+                        <Ionicons
+                            name="volume-high-outline"
+                            size={20}
+                            color={activeTab === 'effects' ? colors.primary[500] : colors.text.muted}
                         />
-                        <Text style={[styles.label, { color: colors.text.muted }]}>%</Text>
-                    </View>
-
-                    <View style={styles.row}>
-                        <Text style={[styles.label, { color: colors.text.primary }]}>Fade In (ms)</Text>
-                        <TextInput
-                            style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
-                            value={settings.global.fadeInMs.toString()}
-                            onChangeText={(text) => setSettings({
-                                ...settings,
-                                global: { ...settings.global, fadeInMs: parseInt(text) || 1000 }
-                            })}
-                            keyboardType="numeric"
-                        />
-                    </View>
-
-                    <View style={styles.row}>
-                        <Text style={[styles.label, { color: colors.text.primary }]}>Fade Out (ms)</Text>
-                        <TextInput
-                            style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
-                            value={settings.global.fadeOutMs.toString()}
-                            onChangeText={(text) => setSettings({
-                                ...settings,
-                                global: { ...settings.global, fadeOutMs: parseInt(text) || 1000 }
-                            })}
-                            keyboardType="numeric"
-                        />
-                    </View>
+                        <Text style={[
+                            styles.tabText,
+                            { color: activeTab === 'effects' ? colors.primary[500] : colors.text.muted }
+                        ]}>
+                            Sound Effects
+                        </Text>
+                    </TouchableOpacity>
                 </View>
 
-                {/* Add New Ambiance Type Button */}
-                <TouchableOpacity
-                    style={[styles.addButton, { backgroundColor: colors.status.success }]}
-                    onPress={addNewAmbianceType}
-                >
-                    <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                    <Text style={[styles.addButtonText, { color: '#fff' }]}>Add New Ambiance Type</Text>
-                </TouchableOpacity>
+                {/* Tab Content */}
+                {activeTab === 'effects' ? (
+                    <SoundEffectsTab />
+                ) : (
+                    <>
+                        {/* Global Settings */}
+                        <View style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
+                            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>⚙️ Global Settings</Text>
 
-                {/* Ambiance Types */}
-                {Object.entries(settings.types).map(([type, config]) => (
-                    <View key={type} style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
-                        <View style={styles.typeHeader}>
-                            <View style={styles.typeHeaderLeft}>
-                                <Ionicons name={AMBIANCE_ICONS[type] || 'musical-note-outline'} size={24} color={colors.primary[400]} />
-                                <Text style={[styles.sectionTitle, { color: colors.text.primary, marginLeft: spacing.sm }]}>
-                                    {type.charAt(0).toUpperCase() + type.slice(1)}
-                                </Text>
-                            </View>
-                            <View style={styles.typeHeaderRight}>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        if (confirm(`Delete "${type}" ambiance type?`)) {
-                                            const newTypes = { ...settings.types };
-                                            delete newTypes[type];
-                                            setSettings({ ...settings, types: newTypes });
-                                        }
-                                    }}
-                                    style={styles.deleteButton}
-                                >
-                                    <Ionicons name="trash-outline" size={20} color={colors.status.error} />
-                                </TouchableOpacity>
+                            <View style={styles.row}>
+                                <Text style={[styles.label, { color: colors.text.primary }]}>Auto-Detection</Text>
                                 <Switch
-                                    value={config.enabled}
+                                    value={settings.global.autoDetection}
                                     onValueChange={(value) => setSettings({
                                         ...settings,
-                                        types: {
-                                            ...settings.types,
-                                            [type]: { ...config, enabled: value }
-                                        }
+                                        global: { ...settings.global, autoDetection: value }
                                     })}
+                                />
+                            </View>
+
+                            <View style={styles.row}>
+                                <Text style={[styles.label, { color: colors.text.primary }]}>Default Volume</Text>
+                                <TextInput
+                                    style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
+                                    value={(settings.global.defaultVolume * 100).toString()}
+                                    onChangeText={(text) => setSettings({
+                                        ...settings,
+                                        global: { ...settings.global, defaultVolume: parseInt(text) / 100 || 0 }
+                                    })}
+                                    keyboardType="numeric"
+                                    placeholder="30"
+                                />
+                                <Text style={[styles.label, { color: colors.text.muted }]}>%</Text>
+                            </View>
+
+                            <View style={styles.row}>
+                                <Text style={[styles.label, { color: colors.text.primary }]}>Fade In (ms)</Text>
+                                <TextInput
+                                    style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
+                                    value={settings.global.fadeInMs.toString()}
+                                    onChangeText={(text) => setSettings({
+                                        ...settings,
+                                        global: { ...settings.global, fadeInMs: parseInt(text) || 1000 }
+                                    })}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+
+                            <View style={styles.row}>
+                                <Text style={[styles.label, { color: colors.text.primary }]}>Fade Out (ms)</Text>
+                                <TextInput
+                                    style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
+                                    value={settings.global.fadeOutMs.toString()}
+                                    onChangeText={(text) => setSettings({
+                                        ...settings,
+                                        global: { ...settings.global, fadeOutMs: parseInt(text) || 1000 }
+                                    })}
+                                    keyboardType="numeric"
                                 />
                             </View>
                         </View>
 
-                        {/* Audio Player */}
-                        {config.url && (
-                            <View style={[styles.audioPlayer, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
-                                <audio
-                                    controls
-                                    style={{ width: '100%', height: 40 }}
-                                    src={config.url}
-                                >
-                                    Your browser does not support the audio element.
-                                </audio>
-                            </View>
-                        )}
-
-                        {/* URL Editor */}
-                        <View style={styles.urlSection}>
-                            <Text style={[styles.label, { color: colors.text.primary, marginBottom: 4 }]}>Audio URL</Text>
-                            <TextInput
-                                style={[styles.urlInput, { color: colors.text.primary, borderColor: colors.border.default, backgroundColor: colors.background.tertiary }]}
-                                value={config.url}
-                                onChangeText={(text) => setSettings({
-                                    ...settings,
-                                    types: {
-                                        ...settings.types,
-                                        [type]: { ...config, url: text }
-                                    }
-                                })}
-                                placeholder="https://example.com/audio.mp3"
-                                placeholderTextColor={colors.text.muted}
-                                multiline
-                            />
-                        </View>
-
-                        {/* Upload Button */}
+                        {/* Add New Ambiance Type Button */}
                         <TouchableOpacity
-                            style={[styles.uploadButton, { backgroundColor: uploadingType === type ? colors.text.muted : colors.primary[500] }]}
-                            onPress={async () => {
-                                if (uploadingType) return; // Prevent multiple uploads
+                            style={[styles.addButton, { backgroundColor: colors.status.success }]}
+                            onPress={addNewAmbianceType}
+                        >
+                            <Ionicons name="add-circle-outline" size={20} color="#fff" />
+                            <Text style={[styles.addButtonText, { color: '#fff' }]}>Add New Ambiance Type</Text>
+                        </TouchableOpacity>
 
-                                const input = document.createElement('input');
-                                input.type = 'file';
-                                input.accept = 'audio/*';
-                                input.onchange = async (e: any) => {
-                                    const file = e.target.files[0];
-                                    if (!file) return;
+                        {/* Ambiance Types */}
+                        {Object.entries(settings.types).map(([type, config]) => (
+                            <View key={type} style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
+                                <View style={styles.typeHeader}>
+                                    <View style={styles.typeHeaderLeft}>
+                                        <Ionicons name={AMBIANCE_ICONS[type] || 'musical-note-outline'} size={24} color={colors.primary[400]} />
+                                        <Text style={[styles.sectionTitle, { color: colors.text.primary, marginLeft: spacing.sm }]}>
+                                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.typeHeaderRight}>
+                                        <TouchableOpacity
+                                            onPress={() => {
+                                                if (confirm(`Delete "${type}" ambiance type?`)) {
+                                                    const newTypes = { ...settings.types };
+                                                    delete newTypes[type];
+                                                    setSettings({ ...settings, types: newTypes });
+                                                }
+                                            }}
+                                            style={styles.deleteButton}
+                                        >
+                                            <Ionicons name="trash-outline" size={20} color={colors.status.error} />
+                                        </TouchableOpacity>
+                                        <Switch
+                                            value={config.enabled}
+                                            onValueChange={(value) => setSettings({
+                                                ...settings,
+                                                types: {
+                                                    ...settings.types,
+                                                    [type]: { ...config, enabled: value }
+                                                }
+                                            })}
+                                        />
+                                    </View>
+                                </View>
 
-                                    try {
-                                        setUploadingType(type);
-                                        console.log(`[Upload] Starting upload for ${type}: ${file.name}`);
+                                {/* Audio Player */}
+                                {config.url && (
+                                    <View style={[styles.audioPlayer, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                                        <audio
+                                            controls
+                                            style={{ width: '100%', height: 40 }}
+                                            src={config.url}
+                                        >
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                    </View>
+                                )}
 
-                                        // Upload to Firebase Storage
-                                        const downloadURL = await uploadAmbianceAudio(file, type);
-
-                                        // Update settings with new URL
-                                        setSettings({
+                                {/* URL Editor */}
+                                <View style={styles.urlSection}>
+                                    <Text style={[styles.label, { color: colors.text.primary, marginBottom: 4 }]}>Audio URL</Text>
+                                    <TextInput
+                                        style={[styles.urlInput, { color: colors.text.primary, borderColor: colors.border.default, backgroundColor: colors.background.tertiary }]}
+                                        value={config.url}
+                                        onChangeText={(text) => setSettings({
                                             ...settings,
                                             types: {
                                                 ...settings.types,
-                                                [type]: {
-                                                    ...config,
-                                                    url: downloadURL,
-                                                    filename: file.name
-                                                }
+                                                [type]: { ...config, url: text }
                                             }
-                                        });
+                                        })}
+                                        placeholder="https://example.com/audio.mp3"
+                                        placeholderTextColor={colors.text.muted}
+                                        multiline
+                                    />
+                                </View>
 
-                                        alert(`✅ Upload successful!\n\nFile: ${file.name}\nClick "Save All Changes" to persist.`);
-                                    } catch (error: any) {
-                                        console.error('[Upload] Failed:', error);
-                                        alert(`❌ Upload failed: ${error.message}`);
-                                    } finally {
-                                        setUploadingType(null);
-                                    }
-                                };
-                                input.click();
-                            }}
-                            disabled={uploadingType !== null}
-                        >
-                            <Ionicons name={uploadingType === type ? "hourglass-outline" : "cloud-upload-outline"} size={16} color="#fff" />
-                            <Text style={[styles.uploadButtonText, { color: '#fff' }]}>
-                                {uploadingType === type ? 'Uploading...' : 'Upload Audio File'}
-                            </Text>
-                        </TouchableOpacity>
-
-
-                        {/* Keywords Editor */}
-                        <View style={styles.keywordsSection}>
-                            <View style={styles.row}>
-                                <Text style={[styles.label, { color: colors.text.primary }]}>Keywords</Text>
+                                {/* Upload Button */}
                                 <TouchableOpacity
-                                    onPress={() => {
-                                        const keyword = prompt('Enter new keyword:');
-                                        if (keyword && keyword.trim()) {
-                                            const normalizedKeyword = keyword.toLowerCase().trim();
-                                            if (!config.keywords.includes(normalizedKeyword)) {
+                                    style={[styles.uploadButton, { backgroundColor: uploadingType === type ? colors.text.muted : colors.primary[500] }]}
+                                    onPress={async () => {
+                                        if (uploadingType) return; // Prevent multiple uploads
+
+                                        const input = document.createElement('input');
+                                        input.type = 'file';
+                                        input.accept = 'audio/*';
+                                        input.onchange = async (e: any) => {
+                                            const file = e.target.files[0];
+                                            if (!file) return;
+
+                                            try {
+                                                setUploadingType(type);
+                                                console.log(`[Upload] Starting upload for ${type}: ${file.name}`);
+
+                                                // Upload to Firebase Storage
+                                                const downloadURL = await uploadAmbianceAudio(file, type);
+
+                                                // Update settings with new URL
                                                 setSettings({
                                                     ...settings,
                                                     types: {
                                                         ...settings.types,
                                                         [type]: {
                                                             ...config,
-                                                            keywords: [...config.keywords, normalizedKeyword]
+                                                            url: downloadURL,
+                                                            filename: file.name
                                                         }
                                                     }
                                                 });
-                                            } else {
-                                                alert('Keyword already exists!');
+
+                                                alert(`✅ Upload successful!\n\nFile: ${file.name}\nClick "Save All Changes" to persist.`);
+                                            } catch (error: any) {
+                                                console.error('[Upload] Failed:', error);
+                                                alert(`❌ Upload failed: ${error.message}`);
+                                            } finally {
+                                                setUploadingType(null);
                                             }
-                                        }
+                                        };
+                                        input.click();
                                     }}
-                                    style={styles.addKeywordButton}
+                                    disabled={uploadingType !== null}
                                 >
-                                    <Ionicons name="add-circle-outline" size={18} color={colors.primary[500]} />
+                                    <Ionicons name={uploadingType === type ? "hourglass-outline" : "cloud-upload-outline"} size={16} color="#fff" />
+                                    <Text style={[styles.uploadButtonText, { color: '#fff' }]}>
+                                        {uploadingType === type ? 'Uploading...' : 'Upload Audio File'}
+                                    </Text>
                                 </TouchableOpacity>
-                            </View>
-                            <View style={styles.keywordChips}>
-                                {config.keywords.map((keyword, index) => (
-                                    <View key={index} style={[styles.keywordChip, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
-                                        <Text style={[styles.keywordText, { color: colors.text.primary }]}>{keyword}</Text>
+
+
+                                {/* Keywords Editor */}
+                                <View style={styles.keywordsSection}>
+                                    <View style={styles.row}>
+                                        <Text style={[styles.label, { color: colors.text.primary }]}>Keywords</Text>
                                         <TouchableOpacity
                                             onPress={() => {
-                                                setSettings({
-                                                    ...settings,
-                                                    types: {
-                                                        ...settings.types,
-                                                        [type]: {
-                                                            ...config,
-                                                            keywords: config.keywords.filter((_, i) => i !== index)
-                                                        }
+                                                const keyword = prompt('Enter new keyword:');
+                                                if (keyword && keyword.trim()) {
+                                                    const normalizedKeyword = keyword.toLowerCase().trim();
+                                                    if (!config.keywords.includes(normalizedKeyword)) {
+                                                        setSettings({
+                                                            ...settings,
+                                                            types: {
+                                                                ...settings.types,
+                                                                [type]: {
+                                                                    ...config,
+                                                                    keywords: [...config.keywords, normalizedKeyword]
+                                                                }
+                                                            }
+                                                        });
+                                                    } else {
+                                                        alert('Keyword already exists!');
                                                     }
-                                                });
+                                                }
                                             }}
+                                            style={styles.addKeywordButton}
                                         >
-                                            <Ionicons name="close-circle" size={16} color={colors.text.muted} />
+                                            <Ionicons name="add-circle-outline" size={18} color={colors.primary[500]} />
                                         </TouchableOpacity>
                                     </View>
-                                ))}
-                            </View>
-                        </View>
+                                    <View style={styles.keywordChips}>
+                                        {config.keywords.map((keyword, index) => (
+                                            <View key={index} style={[styles.keywordChip, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                                                <Text style={[styles.keywordText, { color: colors.text.primary }]}>{keyword}</Text>
+                                                <TouchableOpacity
+                                                    onPress={() => {
+                                                        setSettings({
+                                                            ...settings,
+                                                            types: {
+                                                                ...settings.types,
+                                                                [type]: {
+                                                                    ...config,
+                                                                    keywords: config.keywords.filter((_, i) => i !== index)
+                                                                }
+                                                            }
+                                                        });
+                                                    }}
+                                                >
+                                                    <Ionicons name="close-circle" size={16} color={colors.text.muted} />
+                                                </TouchableOpacity>
+                                            </View>
+                                        ))}
+                                    </View>
+                                </View>
 
-                        {/* Game Engine Selection */}
-                        <View style={styles.gameEnginesSection}>
-                            <Text style={[styles.label, { color: colors.text.primary, marginBottom: spacing.xs }]}>Available in Game Engines</Text>
-                            <View style={styles.engineChips}>
-                                {gameEngines.map((engine) => {
-                                    const isSelected = config.gameEngines?.includes(engine.id) ?? true; // Default to all if not set
-                                    return (
-                                        <TouchableOpacity
-                                            key={engine.id}
-                                            style={[
-                                                styles.engineChip,
-                                                {
-                                                    backgroundColor: isSelected ? colors.primary[500] : colors.background.tertiary,
-                                                    borderColor: isSelected ? colors.primary[500] : colors.border.default,
-                                                }
-                                            ]}
-                                            onPress={() => {
-                                                const currentEngines = config.gameEngines || gameEngines.map(e => e.id);
-                                                const newEngines = isSelected
-                                                    ? currentEngines.filter(id => id !== engine.id)
-                                                    : [...currentEngines, engine.id];
-
-                                                setSettings({
-                                                    ...settings,
-                                                    types: {
-                                                        ...settings.types,
-                                                        [type]: {
-                                                            ...config,
-                                                            gameEngines: newEngines
+                                {/* Game Engine Selection */}
+                                <View style={styles.gameEnginesSection}>
+                                    <Text style={[styles.label, { color: colors.text.primary, marginBottom: spacing.xs }]}>Available in Game Engines</Text>
+                                    <View style={styles.engineChips}>
+                                        {gameEngines.map((engine) => {
+                                            const isSelected = config.gameEngines?.includes(engine.id) ?? true; // Default to all if not set
+                                            return (
+                                                <TouchableOpacity
+                                                    key={engine.id}
+                                                    style={[
+                                                        styles.engineChip,
+                                                        {
+                                                            backgroundColor: isSelected ? colors.primary[500] : colors.background.tertiary,
+                                                            borderColor: isSelected ? colors.primary[500] : colors.border.default,
                                                         }
-                                                    }
-                                                });
-                                            }}
-                                        >
-                                            <Text style={[styles.engineChipText, { color: isSelected ? '#fff' : colors.text.primary }]}>
-                                                {engine.name}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    );
-                                })}
+                                                    ]}
+                                                    onPress={() => {
+                                                        const currentEngines = config.gameEngines || gameEngines.map(e => e.id);
+                                                        const newEngines = isSelected
+                                                            ? currentEngines.filter(id => id !== engine.id)
+                                                            : [...currentEngines, engine.id];
+
+                                                        setSettings({
+                                                            ...settings,
+                                                            types: {
+                                                                ...settings.types,
+                                                                [type]: {
+                                                                    ...config,
+                                                                    gameEngines: newEngines
+                                                                }
+                                                            }
+                                                        });
+                                                    }}
+                                                >
+                                                    <Text style={[styles.engineChipText, { color: isSelected ? '#fff' : colors.text.primary }]}>
+                                                        {engine.name}
+                                                    </Text>
+                                                </TouchableOpacity>
+                                            );
+                                        })}
+                                    </View>
+                                </View>
+
+                                <View style={styles.row}>
+                                    <Text style={[styles.label, { color: colors.text.primary }]}>Volume</Text>
+                                    <TextInput
+                                        style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
+                                        value={(config.volume * 100).toString()}
+                                        onChangeText={(text) => setSettings({
+                                            ...settings,
+                                            types: {
+                                                ...settings.types,
+                                                [type]: { ...config, volume: parseInt(text) / 100 || 0.5 }
+                                            }
+                                        })}
+                                        keyboardType="numeric"
+                                    />
+                                    <Text style={[styles.label, { color: colors.text.muted }]}>%</Text>
+                                </View>
+
+                                <View style={styles.row}>
+                                    <Text style={[styles.label, { color: colors.text.primary }]}>Priority</Text>
+                                    <TextInput
+                                        style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
+                                        value={config.priority.toString()}
+                                        onChangeText={(text) => setSettings({
+                                            ...settings,
+                                            types: {
+                                                ...settings.types,
+                                                [type]: { ...config, priority: parseInt(text) || 5 }
+                                            }
+                                        })}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
                             </View>
-                        </View>
+                        ))}
 
-                        <View style={styles.row}>
-                            <Text style={[styles.label, { color: colors.text.primary }]}>Volume</Text>
+                        {/* Testing */}
+                        <View style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
+                            <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>🧪 Testing</Text>
+
                             <TextInput
-                                style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
-                                value={(config.volume * 100).toString()}
-                                onChangeText={(text) => setSettings({
-                                    ...settings,
-                                    types: {
-                                        ...settings.types,
-                                        [type]: { ...config, volume: parseInt(text) / 100 || 0.5 }
-                                    }
-                                })}
-                                keyboardType="numeric"
+                                style={[styles.textArea, { color: colors.text.primary, borderColor: colors.border.default, backgroundColor: colors.background.tertiary }]}
+                                value={testNarrative}
+                                onChangeText={setTestNarrative}
+                                placeholder="Enter sample narrative text..."
+                                placeholderTextColor={colors.text.muted}
+                                multiline
+                                numberOfLines={4}
                             />
-                            <Text style={[styles.label, { color: colors.text.muted }]}>%</Text>
+
+                            <TouchableOpacity
+                                style={[styles.button, { backgroundColor: colors.primary[500] }]}
+                                onPress={testDetection}
+                            >
+                                <Text style={[styles.buttonText, { color: '#fff' }]}>Test Detection</Text>
+                            </TouchableOpacity>
+
+                            {detectedType && (
+                                <Text style={[styles.detectionResult, { color: colors.status.success }]}>
+                                    Detected: {detectedType.charAt(0).toUpperCase() + detectedType.slice(1)} (Priority: {settings.types[detectedType].priority})
+                                </Text>
+                            )}
                         </View>
 
-                        <View style={styles.row}>
-                            <Text style={[styles.label, { color: colors.text.primary }]}>Priority</Text>
-                            <TextInput
-                                style={[styles.input, { color: colors.text.primary, borderColor: colors.border.default }]}
-                                value={config.priority.toString()}
-                                onChangeText={(text) => setSettings({
-                                    ...settings,
-                                    types: {
-                                        ...settings.types,
-                                        [type]: { ...config, priority: parseInt(text) || 5 }
-                                    }
-                                })}
-                                keyboardType="numeric"
-                            />
-                        </View>
-                    </View>
-                ))}
+                        {/* Save Button */}
+                        <TouchableOpacity
+                            style={[styles.saveButton, { backgroundColor: colors.status.success }]}
+                            onPress={saveSettings}
+                            disabled={saving}
+                        >
+                            <Ionicons name="save-outline" size={20} color="#fff" />
+                            <Text style={[styles.saveButtonText, { color: '#fff' }]}>
+                                {saving ? 'Saving...' : 'Save All Changes'}
+                            </Text>
+                        </TouchableOpacity>
+                    </>
+                )}
 
-                {/* Testing */}
-                <View style={[styles.section, { backgroundColor: colors.background.secondary, borderColor: colors.border.default }]}>
-                    <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>🧪 Testing</Text>
-
-                    <TextInput
-                        style={[styles.textArea, { color: colors.text.primary, borderColor: colors.border.default, backgroundColor: colors.background.tertiary }]}
-                        value={testNarrative}
-                        onChangeText={setTestNarrative}
-                        placeholder="Enter sample narrative text..."
-                        placeholderTextColor={colors.text.muted}
-                        multiline
-                        numberOfLines={4}
-                    />
-
-                    <TouchableOpacity
-                        style={[styles.button, { backgroundColor: colors.primary[500] }]}
-                        onPress={testDetection}
-                    >
-                        <Text style={[styles.buttonText, { color: '#fff' }]}>Test Detection</Text>
-                    </TouchableOpacity>
-
-                    {detectedType && (
-                        <Text style={[styles.detectionResult, { color: colors.status.success }]}>
-                            Detected: {detectedType.charAt(0).toUpperCase() + detectedType.slice(1)} (Priority: {settings.types[detectedType].priority})
-                        </Text>
-                    )}
-                </View>
-
-                {/* Save Button */}
-                <TouchableOpacity
-                    style={[styles.saveButton, { backgroundColor: colors.status.success }]}
-                    onPress={saveSettings}
-                    disabled={saving}
-                >
-                    <Ionicons name="save-outline" size={20} color="#fff" />
-                    <Text style={[styles.saveButtonText, { color: '#fff' }]}>
-                        {saving ? 'Saving...' : 'Save All Changes'}
-                    </Text>
-                </TouchableOpacity>
             </ScrollView>
-        </SafeAreaView>
+        </SafeAreaView >
     );
 }
 
@@ -642,6 +697,28 @@ const styles = StyleSheet.create({
     },
     header: {
         marginBottom: spacing.lg,
+    },
+    tabContainer: {
+        flexDirection: 'row',
+        borderBottomWidth: 1,
+        marginBottom: spacing.lg,
+    },
+    tab: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.sm,
+        gap: spacing.xs,
+        borderBottomWidth: 2,
+    },
+    activeTab: {
+        // Active tab styling handled by borderBottomColor
+    },
+    tabText: {
+        fontSize: typography.fontSize.md,
+        fontWeight: '600',
     },
     title: {
         fontSize: typography.fontSize.xl,
