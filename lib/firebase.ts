@@ -36,13 +36,13 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 
 // Firebase configuration - with fallback for static export
 const firebaseConfig = {
-    apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY,
-    authDomain: process.env.EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
-    storageBucket: process.env.EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.EXPO_PUBLIC_FIREBASE_APP_ID,
-    measurementId: process.env.EXPO_PUBLIC_FIREBASE_MEASUREMENT_ID
+    apiKey: "AIzaSyCj76HF6HSt62IMulUral4pFm-d77Ipr5M",
+    authDomain: "atlas-cortex.firebaseapp.com",
+    projectId: "atlas-cortex",
+    storageBucket: "atlas-cortex.firebasestorage.app",
+    messagingSenderId: "1041136045208",
+    appId: "1:1041136045208:web:977d9c9c22926f2b6b94ed",
+    measurementId: "G-06FCNSPY5M"
 };
 
 // Initialize Firebase (only once)

@@ -360,13 +360,28 @@ export interface Quest {
     id: string;
     name: string;
     description: string;
-    objectives: QuestObjective[];
+    objectives?: QuestObjective[];
     completed: boolean;
+    // Quest chain support
+    prerequisiteQuestId?: string;  // Must complete this quest first
+    chainId?: string;              // Group ID for related quests
+    chainOrder?: number;           // Order within the chain (1, 2, 3...)
+    expiresAt?: number;            // Timestamp for timed quests
+    // Enhanced rewards
+    rewards?: {
+        experience?: number;
+        gold?: number;
+        items?: string[];
+    };
 }
 
 export interface QuestObjective {
-    description: string;
-    completed: boolean;
+    id?: string;
+    text: string;
+    isCompleted: boolean;
+    // Legacy support
+    description?: string;
+    completed?: boolean;
 }
 
 // ==================== FATE ENGINE (v1.3) ====================
@@ -672,6 +687,18 @@ export interface Quest {
     };
     startedAt?: number;
     completedAt?: number;
+    // Quest chain support
+    prerequisiteQuestId?: string;  // Must complete this quest first
+    chainId?: string;              // Group ID for related quests
+    chainOrder?: number;           // Order within the chain (1, 2, 3...)
+    expiresAt?: number;            // Timestamp for timed quests
+    // Enhanced rewards
+    rewards?: {
+        experience?: number;
+        gold?: number;
+        items?: string[];
+    };
+    objectives?: QuestObjective[];
 }
 
 export interface GlobalConfig {
