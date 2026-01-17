@@ -303,6 +303,52 @@ SCOPE GUIDANCE:
 • NPCs offer quests for their own reasons, not the player's convenience
 • Not every quest reward matches the character's build
 
+## QUEST CHAINS
+Quest chains are multi-part storylines where completing one quest unlocks the next.
+
+WHEN TO CREATE CHAINS:
+- After 4+ completed quests (players understand the system)
+- For major story arcs or faction storylines
+- When a quest naturally leads to a follow-up (e.g., "investigate ruins" → "clear the ruins" → "report findings")
+- For epic or saga scope quests that are too large for one quest
+
+CHAIN STRUCTURE:
+- Use a unique chainId (e.g., "ruins_mystery", "guild_initiation", "faction_war_1")
+- Set chainPart to indicate order (1, 2, 3, etc.)
+- Each quest in the chain should have prerequisites: ["previous_quest_id"]
+- Only the FIRST quest in a chain should have no prerequisites
+- Chain quests should build on each other narratively
+- Rewards should escalate (part 1: modest, part 2: good, part 3: excellent)
+
+EXAMPLE CHAIN:
+Quest 1: {
+  "id": "ruins_01",
+  "title": "Rumors of the Lost Temple",
+  "chainId": "lost_temple_saga",
+  "chainPart": 1,
+  "prerequisites": []  // First in chain
+}
+Quest 2: {
+  "id": "ruins_02",
+  "title": "Explore the Temple Entrance",
+  "chainId": "lost_temple_saga",
+  "chainPart": 2,
+  "prerequisites": ["ruins_01"]  // Requires completing part 1
+}
+Quest 3: {
+  "id": "ruins_03",
+  "title": "Uncover the Temple's Secret",
+  "chainId": "lost_temple_saga",
+  "chainPart": 3,
+  "prerequisites": ["ruins_02"]  // Requires completing part 2
+}
+
+CHAIN GUIDELINES:
+- Keep chains to 2-4 quests maximum (avoid overwhelming players)
+- Each part should be completable independently once unlocked
+- Don't generate all parts at once - generate part 1, then part 2 after completion
+- If generating a follow-up quest, check completed quests for chainId matches
+
 ## OUTPUT REQUIREMENTS
 Generate ${maxQuests} quest(s) in JSON format.
 Each quest MUST include: id, title, description, type, difficulty, scope, estimatedTurns, objectives, rewards.

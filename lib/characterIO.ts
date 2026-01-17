@@ -27,14 +27,34 @@ export interface ValidationResult {
 }
 
 export interface CampaignSaveData {
-    version: number;
-    worldType: string;
-    createdAt: string;
+    version: number;  // v2
+
+    // Metadata
     saveName: string;
+    createdAt: string;
+    exportedAt?: string;
+
+    // Campaign Info
+    campaignId?: string;
+    campaignName?: string;
+    worldType: string;
+    difficulty?: string;
+
+    // Character & State
     character: any;
     moduleState: ModuleState;
+
+    // Context (v2 additions)
+    campaignLedger?: string;  // Full AI-readable context
+    questLog?: any[];         // All quests with status
+
+    // Messages
     messageCount: number;
-    lastMessages: Message[];
+    lastMessages: Message[];  // Last 50 for context
+
+    // Stats (v2 additions)
+    totalTurns?: number;
+    playTime?: number;
 }
 
 export interface CharacterTemplate {
@@ -272,20 +292,42 @@ function validateTactical(data: any, errors: string[]): void {
 export function exportCampaignSave(
     campaign: Campaign,
     messages: Message[],
-    saveName: string
+    saveName: string,
+    campaignLedger?: string
 ): CampaignSaveData {
     // Get last 50 messages for context
     const lastMessages = messages.slice(-50);
+    const moduleState = campaign.moduleState as any;
 
     return {
-        version: 1,
-        worldType: campaign.worldModule,
-        createdAt: new Date().toISOString(),
+        version: 2,  // Updated to v2
+
+        // Metadata
         saveName,
-        character: (campaign.moduleState as any).character || {},
+        createdAt: new Date().toISOString(),
+        exportedAt: new Date().toISOString(),
+
+        // Campaign Info
+        campaignId: campaign.id,
+        campaignName: campaign.name,
+        worldType: campaign.worldModule,
+        difficulty: moduleState.difficulty || 'adventurer',
+
+        // Character & State
+        character: moduleState.character || {},
         moduleState: campaign.moduleState,
+
+        // Context
+        campaignLedger,
+        questLog: moduleState.questLog || [],
+
+        // Messages
         messageCount: messages.length,
-        lastMessages
+        lastMessages,
+
+        // Stats
+        totalTurns: moduleState.turnCount || 0,
+        playTime: undefined  // TODO: Track playtime
     };
 }
 
