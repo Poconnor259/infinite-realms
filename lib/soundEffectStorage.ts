@@ -186,20 +186,23 @@ export async function updateSoundEffectSettings(
 
 /**
  * Initialize default sound effects in Firestore if they don't exist
+ * @param force If true, overwrite existing configurations with defaults
  */
-export async function initializeDefaultSoundEffects(): Promise<void> {
+export async function initializeDefaultSoundEffects(force: boolean = false): Promise<void> {
     const docRef = doc(db, 'config', 'soundEffects');
     const docSnap = await getDoc(docRef);
 
-    if (!docSnap.exists()) {
+    if (!docSnap.exists() || force) {
+        console.log(`[SoundEffectStorage] Initializing default sound effects (force=${force})`);
         const defaultEffects: Record<string, SoundEffectConfig> = {};
 
-        // Create default configs with empty URLs (admin will upload)
+        // Create default configs with empty URLs (admin will upload or use defaults)
         Object.entries(DEFAULT_SOUND_EFFECTS).forEach(([id, config]) => {
             defaultEffects[id] = {
                 ...config,
-                url: '', // Admin needs to upload
-            };
+                id,
+                url: '', // Admin can upload or provide URL
+            } as SoundEffectConfig;
         });
 
         await setDoc(docRef, {

@@ -40,6 +40,13 @@ export default function HomeScreen() {
     const [worldsLoading, setWorldsLoading] = useState(true);
     const { themeMode, setPreference } = useSettingsStore();
 
+    // Track if component is mounted (client-side) to prevent hydration mismatch
+    const [isMounted, setIsMounted] = useState(false);
+
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
     const toggleTheme = () => {
         if (themeMode === 'system') {
             setPreference('themeMode', isDark ? 'light' : 'dark');
@@ -101,6 +108,13 @@ export default function HomeScreen() {
 
     const formatDate = (timestamp: number) => {
         const date = new Date(timestamp);
+
+        // During SSR or before hydration, return a static format to prevent mismatch
+        if (!isMounted) {
+            return date.toLocaleDateString();
+        }
+
+        // After hydration, we can use dynamic relative time
         const now = new Date();
         const diffHours = Math.floor((now.getTime() - timestamp) / (1000 * 60 * 60));
 

@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Switch, TextInput, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
@@ -166,9 +166,27 @@ export function SoundEffectsTab() {
 
     return (
         <View style={styles.container}>
-            <Text style={[styles.description, { color: colors.text.muted }]}>
-                Manage short audio clips for game events (button clicks, dice rolls, success/error, etc.)
-            </Text>
+            <View style={styles.headerRow}>
+                <Text style={[styles.description, { color: colors.text.muted, flex: 1 }]}>
+                    Manage short audio clips for game events (button clicks, dice rolls, success/error, etc.)
+                </Text>
+                <TouchableOpacity
+                    style={[styles.seedBtn, { borderColor: colors.primary[500] }]}
+                    onPress={async () => {
+                        if (Platform.OS === 'web' && !window.confirm('Reset all sound effects to default configuration? This will not delete uploaded files but will reset metadata.')) return;
+                        setLoading(true);
+                        try {
+                            await initializeDefaultSoundEffects(true); // Assuming I'll add a force reset flag
+                            await loadConfigs();
+                        } finally {
+                            setLoading(false);
+                        }
+                    }}
+                >
+                    <Ionicons name="refresh-outline" size={16} color={colors.primary[500]} />
+                    <Text style={[styles.seedBtnText, { color: colors.primary[500] }]}>Reset to Defaults</Text>
+                </TouchableOpacity>
+            </View>
 
             {effectIds.map((effectId) => {
                 const config = configs[effectId] || { ...DEFAULT_SOUND_EFFECTS[effectId], id: effectId, url: '' };
@@ -307,6 +325,26 @@ export function SoundEffectsTab() {
 const styles = StyleSheet.create({
     container: {
         padding: spacing.lg,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: spacing.lg,
+        gap: spacing.md,
+    },
+    seedBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: spacing.xs,
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        borderRadius: borderRadius.md,
+        borderWidth: 1,
+    },
+    seedBtnText: {
+        fontSize: typography.fontSize.xs,
+        fontWeight: '600',
     },
     loadingContainer: {
         flex: 1,
