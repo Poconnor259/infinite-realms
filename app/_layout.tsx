@@ -127,7 +127,7 @@ export default function RootLayout() {
                 }}
             >
                 <Stack.Screen
-                    name="index"
+                    name="(tabs)"
                     options={{ headerShown: false }}
                 />
                 <Stack.Screen
@@ -135,16 +135,6 @@ export default function RootLayout() {
                     options={{
                         headerShown: false,
                         animation: 'fade',
-                    }}
-                />
-                <Stack.Screen
-                    name="world-select"
-                    options={{
-                        title: 'Choose Your World',
-                        presentation: 'modal',
-                        headerStyle: {
-                            backgroundColor: colors.background.secondary, // Modal usually slightly different
-                        }
                     }}
                 />
                 <Stack.Screen
