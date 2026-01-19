@@ -27,15 +27,6 @@ export default function TabLayout() {
                 }}
             />
             <Tabs.Screen
-                name="worlds"
-                options={{
-                    title: 'Worlds',
-                    tabBarIcon: ({ color, size }) => (
-                        <MaterialCommunityIcons name="earth" size={size} color={color} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
                 name="settings"
                 options={{
                     title: 'Settings',

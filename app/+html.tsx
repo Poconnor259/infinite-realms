@@ -22,7 +22,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
                 {/* Preload Ionicons font */}
                 <link
                     rel="preload"
-                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
+                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf"
                     as="font"
                     type="font/ttf"
                     crossOrigin="anonymous"
@@ -30,14 +30,14 @@ export default function Root({ children }: { children: React.ReactNode }) {
                 {/* Preload MaterialIcons font */}
                 <link
                     rel="preload"
-                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf"
+                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf"
                     as="font"
                     type="font/ttf"
                     crossOrigin="anonymous"
                 />
                 <link
                     rel="preload"
-                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.1/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"
+                    href="https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf"
                     as="font"
                     type="font/ttf"
                     crossOrigin="anonymous"
@@ -46,22 +46,22 @@ export default function Root({ children }: { children: React.ReactNode }) {
                     __html: `
             @font-face {
                 font-family: 'Ionicons';
-                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/Ionicons.ttf') format('truetype');
                 font-display: swap;
             }
             @font-face {
                 font-family: 'Material Icons';
-                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
                 font-display: swap;
             }
             @font-face {
                 font-family: 'MaterialCommunityIcons';
-                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.1/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf') format('truetype');
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/MaterialCommunityIcons.ttf') format('truetype');
                 font-display: swap;
             }
             @font-face {
                 font-family: 'MaterialIcons';
-                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@14.1.0/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
+                src: url('https://cdn.jsdelivr.net/npm/@expo/vector-icons@latest/build/vendor/react-native-vector-icons/Fonts/MaterialIcons.ttf') format('truetype');
                 font-display: swap;
             }
             body {

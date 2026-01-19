@@ -90,11 +90,22 @@ export default function HomeScreen() {
     };
 
     const renderHeader = () => (
-        <View style={styles.headerContainer}>
+        <View>
             <Surface style={styles.surface} elevation={1}>
                 <TurnsMeter />
             </Surface>
+            {campaigns.length > 0 && (
+                <View style={[styles.campaignListHeader, { marginTop: 8 }]}>
+                    <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant, paddingHorizontal: 0 }]}>
+                        Recent Campaigns
+                    </Text>
+                </View>
+            )}
+        </View>
+    );
 
+    const renderFooter = () => (
+        <View style={styles.headerContainer}>
             <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurfaceVariant }]}>
                 Start New Adventure
             </Text>
@@ -118,12 +129,6 @@ export default function HomeScreen() {
                 )}
                 keyExtractor={item => item.id}
             />
-
-            <View style={styles.campaignListHeader}>
-                <Text variant="titleMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-                    Recent Campaigns
-                </Text>
-            </View>
         </View>
     );
 
@@ -134,17 +139,18 @@ export default function HomeScreen() {
             <Card
                 style={styles.campaignCard}
                 onPress={() => router.push(`/campaign/${item.id}`)}
+                mode="contained"
             >
                 <Card.Title
                     title={item.name}
-                    subtitle={`${item.character.name} • Lv.${item.character.level} • ${worldInfo?.name || 'Unknown'}`}
+                    titleVariant="titleMedium"
+                    subtitle={`${item.character.name} • Lv.${item.character.level}`}
                     left={(props) => (
-                        <Avatar.Text
-                            {...props}
-                            label={worldInfo?.name?.charAt(0) || 'C'}
-                            style={{ backgroundColor: worldInfo?.color || theme.colors.primaryContainer }}
-                            color={theme.colors.onPrimaryContainer}
-                        />
+                        <View style={[styles.squareIconContainer, { backgroundColor: worldInfo?.color || theme.colors.primaryContainer }]}>
+                            <Text style={styles.squareIconText}>
+                                {worldInfo?.icon || '🌍'}
+                            </Text>
+                        </View>
                     )}
                     right={(props) => (
                         <IconButton
@@ -154,16 +160,6 @@ export default function HomeScreen() {
                         />
                     )}
                 />
-                <Card.Content>
-                    <View style={styles.statRow}>
-                        <Chip icon="heart" style={styles.statChip} compact textStyle={{ fontSize: 12 }}>
-                            {item.character.hp.current}/{item.character.hp.max} HP
-                        </Chip>
-                        <Text variant="bodySmall" style={{ color: theme.colors.outline }}>
-                            Last played: {new Date(item.updatedAt).toLocaleDateString()}
-                        </Text>
-                    </View>
-                </Card.Content>
             </Card>
         );
     };
@@ -186,6 +182,7 @@ export default function HomeScreen() {
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContent}
                     ListHeaderComponent={renderHeader}
+                    ListFooterComponent={renderFooter}
                     refreshControl={
                         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.colors.primary]} />
                     }
@@ -283,5 +280,15 @@ const styles = StyleSheet.create({
         margin: 16,
         right: 0,
         bottom: 0,
+    },
+    squareIconContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    squareIconText: {
+        fontSize: 24,
     },
 });

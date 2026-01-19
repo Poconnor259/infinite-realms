@@ -12,8 +12,8 @@ import {
     Surface
 } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { getWorlds } from '../../lib/firebase';
-import type { WorldModule } from '../../lib/types';
+import { getWorlds } from '../lib/firebase';
+import type { WorldModule } from '../lib/types';
 
 export default function WorldsScreen() {
     const router = useRouter();

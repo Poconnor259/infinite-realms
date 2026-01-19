@@ -137,16 +137,6 @@ export default function RootLayout() {
                         animation: 'fade',
                     }}
                 />
-                <Stack.Screen
-                    name="settings"
-                    options={{
-                        title: 'Settings',
-                        presentation: 'modal',
-                        headerStyle: {
-                            backgroundColor: colors.background.secondary,
-                        }
-                    }}
-                />
             </Stack>
             <ToastContainer />
         </GestureHandlerRootView>

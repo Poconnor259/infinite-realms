@@ -13,19 +13,19 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { Logo } from '../components/ui/Logo';
-import { spacing, borderRadius, typography } from '../lib/theme';
-import { useThemeColors } from '../lib/hooks/useTheme';
-import { useSettingsStore, useUserStore, useConfigStore } from '../lib/store';
-import { signOut, db } from '../lib/firebase';
+import { Logo } from '../../components/ui/Logo';
+import { spacing, borderRadius, typography } from '../../lib/theme';
+import { useThemeColors } from '../../lib/hooks/useTheme';
+import { useSettingsStore, useUserStore, useConfigStore } from '../../lib/store';
+import { signOut, db } from '../../lib/firebase';
 import { doc, updateDoc, onSnapshot } from 'firebase/firestore';
-import { AVAILABLE_MODELS, GlobalConfig } from '../lib/types';
-import { getGlobalConfig } from '../lib/firebase';
-import { AnimatedPressable, FadeInView } from '../components/ui/Animated';
-import { Card } from '../components/ui/Card';
-import { Button } from '../components/ui/Button';
-import { ThemeSelector } from '../components/ui/ThemeSelector';
-import { VoiceModelSelector } from '../components/VoiceModelSelector';
+import { AVAILABLE_MODELS, GlobalConfig } from '../../lib/types';
+import { getGlobalConfig } from '../../lib/firebase';
+import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
+import { Card } from '../../components/ui/Card';
+import { Button } from '../../components/ui/Button';
+import { ThemeSelector } from '../../components/ui/ThemeSelector';
+import { VoiceModelSelector } from '../../components/VoiceModelSelector';
 
 // Helper types
 interface SettingsSectionProps {
