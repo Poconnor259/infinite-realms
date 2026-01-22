@@ -21,6 +21,13 @@ interface BrainInput {
     showSuggestedChoices?: boolean; // Whether to include options in pendingChoice (default: true)
     interactiveDiceRolls?: boolean; // Whether user wants to roll dice manually (default: false = auto-roll)
     rollResult?: number; // Result from user's dice roll when continuing after pendingRoll
+    pendingRoll?: {
+        type: string;
+        purpose: string;
+        modifier?: number;
+        stat?: string;
+        difficulty?: number;
+    };
 }
 
 interface BrainOutput {
@@ -180,7 +187,7 @@ function repairJsonResponse(raw: string): object | null {
 
 export async function processWithBrain(input: BrainInput): Promise<BrainOutput> {
 
-    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true, interactiveDiceRolls = false, rollResult } = input;
+    const { userInput, worldModule, currentState, chatHistory, apiKey, provider, model, knowledgeDocuments, customRules, showSuggestedChoices = true, interactiveDiceRolls = false, rollResult, pendingRoll } = input;
 
     console.log(`[Brain] ========== NEW REQUEST ==========`);
     console.log(`[Brain] interactiveDiceRolls=${interactiveDiceRolls}, rollResult=${rollResult}`);
@@ -288,7 +295,7 @@ STRICT RULES:
                         console.log('[Brain] Character has abilities (Intro Phase) - STRICTLY blocking ability grants');
                     } else {
                         essenceOverrideSection += `
-NOTE: The character already has established abilities. 
+NOTE: The character already has established abilities.
 - DO NOT grant "Intrinsic" starting abilities again.
 - You MAY grant new abilities ONLY if the user uses a specific item (e.g., "Awakening Stone") or explicitly earns a quest reward.
 `;
@@ -342,6 +349,8 @@ DO NOT auto-roll. Leave diceRolls as [].`
 
         const rollResultRule = rollResult !== undefined
             ? `🎲 DICE ROLL RESULT RECEIVED: ${rollResult}
+CONTEXT: The user rolled for "${pendingRoll?.purpose || 'unknown purpose'}".
+${pendingRoll ? `Target DC: ${pendingRoll.difficulty || 'None'}, Modifier: ${pendingRoll.modifier || 0}, Stat: ${pendingRoll.stat || 'None'}` : ''}
 
 ⚠️ CRITICAL ROLL INTEGRITY RULES - STRICTLY ENFORCE ⚠️
 
@@ -349,9 +358,9 @@ The user has rolled ${rollResult}. This is the EXACT, FINAL dice result.
 
 MANDATORY REQUIREMENTS:
 1. **RESPECT THE TRAINING DOCUMENT**: Follow the "Dice Role specifics" training document EXACTLY
-2. **NO MODIFIER INVENTION**: DO NOT add modifiers that weren't in the original pendingRoll.modifier
+2. **NO MODIFIER INVENTION**: DO NOT add modifiers that weren't in the original pendingRoll.modifier (${pendingRoll?.modifier || 0})
 3. **NO FAKE BONUSES**: DO NOT invent Spirit, Luck, Divine Favor, or ANY other modifiers to change the outcome
-4. **HONEST CALCULATION**: Success/Failure = (${rollResult} + pendingRoll.modifier) vs DC
+4. **HONEST CALCULATION**: Success/Failure = (${rollResult} + ${pendingRoll?.modifier || 0}) vs DC ${pendingRoll?.difficulty || 'N/A'}
 5. **ALLOW FAILURES**: If the roll fails, IT FAILS - implement negative consequences (damage, failed checks, setbacks, complications)
 6. **RESPECT RANDOMNESS**: The dice represent fate and chance - honor that uncertainty
 7. **PROCESS HONESTLY**: Continue the narrative based on the actual result, not a desired outcome

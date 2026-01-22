@@ -269,7 +269,7 @@ export default function CampaignScreen() {
         setIsDeleting(true);
         try {
             await deleteCampaignFn({ campaignId: currentCampaign.id });
-            router.replace('/world-select');
+            router.replace('/');
         } catch (error) {
             console.error('Failed to delete campaign:', error);
             if (Platform.OS === 'web') {
@@ -389,12 +389,12 @@ export default function CampaignScreen() {
         prevPendingRoll.current = pendingRoll;
     }, [isLoading, lastNarratorIndexReversed, pendingRoll]);
 
-    // Auto-show panel on mobile when dice roll is required
+    // Auto-show panel when dice roll is required
     useEffect(() => {
-        if (pendingRoll && !isDesktop && !panelVisible) {
+        if (pendingRoll && !panelVisible) {
             setPanelVisible(true);
         }
-    }, [pendingRoll, isDesktop, panelVisible]);
+    }, [pendingRoll, panelVisible]);
 
     // Smart Idle Detection for Cache Heartbeat
     useEffect(() => {
@@ -711,7 +711,8 @@ export default function CampaignScreen() {
                             pendingRoll={pendingRoll}
                             onRollComplete={(result) => {
                                 console.log('[Campaign] Dice roll complete:', result);
-                                submitRollResult(result.total);
+                                // Pass the raw roll value, not the total (submitRollResult adds modifier)
+                                submitRollResult(result.roll);
                             }}
                         />
                     </View>

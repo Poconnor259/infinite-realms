@@ -631,10 +631,10 @@ export const useGameStore = create<GameState>((set, get) => ({
             // Call Cloud Function with retry logic
             const result = await withRetry(
                 () => processGameAction({
-                    campaignId: state.currentCampaign.id,
+                    campaignId: state.currentCampaign!.id,
                     userInput: input,
-                    worldModule: state.currentCampaign.worldModule,
-                    currentState: state.currentCampaign.moduleState as any,
+                    worldModule: state.currentCampaign!.worldModule,
+                    currentState: state.currentCampaign!.moduleState as any,
                     chatHistory: newMessages.slice(-10).map(m => ({
                         role: m.role,
                         content: m.content
@@ -820,7 +820,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     currentCampaign: rest as Campaign,
                     messages,
                     rollHistory,
-                    isLoading: false
+                    isLoading: false,
+                    pendingRoll: (rest as any).moduleState?.pendingRoll || null,
+                    pendingChoice: (rest as any).moduleState?.pendingChoice || null,
                 });
                 storage.set('lastCampaignId', id);
             } else {

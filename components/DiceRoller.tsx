@@ -279,11 +279,13 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             borderRadius: borderRadius.md,
             paddingHorizontal: spacing.lg,
             paddingVertical: spacing.md,
-            fontSize: typography.fontSize.xxl,
-            fontWeight: '700',
+            fontSize: typography.fontSize.xl,
+            fontWeight: '600',
             color: colors.text.primary,
             textAlign: 'center',
-            minWidth: 80,
+            minWidth: 100,
+            flex: 1,
+            maxWidth: 150,
             borderWidth: 2,
             borderColor: colors.primary[600],
         },
@@ -297,6 +299,13 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             color: '#fff',
             fontSize: typography.fontSize.md,
             fontWeight: '700',
+        },
+        modifierDisplay: {
+            color: colors.text.secondary,
+            fontSize: typography.fontSize.xl,
+            fontWeight: '600',
+            minWidth: 40,
+            textAlign: 'center',
         },
         difficultyText: {
             fontSize: typography.fontSize.sm,
@@ -352,7 +361,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             {diceRollMode === 'physical' && !showResult && (
                 <View style={styles.physicalContainer}>
                     <Text style={styles.physicalLabel}>
-                        Roll your {pendingRoll.type} and enter the result:
+                        Roll your physical {pendingRoll.type} and enter the result:
                     </Text>
                     <View style={styles.physicalInputRow}>
                         <TextInput
@@ -360,21 +369,25 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
                             value={physicalInput}
                             onChangeText={setPhysicalInput}
                             keyboardType="number-pad"
-                            placeholder={`1-${count * sides}`}
+                            placeholder={`${count}-${count * sides}`}
                             placeholderTextColor={colors.text.muted}
+                            autoFocus={true}
                             maxLength={3}
+                            onSubmitEditing={submitPhysicalResult}
+                            returnKeyType="done"
                         />
                         {modifier !== 0 && (
-                            <Text style={{ color: colors.text.secondary, fontSize: typography.fontSize.xl }}>
+                            <Text style={styles.modifierDisplay}>
                                 {modifier >= 0 ? '+' : ''}{modifier}
                             </Text>
                         )}
                         <AnimatedPressable
                             onPress={submitPhysicalResult}
                             style={styles.confirmButton}
+                            disabled={!physicalInput || isNaN(parseInt(physicalInput))}
                             sound
                         >
-                            <Text style={styles.confirmButtonText}>Confirm</Text>
+                            <Text style={styles.confirmButtonText}>Submit</Text>
                         </AnimatedPressable>
                     </View>
                 </View>

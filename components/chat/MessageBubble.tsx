@@ -203,6 +203,31 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
                 /* Document style for Narrator (No Bubble) */
                 <View style={styles.narratorContent}>
                     {formatContent(content)}
+
+                    {/* Pending Roll Prompt for Narrator Messages */}
+                    {isNarrator && index === 0 && useGameStore.getState().pendingRoll && (
+                        <View style={styles.rollPromptContainer}>
+                            <TouchableOpacity
+                                style={styles.rollPromptButton}
+                                onPress={() => {
+                                    // Logic to open/focus dice area
+                                    // For now, we'll assume the user sees the sidebar if they click this
+                                    // or we can trigger a focus event
+                                    const store = useGameStore.getState();
+                                    if (store.pendingRoll) {
+                                        // Just a visual cue for now, the UI should already show it
+                                        // but we reinforce visibility
+                                        console.log('[MessageBubble] User clicked Roll Dice prompt');
+                                    }
+                                }}
+                            >
+                                <Ionicons name="dice" size={20} color="#000" />
+                                <Text style={styles.rollPromptText}>
+                                    A {useGameStore.getState().pendingRoll?.type} roll is required to continue.
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
+                    )}
                 </View>
             )}
 
@@ -376,4 +401,27 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
     debugTitle: { fontSize: 10, fontFamily: typography.fontFamily.bold, textTransform: 'uppercase' },
     debugContent: { marginTop: 4 },
     debugJson: { fontSize: 9, fontFamily: 'monospace' },
+    rollPromptContainer: {
+        marginTop: spacing.md,
+        alignItems: 'flex-start',
+    },
+    rollPromptButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: colors.primary[400],
+        paddingHorizontal: spacing.md,
+        paddingVertical: spacing.sm,
+        borderRadius: borderRadius.md,
+        gap: spacing.sm,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    rollPromptText: {
+        color: '#000',
+        fontSize: typography.fontSize.sm,
+        fontFamily: typography.fontFamily.bold,
+    },
 });

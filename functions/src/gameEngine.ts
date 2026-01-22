@@ -23,6 +23,13 @@ export interface GameRequest {
     };
     interactiveDiceRolls?: boolean; // Whether user wants to roll dice manually
     rollResult?: number; // Result from user's dice roll when continuing
+    pendingRoll?: {
+        type: string;
+        purpose: string;
+        modifier?: number;
+        stat?: string;
+        difficulty?: number;
+    };
 }
 
 export interface GameResponse {
@@ -192,6 +199,7 @@ export async function processGameAction(
         byokKeys,
         interactiveDiceRolls,
         rollResult,
+        pendingRoll: requestPendingRoll,
     } = data;
 
     // Validate required fields
@@ -367,6 +375,9 @@ export async function processGameAction(
             currentState.fateEngine = initializeFateEngine();
         }
 
+        // define activePendingRoll before use
+        const activePendingRoll = requestPendingRoll || (currentState.pendingRoll as any);
+
         // 8. Process with Brain (game logic)
         console.log('[Brain] Processing game logic...');
         const brainResult = await processWithBrain({
@@ -380,10 +391,17 @@ export async function processGameAction(
             knowledgeDocuments: brainKnowledgeDocs,
             interactiveDiceRolls,
             rollResult,
+            pendingRoll: activePendingRoll,
         });
 
         if (!brainResult.success) {
             return { success: false, error: brainResult.error || 'Brain processing failed' };
+        }
+
+        // Ensure brainResult.data exists
+        if (!brainResult.data) {
+            console.error('[GameEngine] Brain returned success but no data');
+            return { success: false, error: 'Brain processing returned no data' };
         }
 
         // If there's a pending roll, return early (no Voice AI call, no turn charge)
@@ -404,8 +422,11 @@ export async function processGameAction(
         }
 
         // 8.5. Process roll result through Fate Engine if enhanced data is provided
-        if (rollResult !== undefined && currentState.pendingRoll) {
-            const pendingRoll = currentState.pendingRoll as any;
+        // Use the explicitly passed pendingRoll if available, otherwise fallback to state
+        // This supports both the legacy state-based flow and the robust arg-based flow
+
+        if (rollResult !== undefined && activePendingRoll) {
+            const pendingRoll = activePendingRoll;
 
             // Check if enhanced Fate Engine data is provided
             if (pendingRoll.rollType && pendingRoll.stat && currentState.character && currentState.fateEngine) {
@@ -741,10 +762,16 @@ export async function processGameAction(
 
     } catch (error) {
         console.error('Game processing error:', error);
-        // Don't expose internal errors to client
+        // Return detailed error for debugging
+        const errorMessage = error instanceof Error ? error.message : 'An internal error occurred';
+        console.error('[GameEngine] Full error details:', {
+            message: errorMessage,
+            stack: error instanceof Error ? error.stack : undefined,
+            error
+        });
         return {
             success: false,
-            error: 'An internal error occurred',
+            error: errorMessage,
         };
     }
 }

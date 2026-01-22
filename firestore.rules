@@ -67,6 +67,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     
+    // Knowledge Documents (admin read/write for training/knowledge base)
+    match /knowledgeDocuments/{docId} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
+    }
+    
     // System stats (admin read/write)
     match /systemStats/{statId} {
       allow read: if isAdmin();
