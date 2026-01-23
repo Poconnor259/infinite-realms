@@ -8,6 +8,7 @@ import { Inter_400Regular, Inter_500Medium, Inter_700Bold } from '@expo-google-f
 import { Roboto_400Regular, Roboto_500Medium, Roboto_700Bold } from '@expo-google-fonts/roboto';
 import { Outfit_400Regular, Outfit_500Medium, Outfit_700Bold } from '@expo-google-fonts/outfit';
 import { Ionicons } from '@expo/vector-icons';
+import { PaperProvider, MD3LightTheme, MD3DarkTheme, adaptNavigationTheme } from 'react-native-paper';
 import { useThemeColors } from '../lib/hooks/useTheme';
 import { useSettingsStore, useUserStore, useTurnsStore, useConfigStore } from '../lib/store';
 import { signInAnonymouslyIfNeeded, onAuthChange, createOrUpdateUser, getUser } from '../lib/firebase';
@@ -108,37 +109,42 @@ export default function RootLayout() {
         }
     }, [user, segments, isLoading]);
 
+    // Use Paper's MD3 theme based on dark mode
+    const paperTheme = isDark ? MD3DarkTheme : MD3LightTheme;
+
     return (
-        <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background.primary }}>
-            <StatusBar style={isDark ? 'light' : 'dark'} />
-            <Stack
-                screenOptions={{
-                    headerStyle: {
-                        backgroundColor: colors.background.primary,
-                    },
-                    headerTintColor: colors.text.primary,
-                    headerTitleStyle: {
-                        fontWeight: 'bold',
-                    },
-                    contentStyle: {
-                        backgroundColor: colors.background.primary,
-                    },
-                    animation: 'slide_from_right',
-                }}
-            >
-                <Stack.Screen
-                    name="(tabs)"
-                    options={{ headerShown: false }}
-                />
-                <Stack.Screen
-                    name="campaign/[id]"
-                    options={{
-                        headerShown: false,
-                        animation: 'fade',
+        <PaperProvider theme={paperTheme}>
+            <GestureHandlerRootView style={{ flex: 1, backgroundColor: colors.background.primary }}>
+                <StatusBar style={isDark ? 'light' : 'dark'} />
+                <Stack
+                    screenOptions={{
+                        headerStyle: {
+                            backgroundColor: colors.background.primary,
+                        },
+                        headerTintColor: colors.text.primary,
+                        headerTitleStyle: {
+                            fontWeight: 'bold',
+                        },
+                        contentStyle: {
+                            backgroundColor: colors.background.primary,
+                        },
+                        animation: 'slide_from_right',
                     }}
-                />
-            </Stack>
-            <ToastContainer />
-        </GestureHandlerRootView>
+                >
+                    <Stack.Screen
+                        name="(tabs)"
+                        options={{ headerShown: false }}
+                    />
+                    <Stack.Screen
+                        name="campaign/[id]"
+                        options={{
+                            headerShown: false,
+                            animation: 'fade',
+                        }}
+                    />
+                </Stack>
+                <ToastContainer />
+            </GestureHandlerRootView>
+        </PaperProvider>
     );
 }
