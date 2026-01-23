@@ -117,7 +117,7 @@ export default function HomeScreen() {
                 contentContainerStyle={styles.worldsList}
                 renderItem={({ item }) => (
                     <Card
-                        style={[styles.worldCard, { borderColor: theme.colors.outlineVariant }]}
+                        style={[styles.worldCard, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surface }]}
                         onPress={() => router.push(`/campaign/create?world=${item.id}`)}
                         mode="outlined"
                     >
@@ -137,7 +137,7 @@ export default function HomeScreen() {
 
         return (
             <Card
-                style={styles.campaignCard}
+                style={[styles.campaignCard, { backgroundColor: theme.colors.surface }]}
                 onPress={() => router.push(`/campaign/${item.id}`)}
                 mode="contained"
             >
