@@ -1010,7 +1010,7 @@ export function getDefaultModuleState(moduleType: WorldModuleType): ModuleState 
                     stats: {
                         power: 10,
                         speed: 10,
-                        stamina: 10,
+                        spirit: 10,
                         recovery: 10,
                     },
                     abilities: [],
@@ -1122,11 +1122,14 @@ export const useTurnsStore = create<TurnsState>((set, get) => {
         },
 
         getUsagePercent: () => {
-            const { used, bonusTurns, getLimit } = get();
+            const { getLimit, balance, tier } = get();
+            if (tier === 'legendary') return 0;
             const limit = getLimit();
-            if (limit === Infinity) return 0;
-            const total = limit + bonusTurns;
-            return Math.min(100, (used / total) * 100);
+            if (limit === Infinity || limit === 0) return 0;
+
+            // Usage % = ((Limit - Balance) / Limit) * 100
+            const used = Math.max(0, limit - balance);
+            return Math.min(100, (used / limit) * 100);
         },
 
         useTurn: (cost = 1) => {

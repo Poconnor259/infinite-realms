@@ -183,8 +183,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         backgroundColor: colors.background.primary,
         borderRadius: borderRadius.full,
         overflow: 'hidden',
-        flexDirection: 'row',
-        justifyContent: 'flex-end',
     },
     meterFill: {
         height: '100%',
