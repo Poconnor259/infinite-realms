@@ -240,7 +240,7 @@ export interface OutworlderCharacter extends Character {
     stats: {
         power: number;
         speed: number;
-        stamina: number;
+        spirit: number;
         recovery: number;
     };
     abilities: OutworlderAbility[];

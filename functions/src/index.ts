@@ -434,6 +434,56 @@ export const processGameAction = onCall(
                 };
             }
 
+            // SAFETY NET: Detect if Brain missed pendingRoll when it should have returned one
+            if (interactiveDiceRolls && !brainResult.data.pendingRoll && !rollResult) {
+                const narrativeText = brainResult.data.narrativeCues?.map(c => c.content).join(' ') || '';
+                const rollKeywords = /\b(roll|dice|d20|d6|d10|d100|check|save|attack)\b/i;
+
+                if (rollKeywords.test(narrativeText)) {
+                    console.warn('[Safety Net] Brain missed pendingRoll! Narrative contains roll keywords:', narrativeText.substring(0, 200));
+
+                    // Try to extract roll info from narrative
+                    const d20Match = narrativeText.match(/roll\s+(?:a\s+)?d20/i);
+                    const dcMatch = narrativeText.match(/DC\s+(\d+)/i);
+                    const purposeMatch = narrativeText.match(/(?:to\s+)?(\w+(?:\s+\w+){0,3})(?:\s+roll|\s+check|\s+save)/i);
+
+                    if (d20Match) {
+                        const extractedRoll = {
+                            type: 'd20',
+                            purpose: purposeMatch?.[1] || 'Action',
+                            difficulty: dcMatch ? parseInt(dcMatch[1]) : undefined,
+                            modifier: 0,
+                        };
+
+                        console.log('[Safety Net] Extracted pendingRoll:', extractedRoll);
+
+                        // Return early with extracted roll
+                        if (auth?.uid && !userInput.startsWith('[DICE ROLL RESULT:')) {
+                            const messagesRef = db.collection('users')
+                                .doc(auth.uid)
+                                .collection('campaigns')
+                                .doc(campaignId)
+                                .collection('messages');
+
+                            await messagesRef.add({
+                                role: 'user',
+                                content: userInput,
+                                timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                            });
+                        }
+
+                        return {
+                            success: true,
+                            stateUpdates: brainResult.data.stateUpdates || {},
+                            diceRolls: [],
+                            systemMessages: brainResult.data.systemMessages || [],
+                            requiresUserInput: true,
+                            pendingRoll: extractedRoll,
+                        };
+                    }
+                }
+            }
+
             // If there's a pending roll, return early (no Voice AI call, no turn charge)
             // User will roll dice and continue with rollResult
             if (brainResult.data.pendingRoll && brainResult.data.requiresUserInput) {

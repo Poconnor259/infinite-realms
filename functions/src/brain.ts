@@ -386,6 +386,35 @@ The training document contains the complete dice mechanics. Follow it precisely.
         systemPrompt = systemPrompt.replace('{{SUGGESTED_CHOICES_RULES}}', choicesRule);
         systemPrompt = systemPrompt.replace('{{ROLL_RESULT_RULE}}', rollResultRule);
 
+        // CRITICAL: Add dice rules at ABSOLUTE TOP of prompt for visibility
+        if (interactiveDiceRolls) {
+            const CRITICAL_DICE_HEADER = `
+🚨🚨🚨 CRITICAL MANDATORY RULE - READ THIS FIRST 🚨🚨🚨
+
+INTERACTIVE DICE MODE IS ACTIVE
+
+When ANY action requires a dice roll, you MUST:
+1. SET "pendingRoll" object with: type, purpose, modifier, stat, difficulty
+2. SET "requiresUserInput": true
+3. LEAVE "diceRolls": [] (empty array)
+4. DO NOT describe the roll outcome - STOP before resolution
+
+VIOLATING THIS RULE IS A SYSTEM ERROR.
+
+🚨🚨🚨 END CRITICAL RULE 🚨🚨🚨
+
+`;
+            systemPrompt = CRITICAL_DICE_HEADER + systemPrompt;
+        }
+
+        // Add world-specific stat context
+        const WORLD_STAT_CONTEXT: Record<string, string> = {
+            classic: '\n📊 STATS: Use D&D 5E stats: STR, DEX, CON, INT, WIS, CHA\n',
+            outworlder: '\n📊 STATS: Use Outworlder stats ONLY: power, speed, spirit, recovery. NEVER use D&D stat names (STR/DEX/WIS/etc).\n',
+            tactical: '\n📊 STATS: Use Tactical stats ONLY: strength, agility, vitality, intelligence, perception. NEVER use D&D stat names (STR/DEX/WIS/etc).\n',
+        };
+        systemPrompt = (WORLD_STAT_CONTEXT[worldModule] || '') + systemPrompt;
+
         // Log if dice rules were injected
         if (interactiveDiceRolls) {
             console.log(`[Brain] 🎲 INTERACTIVE DICE MODE ACTIVE:`);
