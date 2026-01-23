@@ -55,6 +55,10 @@ export default function AdminTrainingScreen() {
     const [formContent, setFormContent] = useState('');
     const [formError, setFormError] = useState<string | null>(null);
 
+    // Filter state
+    const [filterModule, setFilterModule] = useState<WorldModule | 'all'>('all');
+    const [filterCategory, setFilterCategory] = useState<Category | 'all'>('all');
+
     useEffect(() => {
         loadDocuments();
     }, []);
@@ -362,6 +366,15 @@ export default function AdminTrainingScreen() {
         }
     };
 
+    // Filter documents based on selected filters
+    const filteredDocuments = useMemo(() => {
+        return documents.filter(doc => {
+            const matchesModule = filterModule === 'all' || doc.worldModule === filterModule;
+            const matchesCategory = filterCategory === 'all' || doc.category === filterCategory;
+            return matchesModule && matchesCategory;
+        });
+    }, [documents, filterModule, filterCategory]);
+
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
@@ -397,6 +410,77 @@ export default function AdminTrainingScreen() {
                             {documents.filter(d => d.targetModel === 'voice' || d.targetModel === 'both').length}
                         </Text>
                         <Text style={styles.statLabel}>Voice</Text>
+                    </View>
+                </View>
+            </FadeInView>
+
+            {/* Filter Controls */}
+            <FadeInView>
+                <View style={styles.filterContainer}>
+                    <View style={styles.filterGroup}>
+                        <Text style={styles.filterLabel}>World Module</Text>
+                        <View style={styles.filterRow}>
+                            <AnimatedPressable
+                                style={[
+                                    styles.filterChip,
+                                    filterModule === 'all' && styles.filterChipActive
+                                ]}
+                                onPress={() => setFilterModule('all')}
+                            >
+                                <Text style={[
+                                    styles.filterChipText,
+                                    filterModule === 'all' && styles.filterChipTextActive
+                                ]}>All</Text>
+                            </AnimatedPressable>
+                            {WORLD_MODULES.map(m => (
+                                <AnimatedPressable
+                                    key={m.value}
+                                    style={[
+                                        styles.filterChip,
+                                        filterModule === m.value && styles.filterChipActive
+                                    ]}
+                                    onPress={() => setFilterModule(m.value)}
+                                >
+                                    <Text style={[
+                                        styles.filterChipText,
+                                        filterModule === m.value && styles.filterChipTextActive
+                                    ]}>{m.label}</Text>
+                                </AnimatedPressable>
+                            ))}
+                        </View>
+                    </View>
+
+                    <View style={styles.filterGroup}>
+                        <Text style={styles.filterLabel}>Category</Text>
+                        <View style={styles.filterRow}>
+                            <AnimatedPressable
+                                style={[
+                                    styles.filterChip,
+                                    filterCategory === 'all' && styles.filterChipActive
+                                ]}
+                                onPress={() => setFilterCategory('all')}
+                            >
+                                <Text style={[
+                                    styles.filterChipText,
+                                    filterCategory === 'all' && styles.filterChipTextActive
+                                ]}>All</Text>
+                            </AnimatedPressable>
+                            {CATEGORIES.map(c => (
+                                <AnimatedPressable
+                                    key={c.value}
+                                    style={[
+                                        styles.filterChip,
+                                        filterCategory === c.value && styles.filterChipActive
+                                    ]}
+                                    onPress={() => setFilterCategory(c.value)}
+                                >
+                                    <Text style={[
+                                        styles.filterChipText,
+                                        filterCategory === c.value && styles.filterChipTextActive
+                                    ]}>{c.label}</Text>
+                                </AnimatedPressable>
+                            ))}
+                        </View>
                     </View>
                 </View>
             </FadeInView>
@@ -562,17 +646,17 @@ export default function AdminTrainingScreen() {
             )}
 
             {/* Document List */}
-            <Text style={styles.sectionTitle}>Documents ({documents.length})</Text>
+            <Text style={styles.sectionTitle}>Documents ({filteredDocuments.length}{filteredDocuments.length !== documents.length ? ` of ${documents.length}` : ''})</Text>
 
-            {documents.length === 0 ? (
+            {filteredDocuments.length === 0 ? (
                 <View style={styles.emptyState}>
                     <Ionicons name="documents-outline" size={48} color={colors.text.muted} />
-                    <Text style={styles.emptyText}>No documents yet</Text>
-                    <Text style={styles.emptySubtext}>Add reference materials for the AI to use</Text>
+                    <Text style={styles.emptyText}>{documents.length === 0 ? 'No documents yet' : 'No matching documents'}</Text>
+                    <Text style={styles.emptySubtext}>{documents.length === 0 ? 'Add reference materials for the AI to use' : 'Try adjusting your filters'}</Text>
                 </View>
             ) : (
                 <StaggeredList style={{ gap: spacing.sm }}>
-                    {documents.map((doc) => (
+                    {filteredDocuments.map((doc) => (
                         <View key={doc.id} style={styles.docCard}>
                             <View style={styles.docHeader}>
                                 <View style={styles.docInfo}>
@@ -967,5 +1051,48 @@ const createStyles = (colors: any) => StyleSheet.create({
         flex: 1,
         color: colors.status.error,
         fontSize: typography.fontSize.sm,
+    },
+    filterContainer: {
+        backgroundColor: colors.background.secondary,
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.lg,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        gap: spacing.md,
+    },
+    filterGroup: {
+        gap: spacing.xs,
+    },
+    filterLabel: {
+        fontSize: typography.fontSize.sm,
+        color: colors.text.secondary,
+        fontWeight: '500',
+        marginBottom: spacing.xs,
+    },
+    filterRow: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: spacing.xs,
+    },
+    filterChip: {
+        paddingVertical: spacing.xs,
+        paddingHorizontal: spacing.sm,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.sm,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+    },
+    filterChipActive: {
+        backgroundColor: colors.primary[700],
+        borderColor: colors.primary[500],
+    },
+    filterChipText: {
+        color: colors.text.muted,
+        fontSize: typography.fontSize.sm,
+    },
+    filterChipTextActive: {
+        color: colors.text.primary,
+        fontWeight: '500',
     },
 });

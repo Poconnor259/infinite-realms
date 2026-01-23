@@ -222,6 +222,13 @@ ${customRules}
         // Get brain prompt from Firestore
         const brainPrompt = await getPrompt('brain', worldModule);
 
+        // DEBUG: Check if prompt has the interactive dice placeholder
+        const hasInteractiveDicePlaceholder = brainPrompt.includes('{{INTERACTIVE_DICE_RULES}}');
+        console.log(`[Brain] 🔍 Prompt analysis:`);
+        console.log(`[Brain]   - interactiveDiceRolls setting: ${interactiveDiceRolls}`);
+        console.log(`[Brain]   - Prompt has {{INTERACTIVE_DICE_RULES}}: ${hasInteractiveDicePlaceholder}`);
+        console.log(`[Brain]   - Prompt length: ${brainPrompt.length} chars`);
+
         // Check if character already has essences (for Outworlder)
         // Character data can be in multiple places depending on how state is structured
         let essenceOverrideSection = '';
@@ -381,9 +388,16 @@ The training document contains the complete dice mechanics. Follow it precisely.
 
         // Log if dice rules were injected
         if (interactiveDiceRolls) {
-            console.log(`[Brain] 🎲 DICE RULES INJECTED:`);
-            console.log(`[Brain] Instructions length: ${diceRules.length} chars`);
-            console.log(`[Brain] First 200 chars: ${diceRules.substring(0, 200)}...`);
+            console.log(`[Brain] 🎲 INTERACTIVE DICE MODE ACTIVE:`);
+            console.log(`[Brain]   - diceRules length: ${diceRules.length} chars`);
+            console.log(`[Brain]   - diceRules starts with: "${diceRules.substring(0, 100)}..."`);
+            // Verify the rules made it into the prompt
+            const hasInteractiveRulesInPrompt = systemPrompt.includes('INTERACTIVE DICE MODE');
+            const hasPendingRollInPrompt = systemPrompt.includes('pendingRoll');
+            console.log(`[Brain]   - Final prompt has INTERACTIVE DICE MODE: ${hasInteractiveRulesInPrompt}`);
+            console.log(`[Brain]   - Final prompt mentions pendingRoll: ${hasPendingRollInPrompt}`);
+        } else {
+            console.log(`[Brain] 🎲 AUTO DICE MODE (not interactive)`);
         }
 
         // BACKWARD COMPATIBILITY: If placeholders are missing (old prompt version), append the logic

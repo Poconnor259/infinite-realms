@@ -219,6 +219,7 @@ export const processGameAction = onCall(
             byokKeys,
             interactiveDiceRolls,
             rollResult,
+            pendingRoll,
         } = data;
 
         // Validate required fields
@@ -423,6 +424,7 @@ export const processGameAction = onCall(
                 showSuggestedChoices, // Pass user preference
                 interactiveDiceRolls,
                 rollResult,
+                pendingRoll,
             });
 
             if (!brainResult.success || !brainResult.data) {
@@ -923,11 +925,27 @@ export const processGameAction = onCall(
                     console.log('[Messages] Skipped dice roll marker (user message already saved)');
                 }
 
+                // Helper to remove undefined values (Firestore doesn't allow them)
+                const cleanForFirestore = (obj: any): any => {
+                    if (obj === null || obj === undefined) return null;
+                    if (Array.isArray(obj)) return obj.map(cleanForFirestore);
+                    if (typeof obj === 'object') {
+                        const cleaned: any = {};
+                        for (const key in obj) {
+                            if (obj[key] !== undefined) {
+                                cleaned[key] = cleanForFirestore(obj[key]);
+                            }
+                        }
+                        return cleaned;
+                    }
+                    return obj;
+                };
+
                 await messagesRef.add({
                     role: 'narrator',
                     content: voiceResult.narrative || brainResult.data.narrativeCue,
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    metadata: {
+                    metadata: cleanForFirestore({
                         voiceModel: voiceConfig.model, // Store resolved model ID for permanent display
                         turnCost: userTier !== 'legendary' ? turnCost : 0,
                         debug: {
@@ -940,7 +958,7 @@ export const processGameAction = onCall(
                                 voice: voiceConfig.model,
                             },
                         },
-                    }
+                    })
                 });
                 console.log('[Messages] Saved narrator message');
 
@@ -980,22 +998,23 @@ export const processGameAction = onCall(
             };
 
         } catch (error) {
-            console.error('Game processing error:', error);
+            console.error('=== GAME PROCESSING ERROR ===');
+            console.error('Error object:', error);
+            console.error('Error type:', typeof error);
+            if (error instanceof Error) {
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+                console.error('Error name:', error.name);
+            }
+            console.error('================================');
 
             // Return more specific error messages while still protecting sensitive details
             const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-            const isValidationError = errorMessage.includes('validation failed');
-            const isPermissionError = errorMessage.includes('permission') || errorMessage.includes('not authorized');
 
+            // TEMPORARY DEBUG: Always show full error message
             return {
                 success: false,
-                error: isValidationError
-                    ? 'Game state validation failed. Please try again or contact support if this persists.'
-                    : isPermissionError
-                        ? 'Permission denied. Please check your account status.'
-                        : errorMessage.length < 200
-                            ? errorMessage  // Show error if it's not too long
-                            : 'An internal error occurred. Please try again.',
+                error: errorMessage || 'An unknown error occurred',
             };
         }
     }

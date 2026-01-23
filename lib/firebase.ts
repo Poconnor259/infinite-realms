@@ -602,7 +602,7 @@ export async function adminAdjustTurns(
 export interface KnowledgeDocument {
     id: string;
     name: string;
-    worldModule: 'global' | 'classic' | 'outworlder' | 'tactical';
+    worldModule: 'global' | 'classic' | 'outworlder' | 'shadowMonarch';
     content: string;
     category: 'lore' | 'rules' | 'characters' | 'locations' | 'other';
     targetModel: 'brain' | 'voice' | 'both';
