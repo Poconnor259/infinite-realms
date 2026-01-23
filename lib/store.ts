@@ -314,11 +314,26 @@ export const useGameStore = create<GameState>((set, get) => ({
     updateCurrentCampaign: (updates) => {
         set((state) => {
             if (!state.currentCampaign) return state;
+
+            const updatedCampaign = {
+                ...state.currentCampaign,
+                ...updates,
+            };
+
+            // Also check if pendingRoll needs to be updated from moduleState
+            // This ensures real-time sync if backend sets a pending roll
+            const incomingPendingRoll = (updates.moduleState as any)?.pendingRoll;
+
+            // Only update pendingRoll if it's explicitly present in the update
+            // (Use undefined check to distinguish from missing vs null)
+            let newPendingRoll = state.pendingRoll;
+            if (updates.moduleState && incomingPendingRoll !== undefined) {
+                newPendingRoll = incomingPendingRoll;
+            }
+
             return {
-                currentCampaign: {
-                    ...state.currentCampaign,
-                    ...updates,
-                }
+                currentCampaign: updatedCampaign,
+                pendingRoll: newPendingRoll
             };
         });
     },

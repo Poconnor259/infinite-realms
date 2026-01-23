@@ -484,27 +484,46 @@ export const processGameAction = onCall(
                 }
             }
 
-            // If there's a pending roll, return early (no Voice AI call, no turn charge)
-            // User will roll dice and continue with rollResult
-            if (brainResult.data.pendingRoll && brainResult.data.requiresUserInput) {
+            // Check for pendingRoll in stateUpdates (Brain hallucination fix)
+            let effectivePendingRoll = brainResult.data.pendingRoll;
+            if (!effectivePendingRoll && (brainResult.data.stateUpdates as any)?.pendingRoll) {
+                console.log('[Safety Net] Found pendingRoll inside stateUpdates, extracting...');
+                effectivePendingRoll = (brainResult.data.stateUpdates as any).pendingRoll;
+                delete (brainResult.data.stateUpdates as any).pendingRoll;
+            }
+
+            // If there's a pending roll, save state and return early
+            if (effectivePendingRoll && brainResult.data.requiresUserInput) {
                 console.log('[Brain] Pending dice roll required, pausing for user input');
 
-                // Save user message before returning (Fix: preserve original user input)
-                // But skip if this is a dice roll continuation marker
-                if (auth?.uid && !userInput.startsWith('[DICE ROLL RESULT:')) {
-                    const messagesRef = db.collection('users')
+                if (auth?.uid) {
+                    // 1. Save user message if needed
+                    if (!userInput.startsWith('[DICE ROLL RESULT:')) {
+                        const messagesRef = db.collection('users')
+                            .doc(auth.uid)
+                            .collection('campaigns')
+                            .doc(campaignId)
+                            .collection('messages');
+
+                        await messagesRef.add({
+                            role: 'user',
+                            content: userInput,
+                            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                        console.log('[Brain] Saved user message before pending roll');
+                    }
+
+                    // 2. PERSIST pendingRoll to Firestore so it survives refresh
+                    // We must update the moduleState to include this pending roll
+                    await db.collection('users')
                         .doc(auth.uid)
                         .collection('campaigns')
                         .doc(campaignId)
-                        .collection('messages');
-
-                    await messagesRef.add({
-                        role: 'user',
-                        content: userInput,
-                        timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                    });
-
-                    console.log('[Brain] Saved user message before pending roll');
+                        .update({
+                            'moduleState.pendingRoll': effectivePendingRoll,
+                            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                    console.log('[Brain] Persisted pendingRoll to Firestore');
                 }
 
                 return {
@@ -513,7 +532,7 @@ export const processGameAction = onCall(
                     diceRolls: [],
                     systemMessages: brainResult.data.systemMessages || [],
                     requiresUserInput: true,
-                    pendingRoll: brainResult.data.pendingRoll,
+                    pendingRoll: effectivePendingRoll,
                     // Note: No turn charge for pending roll - will charge when user continues
                 };
             }
