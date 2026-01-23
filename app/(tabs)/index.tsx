@@ -180,7 +180,7 @@ export default function HomeScreen() {
                     data={campaigns}
                     renderItem={renderCampaignItem}
                     keyExtractor={item => item.id}
-                    contentContainerStyle={styles.listContent}
+                    contentContainerStyle={[styles.listContent, { backgroundColor: theme.colors.background }]}
                     ListHeaderComponent={renderHeader}
                     ListFooterComponent={renderFooter}
                     refreshControl={
