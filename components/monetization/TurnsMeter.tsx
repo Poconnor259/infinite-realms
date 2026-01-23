@@ -93,7 +93,7 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
                         style={[
                             styles.compactFill,
                             {
-                                width: tier === 'legendary' ? '100%' : `${100 - percent}%`,
+                                width: tier === 'legendary' ? '100%' : `${percent}%`,
                                 backgroundColor: getBarColor(),
                             }
                         ]}
@@ -126,7 +126,7 @@ export function TurnsMeter({ compact = false }: TurnsMeterProps) {
                         style={[
                             styles.meterFill,
                             {
-                                width: tier === 'legendary' ? '100%' : `${100 - percent}%`,
+                                width: tier === 'legendary' ? '100%' : `${percent}%`,
                                 backgroundColor: getBarColor(),
                             }
                         ]}
