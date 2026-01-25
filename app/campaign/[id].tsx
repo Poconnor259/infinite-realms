@@ -580,6 +580,30 @@ export default function CampaignScreen() {
                                     animated: true
                                 });
                             }}
+                            ListHeaderComponent={
+                                pendingRoll ? (
+                                    <View style={{ padding: 16, alignItems: 'center', opacity: 0.8 }}>
+                                        <Text style={{ color: colors.text.secondary, fontStyle: 'italic', marginBottom: 8 }}>
+                                            🎲 Roll required: {pendingRoll.purpose}
+                                        </Text>
+                                        <TouchableOpacity
+                                            onPress={() => setPanelVisible(true)}
+                                            style={{
+                                                flexDirection: 'row',
+                                                alignItems: 'center',
+                                                gap: 8,
+                                                backgroundColor: colors.background.tertiary,
+                                                paddingHorizontal: 16,
+                                                paddingVertical: 8,
+                                                borderRadius: 20
+                                            }}
+                                        >
+                                            <Text style={{ color: colors.primary[400], fontWeight: 'bold' }}>Open Dice Roller</Text>
+                                            <Ionicons name="arrow-forward" size={16} color={colors.primary[400]} />
+                                        </TouchableOpacity>
+                                    </View>
+                                ) : null
+                            }
                             ListEmptyComponent={
                                 <View style={[styles.emptyChat, { transform: [{ scaleY: -1 }] }]}>
                                     <Text style={styles.emptyChatIcon}>📜</Text>

@@ -438,6 +438,8 @@ WORLD RULES (OUTWORLDER):
 - Abilities have cooldowns and mana/stamina costs
 - Health scales with rank
 - Stats to track: HP, Mana, Stamina, Rank, Essences (max 4), Confluence, Abilities with cooldowns.
+- UTILITY/SUMMONING ABILITIES: Abilities that summon items, vehicles, or active self-buffs (e.g., "Manifest Car", "Summon Weapon", "Armor Up") succeed AUTOMATICALLY. DO NOT request a roll unless there is a specific external force preventing it (e.g., anti-magic zone, being restrained).
+- ATTACK ABILITIES: Only require rolls if they target an enemy's defense. Auto-hit abilities (like Magic Missile equivalent) do not require a roll.
 
 RESPONSE FORMAT:
 Respond with valid JSON only. No markdown, no explanation.`,
