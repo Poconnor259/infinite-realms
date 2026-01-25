@@ -19,7 +19,6 @@ import { useGameStore, useUserStore } from '../../lib/store';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 import { createCampaign, signInAnonymouslyIfNeeded, getWorlds, getGameEngines } from '../../lib/firebase';
 import { ClassicCharacterCreation } from '../../components/character/ClassicCharacterCreation';
-import { OutworlderCharacterCreation } from '../../components/character/OutworlderCharacterCreation';
 import { TacticalCharacterCreation } from '../../components/character/TacticalCharacterCreation';
 import { DynamicCharacterCreation } from '../../components/character/DynamicCharacterCreation';
 import type { WorldModule, WorldModuleType, ModuleCharacter, GameEngine } from '../../lib/types';
@@ -27,7 +26,6 @@ import type { WorldModule, WorldModuleType, ModuleCharacter, GameEngine } from '
 // Helper to get default character creation component
 const CharacterCreationMap: Record<string, any> = {
     classic: ClassicCharacterCreation,
-    outworlder: OutworlderCharacterCreation,
     tactical: TacticalCharacterCreation,
     praxis: TacticalCharacterCreation,
 };

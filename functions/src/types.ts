@@ -236,11 +236,10 @@ export interface ClassicModuleState {
 export interface OutworlderCharacter extends Character {
     rank: 'Iron' | 'Bronze' | 'Silver' | 'Gold' | 'Diamond';
     essences: string[]; // max 4
-    confluence?: string;
     stats: {
         power: number;
         speed: number;
-        stamina: number;
+        spirit: number;
         recovery: number;
     };
     abilities: OutworlderAbility[];

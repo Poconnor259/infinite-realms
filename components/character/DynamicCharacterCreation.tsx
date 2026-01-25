@@ -36,6 +36,11 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
     const [importedRank, setImportedRank] = useState<string>(''); // Store rank from import
     const [showEssenceDropdown, setShowEssenceDropdown] = useState(false);
 
+    // Custom Essence State
+    const [isCustomEssence, setIsCustomEssence] = useState(false);
+    const [customEssenceName, setCustomEssenceName] = useState('');
+    const [customAbilityName, setCustomAbilityName] = useState('');
+
     // Check if this is an Outworlder-type world
     const isOutworlder = engine.id === 'outworlder' || engine.name?.toLowerCase().includes('outworlder');
 
@@ -185,17 +190,34 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                     if (importedAbilities.length > 0) {
                         character.abilities = importedAbilities;
                     }
-                } else if (selectedEssence) {
+                } else if (selectedEssence || isCustomEssence) {
                     // Player chose a specific essence via UI - skip AI prompt
-                    character.essences = [selectedEssence.name];
+                    const finalEssenceName = isCustomEssence ? (customEssenceName || 'Unknown') : (selectedEssence?.name || 'Unknown');
+
+                    character.essences = [finalEssenceName];
                     character.essenceSelection = 'chosen';
 
                     // Add intrinsic abilities based on essence choice
                     if (!character.abilities) character.abilities = [];
-                    if (selectedEssence.name === 'Dimension') {
-                        character.abilities.push('Spatial Awareness (Dimension - Intrinsic)');
-                    } else if (selectedEssence.name === 'Technology') {
-                        character.abilities.push('Schematic Vision (Technology - Intrinsic)');
+
+                    if (isCustomEssence) {
+                        character.abilities.push({
+                            name: customAbilityName || `Manifest ${finalEssenceName}`,
+                            type: 'special', // Default type for custom
+                            rank: 'Iron',
+                            essence: finalEssenceName,
+                            cooldown: 0,
+                            currentCooldown: 0,
+                            cost: 'mana',
+                            costAmount: 10,
+                            description: `Starting ability from ${finalEssenceName} essence`
+                        });
+                    } else if (selectedEssence) {
+                        if (selectedEssence.name === 'Dimension') {
+                            character.abilities.push('Spatial Awareness (Dimension - Intrinsic)');
+                        } else if (selectedEssence.name === 'Technology') {
+                            character.abilities.push('Schematic Vision (Technology - Intrinsic)');
+                        }
                     }
                 }
 
@@ -412,17 +434,25 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                                 ]}
                                 onPress={() => setShowEssenceDropdown(true)}
                             >
-                                {selectedEssence ? (
-                                    <View style={styles.selectedEssence}>
-                                        <Text style={[styles.essenceName, { color: colors.text.primary }]}>
-                                            {selectedEssence.name}
-                                        </Text>
-                                        <Text style={[styles.essenceRarity, { color: getRarityColor(selectedEssence.rarity) }]}>
-                                            {selectedEssence.rarity}
-                                        </Text>
-                                    </View>
+                                <View style={styles.selectedEssence}>
+                                    <Text style={[styles.essenceName, { color: colors.text.primary }]}>
+                                        {selectedEssence.name}
+                                    </Text>
+                                    <Text style={[styles.essenceRarity, { color: getRarityColor(selectedEssence.rarity) }]}>
+                                        {selectedEssence.rarity}
+                                    </Text>
+                                </View>
+                                ) : isCustomEssence ? (
+                                <View style={styles.selectedEssence}>
+                                    <Text style={[styles.essenceName, { color: colors.text.primary }]}>
+                                        {customEssenceName || 'Custom Essence'}
+                                    </Text>
+                                    <Text style={[styles.essenceRarity, { color: colors.primary[400] }]}>
+                                        Custom
+                                    </Text>
+                                </View>
                                 ) : (
-                                    <Text style={{ color: colors.text.muted }}>Tap to select essence...</Text>
+                                <Text style={{ color: colors.text.muted }}>Tap to select essence...</Text>
                                 )}
                                 <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
                             </TouchableOpacity>
@@ -832,6 +862,7 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                                             ]}
                                             onPress={() => {
                                                 setSelectedEssence(essence);
+                                                setIsCustomEssence(false);
                                                 setShowEssenceDropdown(false);
                                                 setFormData(prev => ({ ...prev, _essenceSearch: '' }));
                                             }}
@@ -847,6 +878,36 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                                 </View>
                             );
                         })}
+
+                        {/* Custom Option */}
+                        <View>
+                            <Text style={[styles.essenceGroupTitle, { color: colors.primary[400], marginTop: spacing.md }]}>
+                                Custom
+                            </Text>
+                            <TouchableOpacity
+                                style={[
+                                    styles.essenceItem,
+                                    { backgroundColor: colors.background.secondary },
+                                    isCustomEssence && {
+                                        borderWidth: 2,
+                                        borderColor: colors.primary[500]
+                                    }
+                                ]}
+                                onPress={() => {
+                                    setIsCustomEssence(true);
+                                    setSelectedEssence(null);
+                                    setShowEssenceDropdown(false);
+                                    setFormData(prev => ({ ...prev, _essenceSearch: '' }));
+                                }}
+                            >
+                                <Text style={[styles.essenceItemName, { color: colors.text.primary }]}>
+                                    Custom Essence
+                                </Text>
+                                <Text style={[styles.essenceItemRarity, { color: colors.primary[400] }]}>
+                                    Create Your Own
+                                </Text>
+                            </TouchableOpacity>
+                        </View>
                     </ScrollView>
                 </View>
             </Modal>

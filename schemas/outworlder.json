@@ -97,10 +97,6 @@
             "maxItems": 4,
             "description": "Absorbed essences (max 4)"
         },
-        "confluence": {
-            "type": "string",
-            "description": "Special title from essence combination"
-        },
         "abilities": {
             "type": "array",
             "items": {

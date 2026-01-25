@@ -480,7 +480,6 @@ function extractExtras(char: any, worldType: string): Record<string, any> {
     // Outworlder-specific
     if (worldType === 'outworlder') {
         if (char.essences) extras.essences = char.essences;
-        if (char.confluence) extras.confluence = char.confluence;
     }
 
     // Tactical/Praxis-specific

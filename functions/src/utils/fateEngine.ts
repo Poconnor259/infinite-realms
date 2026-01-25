@@ -46,7 +46,7 @@ export function mapStatToD20Equivalent(
         const statMap: Record<string, keyof typeof outworlderChar.stats> = {
             'STR': 'power',
             'DEX': 'speed',
-            'CON': 'stamina',
+            'CON': 'spirit',
             'INT': 'power',
             'WIS': 'recovery',
             'CHA': 'power'

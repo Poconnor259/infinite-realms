@@ -303,7 +303,7 @@ These are the character's ONLY abilities. They were set during character creatio
 
 STRICT RULES:
 1. YOU ARE FORBIDDEN from adding ANY new entries to the 'abilities' array in 'stateUpdates'.
-2. DO NOT unlock "Intrinsic", "Confluence", or ANY other type of ability during this intro sequence.
+2. DO NOT unlock "Intrinsic" or ANY other type of ability during this intro sequence.
 3. The 'stateUpdates.character.abilities' (or 'stateUpdates.abilities') field MUST be EMPTY {} or UNDEFINED.
 4. If you output an ability update, you have FAILED the instruction.
 5. Reference ONLY the abilities listed above when describing the character's powers.
@@ -323,9 +323,11 @@ NOTE: The character already has established abilities.
                     console.log('[Brain] Character has NO abilities - allowing ability grants');
                 }
 
-                essenceOverrideSection += `The character is ALREADY awakened with the ${character.essences[0]} essence.
-Skip directly to their adventure beginning with their essence already active.
-Acknowledge their essence in narrative but do not offer selection.
+                const essenceListStr = formatEssenceList(character.essences);
+                essenceOverrideSection += `The character is ALREADY awakened with these essences: ${essenceListStr}.
+Skip directly to their adventure beginning with their powers already active.
+You MUST mentally acknowledge and briefly describe the sensation of EACH essence listed above (${essenceListStr}).
+Do not offer selection.
 `;
                 console.log('[Brain] Essence override section added');
             }

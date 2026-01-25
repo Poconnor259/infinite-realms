@@ -248,7 +248,6 @@ Essences are the source of all supernatural power. Characters absorb essence cor
 ## Essence Types
 - **Sin Essences**: Dark, Doom, Blood, etc.
 - **Virtue Essences**: Adept, Swift, Healer, etc.
-- **Confluence Essences**: Unlock when 4 essences combine correctly
 
 ## Stats (1-100 scale)
 - **Power (PWR)**: Physical and magical damage output

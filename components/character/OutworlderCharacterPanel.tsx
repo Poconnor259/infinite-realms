@@ -172,18 +172,12 @@ export function OutworlderCharacterPanel({ moduleState }: OutworlderCharacterPan
 
             {/* Essences */}
             <View style={styles.section}>
-                <Text style={styles.sectionTitle}>Essences ({(character.essences || []).length + (character.confluence ? 1 : 0)}/4)</Text>
+                <Text style={styles.sectionTitle}>Essences ({(character.essences || []).length}/4)</Text>
                 {(character.essences || []).map((essence, idx) => (
                     <View key={idx} style={styles.essenceItem}>
                         <Text style={styles.essenceName}>{essence}</Text>
                     </View>
                 ))}
-                {character.confluence && (
-                    <View style={[styles.essenceItem, styles.confluenceItem]}>
-                        <Text style={styles.confluenceLabel}>Confluence:</Text>
-                        <Text style={styles.confluenceName}>{character.confluence}</Text>
-                    </View>
-                )}
                 {(!character.essences || character.essences.length === 0) && (
                     <Text style={styles.emptyText}>No essences absorbed yet</Text>
                 )}
