@@ -40,7 +40,7 @@ function ToastItem({ toast, onDismiss, colors }: ToastItemProps) {
         Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: false,
         }).start();
     }, []);
 
@@ -49,7 +49,7 @@ function ToastItem({ toast, onDismiss, colors }: ToastItemProps) {
         Animated.timing(fadeAnim, {
             toValue: 0,
             duration: 200,
-            useNativeDriver: true,
+            useNativeDriver: false,
         }).start(() => {
             onDismiss();
         });

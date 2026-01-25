@@ -91,6 +91,7 @@ const MODEL_ID_MAP: Record<string, { provider: 'openai' | 'anthropic' | 'google'
     // Legacy mapping or direct pass-through fallbacks
     'claude-3-opus': { provider: 'anthropic', model: 'claude-opus-4-5-20251101' },
     'claude-3-5-sonnet': { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
+    'claude-3-5-sonnet-latest': { provider: 'anthropic', model: 'claude-3-5-sonnet-20241022' },
     'gemini-1.5-flash': { provider: 'google', model: 'gemini-1.5-flash' },
     'gpt-4o-mini': { provider: 'openai', model: 'gpt-4o-mini' },
 };

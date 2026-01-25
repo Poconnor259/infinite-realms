@@ -594,6 +594,45 @@ export default function AdminConfigScreen() {
                         )}
                     </View>
 
+                    {/* Global Voice Model Dropdown */}
+                    <View style={{ marginBottom: spacing.lg }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <Ionicons name="mic" size={18} color={colors.primary[400]} />
+                            <Text style={styles.fieldLabel}>Global Voice Model (Narrator)</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.dropdown}
+                            onPress={() => setVoiceDropdownOpen(!voiceDropdownOpen)}
+                        >
+                            <Text style={styles.dropdownText}>
+                                {voiceModels.find(m => m.id === aiSettings.voiceModel)?.name || aiSettings.voiceModel}
+                            </Text>
+                            <Ionicons name={voiceDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color={colors.text.secondary} />
+                        </TouchableOpacity>
+                        {voiceDropdownOpen && (
+                            <View style={styles.dropdownList}>
+                                {voiceModels.filter(m => !showFavoritesOnly || config?.favoriteModels?.includes(m.id)).map(model => (
+                                    <TouchableOpacity
+                                        key={model.id}
+                                        style={[styles.dropdownItem, aiSettings.voiceModel === model.id && styles.dropdownItemSelected]}
+                                        onPress={() => {
+                                            setAiSettings(prev => ({ ...prev, voiceModel: model.id }));
+                                            setVoiceDropdownOpen(false);
+                                        }}
+                                    >
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.dropdownItemText}>{model.name}</Text>
+                                            <Text style={styles.modelId}>{model.id}</Text>
+                                        </View>
+                                        {aiSettings.voiceModel === model.id && (
+                                            <Ionicons name="checkmark" size={20} color={colors.primary[400]} />
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        )}
+                    </View>
+
                     {/* Quest Master Model Dropdown */}
                     <View style={{ marginBottom: spacing.lg }}>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>

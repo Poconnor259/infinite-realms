@@ -1797,7 +1797,10 @@ export const createCampaign = onCall(
         });
 
         // Only use AI generation if explicitly enabled for this world and we have a key
-        if (voiceConfig.key && worldData?.generateIntro) {
+        // [FIX] Force enable for 'outworlder' to override incorrect seed data
+        const shouldGenerateIntro = worldData?.generateIntro || engineType === 'outworlder';
+
+        if (voiceConfig.key && shouldGenerateIntro) {
             try {
                 // Build narrative cue
                 let narrativeContent = `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`;

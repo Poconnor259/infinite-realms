@@ -516,9 +516,11 @@ export default function CampaignScreen() {
                                     <Text style={styles.campaignName} numberOfLines={1}>
                                         {currentCampaign?.name || 'Loading...'}
                                     </Text>
-                                    <Text style={styles.worldName}>
-                                        {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
-                                    </Text>
+                                    {(currentCampaign?.name?.toLowerCase() !== (currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name?.toLowerCase() : '...')) && (
+                                        <Text style={styles.worldName}>
+                                            {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
+                                        </Text>
+                                    )}
                                 </View>
                             </View>
 

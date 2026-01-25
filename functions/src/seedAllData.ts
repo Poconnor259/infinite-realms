@@ -442,7 +442,7 @@ PRAXIS STYLE:
             order: 0,
             customRules: '',
             initialNarrative: '*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*',
-            generateIntro: false,
+            generateIntro: true,
         });
         console.log('[SeedAllData] ✓ worlds/classic');
 
@@ -464,7 +464,7 @@ PRAXIS STYLE:
             order: 1,
             customRules: '',
             initialNarrative: '*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*',
-            generateIntro: false,
+            generateIntro: true,
         });
         console.log('[SeedAllData] ✓ worlds/outworlder');
 
@@ -486,7 +486,7 @@ PRAXIS STYLE:
             order: 2,
             customRules: '',
             initialNarrative: '*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Operative.*',
-            generateIntro: false,
+            generateIntro: true,
         });
         console.log('[SeedAllData] ✓ worlds/praxis');
 

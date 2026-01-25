@@ -96,12 +96,12 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             Animated.timing(scaleAnim, {
                 toValue: 1.2,
                 duration: 100,
-                useNativeDriver: true,
+                useNativeDriver: false,
             }),
             Animated.timing(scaleAnim, {
                 toValue: 1,
                 duration: 100,
-                useNativeDriver: true,
+                useNativeDriver: false,
             }),
         ]).start();
 
