@@ -148,6 +148,31 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                         <Text style={styles.classText}>{safeClass}</Text>
                     )}
                 </View>
+
+                {/* Level/Rank Progression Bar */}
+                {character.experience && (
+                    <View style={styles.progressionContainer}>
+                        <View style={styles.progressionHeader}>
+                            <Text style={styles.progressionLabel}>
+                                {character.rank ? 'Rank Progress' : 'Level Progress'}
+                            </Text>
+                            <Text style={styles.progressionValue}>
+                                {character.experience.current} / {character.experience.max} XP
+                            </Text>
+                        </View>
+                        <View style={[styles.progressBarBg, { backgroundColor: colors.background.tertiary }]}>
+                            <View
+                                style={[
+                                    styles.progressBarFill,
+                                    {
+                                        width: `${Math.min(100, Math.max(0, (character.experience.current / character.experience.max) * 100))}%`,
+                                        backgroundColor: colors.primary[500]
+                                    }
+                                ]}
+                            />
+                        </View>
+                    </View>
+                )}
             </View>
 
             {/* Dice Roller Section - Collapsible */}
@@ -178,7 +203,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     styles={styles}
                     defaultExpanded={false}
                 >
-                    <FateEngineIndicator fateEngine={character.extras.fateEngine} colors={colors} />
+                    <FateEngineIndicator fateEngine={character.extras.fateEngine} colors={colors} styles={styles} />
                 </CollapsibleSection>
             )}
 
@@ -330,7 +355,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     onExpand={() => clearUpdate('resources')}
                 >
                     {character.resources.map((resource, index) => (
-                        <ResourceBar key={`${resource.name}-${index}`} resource={resource} colors={colors} />
+                        <ResourceBar key={`${resource.name}-${index}`} resource={resource} colors={colors} styles={styles} />
                     ))}
                 </CollapsibleSection>
             )}
@@ -346,7 +371,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                 >
                     <View style={styles.statsGrid}>
                         {character.stats.map((stat, index) => (
-                            <StatBox key={`${stat.id}-${index}`} stat={stat} colors={colors} />
+                            <StatBox key={`${stat.id}-${index}`} stat={stat} colors={colors} styles={styles} />
                         ))}
                     </View>
                 </CollapsibleSection>
@@ -362,7 +387,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     onExpand={() => clearUpdate('inventory')}
                 >
                     {character.inventory.map((item, index) => (
-                        <InventoryItem key={`${item.name}-${index}`} item={item} colors={colors} />
+                        <InventoryItem key={`${item.name}-${index}`} item={item} colors={colors} styles={styles} />
                     ))}
                 </CollapsibleSection>
             )}
@@ -377,7 +402,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     onExpand={() => clearUpdate('abilities')}
                 >
                     {character.abilities.map((ability, index) => (
-                        <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} />
+                        <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} styles={styles} />
                     ))}
                 </CollapsibleSection>
             )}
@@ -455,7 +480,7 @@ function CollapsibleSection({ title, children, colors, styles, hasUpdate, defaul
     );
 }
 
-function ResourceBar({ resource, colors }: { resource: NormalizedResource; colors: any }) {
+function ResourceBar({ resource, colors, styles }: { resource: NormalizedResource; colors: any; styles: any }) {
     const percentage = resource.max > 0 ? (resource.current / resource.max) * 100 : 0;
     const barColor = resource.color || colors.primary[400];
 
@@ -466,19 +491,19 @@ function ResourceBar({ resource, colors }: { resource: NormalizedResource; color
     const safeIcon = resource.icon ? String(resource.icon) : '';
 
     return (
-        <View style={subStyles.resourceContainer}>
-            <View style={subStyles.resourceHeader}>
-                <Text style={[subStyles.resourceName, { color: colors.text.secondary }]}>
+        <View style={styles.resourceContainer}>
+            <View style={styles.resourceHeader}>
+                <Text style={[styles.resourceName, { color: colors.text.secondary }]}>
                     {safeIcon && `${safeIcon} `}{safeName}
                 </Text>
-                <Text style={[subStyles.resourceValue, { color: colors.text.muted }]}>
+                <Text style={[styles.resourceValue, { color: colors.text.muted }]}>
                     {safeCurrent} / {safeMax}
                 </Text>
             </View>
-            <View style={[subStyles.resourceBarBg, { backgroundColor: colors.background.tertiary }]}>
+            <View style={[styles.resourceBarBg, { backgroundColor: colors.background.tertiary }]}>
                 <View
                     style={[
-                        subStyles.resourceBarFill,
+                        styles.resourceBarFill,
                         { width: `${percentage}%`, backgroundColor: barColor }
                     ]}
                 />
@@ -487,7 +512,7 @@ function ResourceBar({ resource, colors }: { resource: NormalizedResource; color
     );
 }
 
-function StatBox({ stat, colors }: { stat: NormalizedStat; colors: any }) {
+function StatBox({ stat, colors, styles }: { stat: NormalizedStat; colors: any; styles: any }) {
     // Defensive coercion
     const safeName = String(stat.name || 'Stat');
     const safeAbbr = stat.abbreviation ? String(stat.abbreviation) : safeName.slice(0, 3).toUpperCase();
@@ -495,35 +520,35 @@ function StatBox({ stat, colors }: { stat: NormalizedStat; colors: any }) {
     const safeIcon = stat.icon ? String(stat.icon) : null;
 
     return (
-        <View style={[subStyles.statBox, { backgroundColor: colors.background.tertiary }]}>
-            <Text style={[subStyles.statLabel, { color: colors.text.muted }]}>
+        <View style={[styles.statBox, { backgroundColor: colors.background.tertiary }]}>
+            <Text style={[styles.statLabel, { color: colors.text.muted }]}>
                 {safeAbbr}
             </Text>
-            <Text style={[subStyles.statValue, { color: colors.text.primary }]}>
+            <Text style={[styles.statValue, { color: colors.text.primary }]}>
                 {safeValue}
             </Text>
             {safeIcon && (
-                <Text style={subStyles.statIcon}>{safeIcon}</Text>
+                <Text style={styles.statIcon}>{safeIcon}</Text>
             )}
         </View>
     );
 }
 
-function InventoryItem({ item, colors }: { item: NormalizedItem; colors: any }) {
+function InventoryItem({ item, colors, styles }: { item: NormalizedItem; colors: any; styles: any }) {
     // Defensive coercion
     const safeName = String(item.name || 'Item');
     const safeQuantity = typeof item.quantity === 'number' ? item.quantity : 1;
 
     return (
-        <View style={[subStyles.inventoryItem, { backgroundColor: colors.background.tertiary }]}>
-            <View style={subStyles.inventoryLeft}>
-                {item.equipped && <Text style={subStyles.equippedIcon}>⚡</Text>}
-                <Text style={[subStyles.itemName, { color: colors.text.primary }]}>
+        <View style={[styles.inventoryItem, { backgroundColor: colors.background.tertiary }]}>
+            <View style={styles.inventoryLeft}>
+                {item.equipped && <Text style={styles.equippedIcon}>⚡</Text>}
+                <Text style={[styles.itemName, { color: colors.text.primary }]}>
                     {safeName}
                 </Text>
             </View>
             {safeQuantity > 1 && (
-                <Text style={[subStyles.itemQuantity, { color: colors.text.muted }]}>
+                <Text style={[styles.itemQuantity, { color: colors.text.muted }]}>
                     ×{safeQuantity}
                 </Text>
             )}
@@ -531,7 +556,7 @@ function InventoryItem({ item, colors }: { item: NormalizedItem; colors: any }) 
     );
 }
 
-function AbilityItem({ ability, colors }: { ability: NormalizedAbility; colors: any }) {
+function AbilityItem({ ability, colors, styles }: { ability: NormalizedAbility; colors: any; styles: any }) {
     // Defensive coercion
     const safeName = String(ability.name || 'Ability');
     const safeRank = ability.rank ? String(ability.rank) : null;
@@ -540,24 +565,24 @@ function AbilityItem({ ability, colors }: { ability: NormalizedAbility; colors: 
     const isOnCooldown = safeCooldown > 0;
 
     return (
-        <View style={[subStyles.abilityItem, { backgroundColor: colors.background.tertiary }]}>
-            <View style={subStyles.abilityHeader}>
-                <Text style={[subStyles.abilityName, { color: colors.text.primary }]}>
+        <View style={[styles.abilityItem, { backgroundColor: colors.background.tertiary }]}>
+            <View style={styles.abilityHeader}>
+                <Text style={[styles.abilityName, { color: colors.text.primary }]}>
                     {safeName}
                 </Text>
                 {safeRank && (
-                    <Text style={[subStyles.abilityRank, { color: getRankColor(safeRank) }]}>
+                    <Text style={[styles.abilityRank, { color: getRankColor(safeRank) }]}>
                         {safeRank}
                     </Text>
                 )}
             </View>
             {safeType && (
-                <Text style={[subStyles.abilityType, { color: colors.text.muted }]}>
+                <Text style={[styles.abilityType, { color: colors.text.muted }]}>
                     {safeType}
                 </Text>
             )}
             {isOnCooldown && (
-                <Text style={[subStyles.abilityCooldown, { color: colors.status.warning }]}>
+                <Text style={[styles.abilityCooldown, { color: colors.status.warning }]}>
                     Cooldown: {safeCooldown}
                 </Text>
             )}
@@ -565,7 +590,7 @@ function AbilityItem({ ability, colors }: { ability: NormalizedAbility; colors: 
     );
 }
 
-function FateEngineIndicator({ fateEngine, colors }: { fateEngine: any; colors: any }) {
+function FateEngineIndicator({ fateEngine, colors, styles }: { fateEngine: any; colors: any; styles: any }) {
     const momentum = fateEngine.momentum_counter || 0;
     const pityCritProgress = fateEngine.pity_crit_counter || 0;
     const fumbleProtection = fateEngine.fumble_protection_active || false;
@@ -577,52 +602,52 @@ function FateEngineIndicator({ fateEngine, colors }: { fateEngine: any; colors: 
     return (
         <View style={{ gap: spacing.md }}>
             {/* Momentum Counter */}
-            <View style={subStyles.fateEngineItem}>
-                <View style={subStyles.fateEngineHeader}>
-                    <Text style={[subStyles.fateEngineName, { color: colors.text.secondary }]}>
+            <View style={styles.fateEngineItem}>
+                <View style={styles.fateEngineHeader}>
+                    <Text style={[styles.fateEngineName, { color: colors.text.secondary }]}>
                         🌟 Momentum
                     </Text>
-                    <Text style={[subStyles.fateEngineValue, { color: colors.primary[400] }]}>
+                    <Text style={[styles.fateEngineValue, { color: colors.primary[400] }]}>
                         {momentum}
                     </Text>
                 </View>
-                <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                <Text style={[styles.fateEngineDesc, { color: colors.text.muted }]}>
                     Builds on successes, increases crit chance
                 </Text>
             </View>
 
             {/* Pity Crit Progress */}
-            <View style={subStyles.fateEngineItem}>
-                <View style={subStyles.fateEngineHeader}>
-                    <Text style={[subStyles.fateEngineName, { color: colors.text.secondary }]}>
+            <View style={styles.fateEngineItem}>
+                <View style={styles.fateEngineHeader}>
+                    <Text style={[styles.fateEngineName, { color: colors.text.secondary }]}>
                         🎯 Pity Crit Progress
                     </Text>
-                    <Text style={[subStyles.fateEngineValue, { color: colors.status.warning }]}>
+                    <Text style={[styles.fateEngineValue, { color: colors.status.warning }]}>
                         {pityCritProgress}/5
                     </Text>
                 </View>
-                <View style={[subStyles.progressBarBg, { backgroundColor: colors.background.tertiary }]}>
+                <View style={[styles.progressBarBg, { backgroundColor: colors.background.tertiary }]}>
                     <View
                         style={[
-                            subStyles.progressBarFill,
+                            styles.progressBarFill,
                             { width: `${pityCritPercentage}%`, backgroundColor: colors.status.warning }
                         ]}
                     />
                 </View>
-                <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                <Text style={[styles.fateEngineDesc, { color: colors.text.muted }]}>
                     Guaranteed crit after 5 non-crits
                 </Text>
             </View>
 
             {/* Fumble Protection */}
             {fumbleProtection && (
-                <View style={[subStyles.fateEngineItem, { backgroundColor: colors.status.success + '20' }]}>
-                    <View style={subStyles.fateEngineHeader}>
-                        <Text style={[subStyles.fateEngineName, { color: colors.status.success }]}>
+                <View style={[styles.fateEngineItem, { backgroundColor: colors.status.success + '20' }]}>
+                    <View style={styles.fateEngineHeader}>
+                        <Text style={[styles.fateEngineName, { color: colors.status.success }]}>
                             🛡️ Fumble Protection Active
                         </Text>
                     </View>
-                    <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                    <Text style={[styles.fateEngineDesc, { color: colors.text.muted }]}>
                         Next natural 1 will be rerolled
                     </Text>
                 </View>
@@ -630,13 +655,13 @@ function FateEngineIndicator({ fateEngine, colors }: { fateEngine: any; colors: 
 
             {/* Director Mode */}
             {directorMode && (
-                <View style={[subStyles.fateEngineItem, { backgroundColor: colors.status.info + '20' }]}>
-                    <View style={subStyles.fateEngineHeader}>
-                        <Text style={[subStyles.fateEngineName, { color: colors.status.info }]}>
+                <View style={[styles.fateEngineItem, { backgroundColor: colors.status.info + '20' }]}>
+                    <View style={styles.fateEngineHeader}>
+                        <Text style={[styles.fateEngineName, { color: colors.status.info }]}>
                             🎬 Director Mode Active
                         </Text>
                     </View>
-                    <Text style={[subStyles.fateEngineDesc, { color: colors.text.muted }]}>
+                    <Text style={[styles.fateEngineDesc, { color: colors.text.muted }]}>
                         Difficulty adjusted in your favor
                     </Text>
                 </View>
@@ -668,14 +693,14 @@ function ExtrasSection({ extras, worldType, colors, styles, updates, onClearUpda
                 onExpand={onClearUpdate}
             >
                 {extras.essences.map((essence: string, idx: number) => (
-                    <View key={idx} style={[subStyles.essenceItem, { backgroundColor: colors.background.tertiary }]}>
-                        <Text style={[subStyles.essenceName, { color: colors.text.primary }]}>{essence}</Text>
+                    <View key={idx} style={[styles.essenceItem, { backgroundColor: colors.background.tertiary }]}>
+                        <Text style={[styles.essenceName, { color: colors.text.primary }]}>{essence}</Text>
                     </View>
                 ))}
                 {extras.confluence && (
-                    <View style={[subStyles.confluenceItem, { backgroundColor: colors.gold.main + '20', borderColor: colors.gold.main }]}>
-                        <Text style={[subStyles.confluenceLabel, { color: colors.text.muted }]}>Confluence</Text>
-                        <Text style={[subStyles.confluenceName, { color: colors.gold.main }]}>{extras.confluence}</Text>
+                    <View style={[styles.confluenceItem, { backgroundColor: colors.gold.main + '20', borderColor: colors.gold.main }]}>
+                        <Text style={[styles.confluenceLabel, { color: colors.text.muted }]}>Confluence</Text>
+                        <Text style={[styles.confluenceName, { color: colors.gold.main }]}>{extras.confluence}</Text>
                     </View>
                 )}
             </CollapsibleSection>
@@ -893,9 +918,6 @@ const createStyles = (colors: any) => StyleSheet.create({
         borderWidth: 1,
         borderColor: colors.border.default,
     },
-});
-
-const subStyles = StyleSheet.create({
     // Resource Bar
     resourceContainer: {
         marginBottom: spacing.md,
@@ -1003,11 +1025,6 @@ const subStyles = StyleSheet.create({
         padding: spacing.md,
         borderBottomWidth: 1,
     },
-    sectionTitle: {
-        fontSize: typography.fontSize.md,
-        fontWeight: '600',
-        marginBottom: spacing.sm,
-    },
     essenceItem: {
         padding: spacing.sm,
         borderRadius: borderRadius.md,
@@ -1057,11 +1074,32 @@ const subStyles = StyleSheet.create({
         fontSize: typography.fontSize.xs,
         marginTop: spacing.xs,
     },
+    progressionContainer: {
+        marginTop: spacing.sm,
+        width: '100%',
+    },
+    progressionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 4,
+    },
+    progressionLabel: {
+        fontSize: 10,
+        fontWeight: 'bold',
+        color: colors.text.muted,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    progressionValue: {
+        fontSize: 10,
+        fontWeight: '600',
+        color: colors.text.secondary,
+    },
     progressBarBg: {
         height: 6,
         borderRadius: borderRadius.full,
         overflow: 'hidden',
-        marginTop: spacing.xs,
     },
     progressBarFill: {
         height: '100%',

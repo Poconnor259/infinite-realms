@@ -51,6 +51,10 @@ export interface NormalizedCharacter {
     rank?: string;
     class?: string;
     race?: string;
+    experience?: {
+        current: number;
+        max: number;
+    };
 
     // Resources (health, mana, stamina, etc.)
     resources: NormalizedResource[];
@@ -113,6 +117,7 @@ export function normalizeCharacter(rawCharacter: any, worldType: string, questLo
         inventory,
         quests: Array.isArray(questLog) ? questLog : [],
         suggestedQuests: Array.isArray(suggestedQuests) ? suggestedQuests : [],
+        experience: rawCharacter.experience || { current: 0, max: 100 },
         extras,
     };
 }

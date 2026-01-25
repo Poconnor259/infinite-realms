@@ -10,6 +10,10 @@ export interface Character {
         max: number;
     };
     level: number;
+    experience?: {
+        current: number;
+        max: number;
+    };
 }
 
 export interface Message {
