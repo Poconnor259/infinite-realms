@@ -16,12 +16,37 @@ interface ChatInputProps {
     onSend: (text: string) => void;
     disabled?: boolean;
     placeholder?: string;
+    pendingChoice?: {
+        prompt: string;
+        options?: string[] | null;
+        choiceType: string;
+    } | null;
 }
 
-export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' }: ChatInputProps) {
+export function ChatInput({ onSend, disabled, placeholder = 'What do you do?', pendingChoice }: ChatInputProps) {
     const [text, setText] = useState('');
     const { colors, typography } = useThemeColors();
     const styles = useMemo(() => createStyles(colors, typography), [colors, typography]);
+
+    // Use dynamic actions: priority to pendingChoice options, fallback to standard quick actions
+    const displayedActions = useMemo(() => {
+        if (pendingChoice?.options && pendingChoice.options.length > 0) {
+            return pendingChoice.options.map(opt => ({ label: opt, icon: '✨', isChoice: true }));
+        }
+        return [
+            { label: 'Look around', icon: '👀', isChoice: false },
+            { label: 'Talk to...', icon: '💬', isChoice: false },
+            { label: 'Attack', icon: '⚔️', isChoice: false },
+        ];
+    }, [pendingChoice]);
+
+    const dynamicPlaceholder = useMemo(() => {
+        if (pendingChoice?.prompt) {
+            // Use prompt as placeholder if it's short, otherwise generic choice hint
+            return pendingChoice.prompt.length < 50 ? pendingChoice.prompt : 'Make your choice...';
+        }
+        return placeholder;
+    }, [pendingChoice, placeholder]);
 
     // Listen for editing state from store
     const { editingMessage, setEditingMessage } = useGameStore();
@@ -52,13 +77,22 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
 
     return (
         <View style={styles.container}>
-            {/* Quick Actions - Floating Chips */}
+            {/* Quick Actions - Dynamic Chips */}
             <View style={styles.quickActions}>
-                {quickActions.map((action, index) => (
+                {displayedActions.map((action, index) => (
                     <TouchableOpacity
                         key={index}
-                        style={styles.quickAction}
-                        onPress={() => setText(action.label)}
+                        style={[
+                            styles.quickAction,
+                            (action as any).isChoice && { borderColor: colors.primary[400], backgroundColor: colors.primary[500] + '10' }
+                        ]}
+                        onPress={() => {
+                            if ((action as any).isChoice) {
+                                onSend(action.label);
+                            } else {
+                                setText(action.label);
+                            }
+                        }}
                         disabled={disabled}
                     >
                         <Text style={styles.quickActionIcon}>{action.icon}</Text>
@@ -85,7 +119,7 @@ export function ChatInput({ onSend, disabled, placeholder = 'Type a message...' 
                         style={styles.input}
                         value={text}
                         onChangeText={setText}
-                        placeholder={placeholder}
+                        placeholder={dynamicPlaceholder}
                         placeholderTextColor={colors.text.muted}
                         multiline
                         maxLength={500}
@@ -121,6 +155,7 @@ const createStyles = (colors: any, typography: any) => StyleSheet.create({
     },
     quickActions: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         marginBottom: spacing.sm,
         gap: spacing.sm,
         justifyContent: 'center', // Center chips

@@ -32,6 +32,7 @@ import { Logo } from '../../components/ui/Logo';
 import { DiceRoller } from '../../components/DiceRoller';
 import { ReadingSettingsPanel } from '../../components/ui/ReadingSettingsPanel';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
+import { loadSoundEffects } from '../../lib/sounds';
 import type { Message, WorldModuleType, ClassicModuleState, OutworlderModuleState, TacticalModuleState } from '../../lib/types';
 
 const getWorldInfo = (colors: any): Record<string, { name: string; icon: string; color: string }> => {
@@ -286,6 +287,11 @@ export default function CampaignScreen() {
     // 3. Side Effects (Dependencies are now initialized above)
 
     // Auto-scroll removed - Inverted list naturally loads at the bottom (index 0)
+
+    // Load sound effects on mount
+    useEffect(() => {
+        loadSoundEffects().catch(err => console.error('[Campaign] Failed to load sounds:', err));
+    }, []);
 
     // Handle window resize for responsive panel
     useEffect(() => {
@@ -599,40 +605,6 @@ export default function CampaignScreen() {
                             </View>
                         )}
 
-                        {/* Choice Display */}
-                        {!isLoading && pendingChoice && (
-                            <View style={styles.choiceContainer}>
-                                <View style={styles.choicePrompt}>
-                                    <Ionicons name="help-circle" size={20} color={colors.primary[400]} />
-                                    <Text style={styles.choicePromptText}>
-                                        {pendingChoice.prompt}
-                                    </Text>
-                                </View>
-                                {pendingChoice.options && pendingChoice.options.length > 0 ? (
-                                    <View style={styles.choiceButtons}>
-                                        {pendingChoice.options.map((option, index) => (
-                                            <TouchableOpacity
-                                                key={index}
-                                                style={styles.choiceButton}
-                                                onPress={() => {
-                                                    handleSend(option);
-                                                    setPendingChoice(null);
-                                                }}
-                                            >
-                                                <Text style={styles.choiceButtonText}>• {option}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                    </View>
-                                ) : (
-                                    <Text style={styles.choiceFreeformHint}>
-                                        Type your response below
-                                    </Text>
-                                )}
-                            </View>
-                        )}
-
-
-
                         {/* Navigation Buttons */}
                         {messages.length > 0 && (
                             <View style={styles.navButtons}>
@@ -673,6 +645,7 @@ export default function CampaignScreen() {
                             onSend={handleSend}
                             disabled={isLoading}
                             placeholder="What do you do?"
+                            pendingChoice={pendingChoice}
                         />
                     </KeyboardAvoidingView>
                 </View>

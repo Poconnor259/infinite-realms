@@ -297,8 +297,10 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
     // Standard abilities array
     if (Array.isArray(char.abilities)) {
         for (const ability of char.abilities) {
+            let normalized: NormalizedAbility | null = null;
+
             if (ability && typeof ability === 'object') {
-                abilities.push({
+                normalized = {
                     name: ability.name || 'Unknown Ability',
                     type: ability.type,
                     cooldown: ability.cooldown,
@@ -308,11 +310,36 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
                     essence: ability.essence,
                     cost: ability.cost,
                     costAmount: ability.costAmount,
-                });
+                };
             } else if (typeof ability === 'string') {
-                abilities.push({
-                    name: ability,
+                // Try to parse "Name [Type] - Description" format
+                // Example: "AUTO-LOOT [utility] - Magically harvest..."
+                const complexMatch = ability.match(/^(.+?)\s*\[(.+?)\]\s*-\s*(.+)$/);
+
+                if (complexMatch) {
+                    normalized = {
+                        name: complexMatch[1].trim(),
+                        type: complexMatch[2].trim(),
+                        description: complexMatch[3].trim(),
+                    };
+                } else {
+                    normalized = {
+                        name: ability,
+                    };
+                }
+            }
+
+            if (normalized) {
+                const newNameLower = normalized.name.toLowerCase().trim();
+                // Deduplicate: Don't add if we already have this ability (fuzzy match)
+                const exists = abilities.some(a => {
+                    const existingLower = a.name.toLowerCase().trim();
+                    return existingLower === newNameLower || existingLower.includes(newNameLower) || newNameLower.includes(existingLower);
                 });
+
+                if (!exists) {
+                    abilities.push(normalized);
+                }
             }
         }
     }
@@ -320,14 +347,24 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
     // Skills array (Tactical/Praxis)
     if (Array.isArray(char.skills)) {
         for (const skill of char.skills) {
-            if (skill && typeof skill === 'object' && !abilities.some(a => a.name === skill.name)) {
-                abilities.push({
-                    name: skill.name || 'Unknown Skill',
-                    type: skill.type,
-                    cooldown: skill.cooldown,
-                    description: skill.description,
-                    rank: skill.rank,
+            if (skill && typeof skill === 'object') {
+                const name = skill.name || 'Unknown Skill';
+                // Check against existing abilities
+                const newNameLower = name.toLowerCase().trim();
+                const exists = abilities.some(a => {
+                    const existingLower = a.name.toLowerCase().trim();
+                    return existingLower === newNameLower || existingLower.includes(newNameLower) || newNameLower.includes(existingLower);
                 });
+
+                if (!exists) {
+                    abilities.push({
+                        name: name,
+                        type: skill.type,
+                        cooldown: skill.cooldown,
+                        description: skill.description,
+                        rank: skill.rank,
+                    });
+                }
             }
         }
     }

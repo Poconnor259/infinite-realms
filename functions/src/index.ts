@@ -1,4 +1,4 @@
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
+import { onCall, HttpsError, onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
@@ -15,10 +15,11 @@ import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
 import { initPromptHelper, seedAIPrompts, getStateReviewerSettings, getQuestMasterPrompt } from './promptHelper';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
+import { performCleanup } from './scripts/cleanupAbilities';
 
 
 export { createCheckoutSession, handleStripeWebhook };
-export { addDifficultyToWorlds } from './addDifficultyField';
+// export { addDifficultyToWorlds } from './addDifficultyField';
 // export { seedAmbianceSettings } from './seedAmbiance';
 export { seedAllData } from './seedAllData';
 export { seedKnowledgeDocuments } from './seedKnowledge';
@@ -577,7 +578,20 @@ export const processGameAction = onCall(
                 brainResult.data.stateUpdates || {}
             );
 
-            // 8. State Consistency Review (optional - runs based on frequency setting)
+            // 8. CRITICAL: If this was a roll result processing, explicitly CLEAR the pendingRoll
+            // This bypasses the deepMergeState limitation where nulls/undefined are ignored.
+            if (rollResult !== undefined) {
+                console.log('[Brain] 🎲 Roll result processed. Force-clearing pendingRoll.');
+                (finalState as any).moduleState = {
+                    ...(finalState as any).moduleState,
+                    pendingRoll: null
+                };
+                // Also ensure the client receives the clear instruction
+                if (!brainResult.data.stateUpdates) brainResult.data.stateUpdates = {};
+                (brainResult.data.stateUpdates as any).pendingRoll = null;
+            }
+
+            // 9. State Consistency Review (optional - runs based on frequency setting)
             let reviewerResult: any = null;
 
             // 6a. Apply Voice stateReport if available (more reliable than third AI parsing)
@@ -639,16 +653,31 @@ export const processGameAction = onCall(
                         (finalState as any).character = {};
                     }
 
-                    const currentAbilities = ((finalState as any).character.abilities as string[]) || [];
+                    const currentAbilities = ((finalState as any).character.abilities as any[]) || [];
+                    // Clone array to avoid mutation issues
                     let updatedAbilities = [...currentAbilities];
 
                     if (voiceResult.stateReport.abilities.added) {
-                        // Check for duplicates before adding
-                        const existingAbilities = new Set(updatedAbilities);
-                        for (const ability of voiceResult.stateReport.abilities.added) {
-                            if (!existingAbilities.has(ability)) {
-                                updatedAbilities.push(ability);
-                                existingAbilities.add(ability);
+                        for (const newAbility of voiceResult.stateReport.abilities.added) {
+                            // Normalize new ability to string name
+                            const newName = typeof newAbility === 'string' ? newAbility : (newAbility as any).name;
+                            const newNameLower = newName.toLowerCase().trim();
+
+                            // Check if it already exists (handling objects and strings)
+                            // We use a "contains" check to avoid duplicates like "Fireball" vs "Fireball [Level 1]"
+                            const exists = updatedAbilities.some(existing => {
+                                const existingName = typeof existing === 'string' ? existing : existing.name;
+                                const existingLower = existingName.toLowerCase().trim();
+
+                                // Check for exact match, or one containing the other (with word boundary safety)
+                                // e.g. "Auto-Loot" matches "Auto-Loot [Utility]"
+                                return existingLower === newNameLower ||
+                                    existingLower.includes(newNameLower) ||
+                                    newNameLower.includes(existingLower);
+                            });
+
+                            if (!exists) {
+                                updatedAbilities.push(newAbility);
                             }
                         }
                     }
@@ -1012,7 +1041,7 @@ export const processGameAction = onCall(
 
                 await messagesRef.add({
                     role: 'narrator',
-                    content: voiceResult.narrative || brainResult.data.narrativeCue,
+                    content: voiceResult.narrative || brainResult.data.narrativeCue || '...',
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     metadata: cleanForFirestore({
                         voiceModel: voiceConfig.model, // Store resolved model ID for permanent display
@@ -2461,5 +2490,21 @@ export const keepVoiceCacheAlive = onCall(async (request) => {
     } catch (error: any) {
         console.error('[KeepAlive] Error:', error);
         throw new HttpsError('internal', 'Keep-alive failed: ' + error.message);
+    }
+});
+
+export const manualAbilityCleanup = onRequest({ cors: true }, async (req, res) => {
+    // Basic security
+    if (req.query.secret !== 'temp-cleanup-secret-123') {
+        res.status(403).send('Unauthorized');
+        return;
+    }
+
+    try {
+        const result = await performCleanup(db);
+        res.json(result);
+    } catch (e: any) {
+        console.error(e);
+        res.status(500).send(e.toString());
     }
 });

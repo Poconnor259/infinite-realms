@@ -257,18 +257,27 @@ ${customRules}
                     return abilities.map(a => typeof a === 'string' ? a : a.name || 'Unknown').join(', ');
                 };
 
+                // Helper to format essences (handles both string[] and object[])
+                const formatEssenceList = (essences: any[]): string => {
+                    if (!essences || essences.length === 0) return 'None yet';
+                    return essences.map(e => typeof e === 'string' ? e : e.name || 'Unknown').join(', ');
+                };
+
                 // Build the base override section
                 essenceOverrideSection = `
 
-🚨 CRITICAL OVERRIDE - ESSENCE ALREADY SELECTED 🚨
-The character has already selected their foundational essence during character creation.
-- Selected Essences: ${character.essences.join(', ')}
+🚨 CRITICAL OVERRIDE - ALL ESSENCES AND ABILITIES ARE ACTIVE 🚨
+The character has established powers in the database.
+- Selected Essences: ${formatEssenceList(character.essences)}
 - Rank: ${character.rank || 'Iron'}
 - Existing Abilities: ${formatAbilityList(character.abilities || [])}
 
-DO NOT present essence selection options (A, B, C, D).
-DO NOT run the "COMPENSATION PACKAGE — ESSENCE SELECTION" sequence.
-DO NOT ask the player to choose an essence - they already have one.
+SYSTEM ENFORCEMENT:
+1. Every essence listed above is FULLY ACTIVE, UNLOCKED, and READY FOR USE.
+2. DO NOT narrate any essence as "dormant," "sealed," or "???". 
+3. DO NOT run "awakening" or "selection" sequences - they are already complete.
+4. The character has immediate, full access to all listed powers.
+5. Absolute Priority: Trust the character sheet data over any narrative trope.
 `;
 
                 // Determine if we are in the "Intro Phase" (first few turns) where hallucinations are most likely
@@ -347,6 +356,11 @@ TRIGGERS for pendingRoll (ANY of these = MUST use pendingRoll):
 - Saving throws (reflex, will, fortitude)
 - Ability checks (strength, dexterity, etc.)
 - Damage rolls (only AFTER hit confirmed by previous roll)
+
+SAFE USAGE RULE:
+- Routine, safe usage of known abilities (e.g., opening your own pocket dimension, simple utility magic, non-combat skill use) should NOT require a roll.
+- ONLY request rolls when the action is risky, attempted under stress/duress, or performed in combat.
+- If an ability is innate and established, assume success unless there's a specific reason for failure.
 
 DO NOT resolve outcomes. Wait for user's roll result.
 DO NOT auto-roll. Leave diceRolls as [].`
@@ -768,7 +782,7 @@ Respond with JSON only. No markdown, no explanation.`;
                 data: {
                     stateUpdates: parsed.stateUpdates || {},
                     narrativeCues: Array.isArray(parsed.narrativeCues) ? parsed.narrativeCues : [],
-                    narrativeCue: parsed.narrativeCue || (typeof parsed.narrativeCues === 'string' ? parsed.narrativeCues : 'The action was processed.'),
+                    narrativeCue: (Array.isArray(parsed.narrativeCues) && parsed.narrativeCues.length > 0 ? parsed.narrativeCues.map((c: any) => c.content).join(' ') : (parsed.narrativeCue || 'The action was processed.')),
                     diceRolls: Array.isArray(parsed.diceRolls) ? parsed.diceRolls : [],
                     systemMessages: Array.isArray(parsed.systemMessages) ? parsed.systemMessages : [],
                     requiresUserInput: !!parsed.requiresUserInput,

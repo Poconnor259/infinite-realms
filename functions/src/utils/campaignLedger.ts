@@ -14,7 +14,7 @@ export function buildCampaignLedger(state: any, worldModule: string): string {
 CHARACTER:
 • Name: ${char.name || 'Unknown'}
 • ${getProgressionLabel(worldModule)}: ${char.rank || char.level || 1}
-${char.essences?.length ? `• Essences: ${char.essences.join(', ')}` : ''}
+${char.essences?.length ? `• Essences: ${char.essences.map((e: any) => typeof e === 'string' ? e : e.name).join(', ')}` : ''}
 ${char.class ? `• Class: ${char.class}` : ''}
 ${char.race ? `• Race: ${char.race}` : ''}
 ${char.job ? `• Job: ${char.job}` : ''}
@@ -23,7 +23,7 @@ PROGRESSION:
 ${formatProgression(char, worldModule, state)}
 
 ABILITIES (⚠️ ONLY REFERENCE THESE - DO NOT INVENT):
-${formatAbilities(char.abilities || [])}
+${formatAbilities(char.abilities || char.skills || [])}
 
 INVENTORY:
 ${formatInventory(char.inventory || state.inventory || [])}
@@ -133,18 +133,23 @@ function formatInventory(inventory: any[]): string {
 function formatResources(char: any, worldModule: string): string {
     const resources: string[] = [];
 
-    // HP is universal
-    if (char.hp) {
-        resources.push(`• HP: ${char.hp.current}/${char.hp.max}`);
+    // 1. Try explicit resources object (source of truth for engine)
+    if (char.resources && typeof char.resources === 'object') {
+        for (const [key, value] of Object.entries(char.resources)) {
+            const res = value as any;
+            if (res && typeof res.current === 'number') {
+                resources.push(`• ${key.charAt(0).toUpperCase() + key.slice(1)}: ${res.current}/${res.max || res.current}`);
+            }
+        }
     }
 
-    // Module-specific resources
-    if (worldModule === 'classic' || worldModule === 'outworlder') {
+    // 2. Fallback to common keys if resources object is missing
+    if (resources.length === 0) {
+        if (char.hp) resources.push(`• HP: ${char.hp.current}/${char.hp.max}`);
         if (char.mana) resources.push(`• Mana: ${char.mana.current}/${char.mana.max}`);
-        if (char.stamina) resources.push(`• Stamina: ${char.stamina.current}/${char.stamina.max}`);
-    } else if (worldModule === 'tactical') {
         if (char.nanites) resources.push(`• Nanites: ${char.nanites.current}/${char.nanites.max}`);
         if (char.stamina) resources.push(`• Stamina: ${char.stamina.current}/${char.stamina.max}`);
+        if (char.spirit) resources.push(`• Spirit: ${char.spirit.current}/${char.spirit.max}`);
     }
 
     return resources.length > 0 ? resources.join('\n') : '• None tracked';
