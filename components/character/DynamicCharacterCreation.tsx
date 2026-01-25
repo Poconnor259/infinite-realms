@@ -176,7 +176,7 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
 
         // Add essence data for Outworlder
         if (isOutworlder) {
-            if (essenceMode === 'choose' && (importedEssences.length > 0 || selectedEssence)) {
+            if (essenceMode === 'choose' && (importedEssences.length > 0 || selectedEssence || isCustomEssence)) {
                 // Check if we have imported essences (full array)
                 if (importedEssences.length > 0) {
                     // Use all imported essences
@@ -434,28 +434,52 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                                 ]}
                                 onPress={() => setShowEssenceDropdown(true)}
                             >
-                                <View style={styles.selectedEssence}>
-                                    <Text style={[styles.essenceName, { color: colors.text.primary }]}>
-                                        {selectedEssence.name}
-                                    </Text>
-                                    <Text style={[styles.essenceRarity, { color: getRarityColor(selectedEssence.rarity) }]}>
-                                        {selectedEssence.rarity}
-                                    </Text>
-                                </View>
+                                {selectedEssence ? (
+                                    <View style={styles.selectedEssence}>
+                                        <Text style={[styles.essenceName, { color: colors.text.primary }]}>
+                                            {selectedEssence.name}
+                                        </Text>
+                                        <Text style={[styles.essenceRarity, { color: getRarityColor(selectedEssence.rarity) }]}>
+                                            {selectedEssence.rarity}
+                                        </Text>
+                                    </View>
                                 ) : isCustomEssence ? (
-                                <View style={styles.selectedEssence}>
-                                    <Text style={[styles.essenceName, { color: colors.text.primary }]}>
-                                        {customEssenceName || 'Custom Essence'}
-                                    </Text>
-                                    <Text style={[styles.essenceRarity, { color: colors.primary[400] }]}>
-                                        Custom
-                                    </Text>
-                                </View>
+                                    <View style={styles.selectedEssence}>
+                                        <Text style={[styles.essenceName, { color: colors.text.primary }]}>
+                                            {customEssenceName || 'Custom Essence'}
+                                        </Text>
+                                        <Text style={[styles.essenceRarity, { color: colors.primary[400] }]}>
+                                            Custom
+                                        </Text>
+                                    </View>
                                 ) : (
-                                <Text style={{ color: colors.text.muted }}>Tap to select essence...</Text>
+                                    <Text style={{ color: colors.text.muted }}>Tap to select essence...</Text>
                                 )}
                                 <Ionicons name="chevron-down" size={20} color={colors.text.secondary} />
                             </TouchableOpacity>
+                        )}
+
+                        {/* Custom Essence Input */}
+                        {essenceMode === 'choose' && isCustomEssence && (
+                            <View style={{ marginTop: spacing.sm }}>
+                                <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>
+                                    Essence Name *
+                                </Text>
+                                <TextInput
+                                    style={[styles.input, {
+                                        backgroundColor: colors.background.secondary,
+                                        color: colors.text.primary,
+                                        borderColor: colors.border.default,
+                                        padding: spacing.sm,
+                                        borderRadius: spacing.sm,
+                                        borderWidth: 1,
+                                    }]}
+                                    placeholder="Enter custom essence name..."
+                                    placeholderTextColor={colors.text.muted}
+                                    value={customEssenceName}
+                                    onChangeText={setCustomEssenceName}
+                                />
+                            </View>
                         )}
                     </View>
                 )}

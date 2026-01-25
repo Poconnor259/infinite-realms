@@ -315,6 +315,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         set((state) => {
             if (!state.currentCampaign) return state;
 
+            // GUARD: If sync is blocked (e.g. just finished a roll), ignore remote updates
+            // This prevents stale Firestore data from overwriting our optimistic state
+            if (state.syncBlockedUntil && Date.now() < state.syncBlockedUntil) {
+                console.log('[Store] updateCurrentCampaign blocked by sync lock');
+                return state;
+            }
+
             const updatedCampaign = {
                 ...state.currentCampaign,
                 ...updates,
@@ -328,7 +335,11 @@ export const useGameStore = create<GameState>((set, get) => ({
             // (Use undefined check to distinguish from missing vs null)
             let newPendingRoll = state.pendingRoll;
             if (updates.moduleState && incomingPendingRoll !== undefined) {
-                newPendingRoll = incomingPendingRoll;
+                // Ignore incoming pendingRoll if we are currently loading (processing an action)
+                // This prevents stale Firestore data from undoing our local clear
+                if (!state.isLoading) {
+                    newPendingRoll = incomingPendingRoll;
+                }
             }
 
             return {

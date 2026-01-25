@@ -566,12 +566,9 @@ PRAXIS STYLE:
                 ]
             },
             creationFields: [
-                { id: 'essence1', type: 'text', label: 'First Essence', required: true },
-                { id: 'essence2', type: 'text', label: 'Second Essence', required: false },
-                { id: 'essence3', type: 'text', label: 'Third Essence', required: false },
                 { id: 'background', type: 'text', label: 'Origin Story', required: false },
             ],
-            aiContext: 'HWFWM-style essence magic system. Characters progress through ranks (Iron → Bronze → Silver → Gold → Diamond). Powers come from absorbed essences. Stats are Power, Speed, Spirit, and Recovery (1-100 scale). Combat emphasizes essence ability combinations.',
+            aiContext: 'HWFWM-style essence magic system. Characters progress through ranks (Iron → Bronze → Silver → Gold → Diamond). Powers come from absorbed essences. Stats are Power, Speed, Spirit, and Recovery (1-100 scale). Combat emphasizes essence ability combinations. Essences are selected via a specialized interface.',
         });
         console.log('[SeedAllData] ✓ gameEngines/outworlder');
 

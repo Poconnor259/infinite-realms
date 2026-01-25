@@ -18,17 +18,10 @@ import { useThemeColors } from '../../lib/hooks/useTheme';
 import { useGameStore, useUserStore } from '../../lib/store';
 import { AnimatedPressable, FadeInView } from '../../components/ui/Animated';
 import { createCampaign, signInAnonymouslyIfNeeded, getWorlds, getGameEngines } from '../../lib/firebase';
-import { ClassicCharacterCreation } from '../../components/character/ClassicCharacterCreation';
-import { TacticalCharacterCreation } from '../../components/character/TacticalCharacterCreation';
 import { DynamicCharacterCreation } from '../../components/character/DynamicCharacterCreation';
 import type { WorldModule, WorldModuleType, ModuleCharacter, GameEngine } from '../../lib/types';
 
-// Helper to get default character creation component
-const CharacterCreationMap: Record<string, any> = {
-    classic: ClassicCharacterCreation,
-    tactical: TacticalCharacterCreation,
-    praxis: TacticalCharacterCreation,
-};
+const CharacterCreationMap: Record<string, any> = {};
 
 export default function CreateCampaignScreen() {
     const { colors } = useThemeColors();
@@ -154,7 +147,6 @@ export default function CreateCampaignScreen() {
 
     // Render character creation step based on world module
     if (step === 'character' && world) {
-        // Use dynamic component if engine configuration exists
         if (gameEngine) {
             return <DynamicCharacterCreation
                 characterName={characterName}
@@ -164,13 +156,12 @@ export default function CreateCampaignScreen() {
             />;
         }
 
-        // Fallback to legacy hardcoded components
-        const CharacterComp = CharacterCreationMap[world.type] || ClassicCharacterCreation;
-        return <CharacterComp
-            characterName={characterName}
-            onComplete={handleCharacterComplete}
-            onBack={() => setStep('name')}
-        />;
+        // Fallback if no engine (shouldn't happen with valid worlds)
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <Text>Error: No game engine configuration found for world type: {world.type}</Text>
+            </View>
+        );
     }
 
     if (isLoading) {
