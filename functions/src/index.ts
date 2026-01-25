@@ -1781,7 +1781,8 @@ export const createCampaign = onCall(
         const voiceKnowledgeDocs = await getKnowledgeForModule(engineType, 'voice', 2);
 
         // Generate initial narrative
-        let initialNarrative = worldData?.initialNarrative || '';
+        // Initialize narrative - if AI generated, start empty so we don't show prompt instructions as fallback
+        let initialNarrative = worldData?.generateIntro ? '' : (worldData?.initialNarrative || '');
 
         // Check if character already has essences (for skipping essence selection prompt)
         const hasPreselectedEssence = initialCharacter?.essenceSelection === 'chosen' ||
@@ -1798,7 +1799,7 @@ export const createCampaign = onCall(
         // Only use AI generation if explicitly enabled for this world and we have a key
         if (voiceConfig.key && worldData?.generateIntro) {
             try {
-                // Build narrative cue - add essence override if essences are pre-selected
+                // Build narrative cue
                 let narrativeContent = `A new adventure in the world of ${worldData?.name || engineType} begins. The setting is: ${worldData?.description || 'unknown'}. The character ${characterName || 'our hero'} is about to start their journey.`;
 
                 // Add essence override instruction if essences are pre-selected
@@ -1819,6 +1820,11 @@ ${hasAbilities
                             : `The character has essences but NO abilities yet. Grant them the intrinsic abilities associated with their essences as they awaken.`}
 
 Start their adventure with them already awakened and their essences active. Describe their awakening and first moments in this new world, acknowledging their powers are already part of them.`;
+                }
+
+                // [NEW] Append Custom User Instructions if provided in World Management
+                if (worldData?.initialNarrative && worldData?.generateIntro) {
+                    narrativeContent += `\n\nADDITIONAL USER INSTRUCTIONS FOR THIS OPENING SCENE:\n${worldData.initialNarrative}`;
                 }
 
                 // If essences are pre-selected, modify customRules to exclude essence selection
