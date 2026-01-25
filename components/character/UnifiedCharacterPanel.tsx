@@ -40,6 +40,10 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
     const diceHeightAnim = useRef(new Animated.Value(0)).current;
     const [showDice, setShowDice] = useState(false);
 
+    // ScrollView reference for auto-scrolling
+    const scrollViewRef = useRef<ScrollView>(null);
+    const [diceSectionY, setDiceSectionY] = useState(0);
+
     // Get roll history from store
     const rollHistory = useGameStore((state) => state.rollHistory);
 
@@ -53,7 +57,15 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
             tension: 50,
             friction: 8,
         }).start();
-    }, [pendingRoll, rollHistory, diceHeightAnim]);
+
+        // Auto-scroll to dice section when a roll is pending
+        if (pendingRoll && scrollViewRef.current) {
+            // Short delay to ensure LayoutAnimation and section expanding are underway
+            setTimeout(() => {
+                scrollViewRef.current?.scrollTo({ y: diceSectionY, animated: true });
+            }, 300);
+        }
+    }, [pendingRoll, rollHistory, diceHeightAnim, diceSectionY]);
 
     // Previous Character Ref for simple change detection
     const prevCharacter = useRef(character);
@@ -129,7 +141,11 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
     const safeClass = character.class ? String(character.class) : null;
 
     return (
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView
+            ref={scrollViewRef}
+            style={styles.container}
+            showsVerticalScrollIndicator={false}
+        >
             {/* Character Header */}
             <View style={styles.header}>
                 <Text style={styles.characterName}>{safeName}</Text>
@@ -176,24 +192,26 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
             </View>
 
             {/* Dice Roller Section - Collapsible */}
-            {showDice && (
-                <CollapsibleSection
-                    title="🎲 Dice Rolls"
-                    colors={colors}
-                    styles={styles}
-                    defaultExpanded={!!pendingRoll}
-                >
-                    <DiceRoller
-                        pendingRoll={pendingRoll}
-                        rollHistory={rollHistory}
-                        onRollComplete={(result) => {
-                            if (onRollComplete) {
-                                onRollComplete(result);
-                            }
-                        }}
-                    />
-                </CollapsibleSection>
-            )}
+            <View onLayout={(e) => setDiceSectionY(e.nativeEvent.layout.y)}>
+                {showDice && (
+                    <CollapsibleSection
+                        title="🎲 Dice Rolls"
+                        colors={colors}
+                        styles={styles}
+                        defaultExpanded={!!pendingRoll}
+                    >
+                        <DiceRoller
+                            pendingRoll={pendingRoll}
+                            rollHistory={rollHistory}
+                            onRollComplete={(result) => {
+                                if (onRollComplete) {
+                                    onRollComplete(result);
+                                }
+                            }}
+                        />
+                    </CollapsibleSection>
+                )}
+            </View>
 
             {/* Fate Engine Indicator - Show momentum and luck mechanics */}
             {character.extras.fateEngine && (

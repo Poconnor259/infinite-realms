@@ -671,6 +671,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                         anthropic: settings.anthropicKey || undefined,
                     },
                     interactiveDiceRolls: settings.diceRollMode !== 'auto',
+                    showSuggestedChoices: settings.showSuggestedChoices,
                 }),
                 (attempt, delay, maxRetries) => {
                     // Show retry toast with counter

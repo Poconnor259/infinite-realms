@@ -161,19 +161,18 @@ export default function CampaignScreen() {
     // 2. Helper Handlers (Defined before effects)
     const scrollToBottom = () => {
         requestAnimationFrame(() => {
-            // In an inverted list, index 0 is the bottom
-            if (reversedMessages.length > 0) {
-                flatListRef.current?.scrollToIndex({ index: 0, animated: true });
-            }
+            // Force scroll to absolute bottom (offset 0 in inverted list)
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
         });
     };
 
-    const scrollToLastResponse = () => {
-        if (lastNarratorIndexReversed !== -1) {
+    const scrollToLastResponse = (index?: number) => {
+        const targetIndex = typeof index === 'number' ? index : lastNarratorIndexReversed;
+        if (targetIndex !== -1) {
             flatListRef.current?.scrollToIndex({
-                index: lastNarratorIndexReversed,
+                index: targetIndex,
                 animated: true,
-                viewPosition: 1, // Aligns IT to the top of the screen
+                viewPosition: 1, // Aligns the top of the item to the top of the screen
             });
         }
     };
@@ -386,10 +385,16 @@ export default function CampaignScreen() {
         const justReceivedPendingRoll = prevPendingRoll.current === null && pendingRoll !== null;
 
         if (prevIsLoading.current && !isLoading && lastNarratorIndexReversed !== -1 && !wasWaitingForDice && !pendingRoll && !justReceivedPendingRoll) {
-            // Give the list a moment to layout the new content
-            requestAnimationFrame(() => {
-                scrollToLastResponse();
-            });
+            // Check if the latest message is indeed from the narrator/assistant
+            const isNarratorResponse = reversedMessages.length > 0 &&
+                (reversedMessages[0].role === 'narrator' || reversedMessages[0].role === 'system');
+
+            if (isNarratorResponse) {
+                // Give the list a moment to layout the potentially long new content
+                setTimeout(() => {
+                    scrollToLastResponse(lastNarratorIndexReversed);
+                }, 100);
+            }
         }
         prevIsLoading.current = isLoading;
         prevPendingRoll.current = pendingRoll;
@@ -637,10 +642,14 @@ export default function CampaignScreen() {
                                 {lastNarratorIndexReversed !== -1 && (
                                     <TouchableOpacity
                                         style={styles.navButton}
-                                        onPress={scrollToLastResponse}
+                                        onPress={() => scrollToLastResponse()}
                                         activeOpacity={0.7}
                                     >
-                                        <Ionicons name="text" size={20} color={colors.text.primary} />
+                                        <Text style={{
+                                            color: colors.text.primary,
+                                            fontSize: 18,
+                                            fontFamily: typography.fontFamily.bold
+                                        }}>T</Text>
                                     </TouchableOpacity>
                                 )}
                                 <TouchableOpacity

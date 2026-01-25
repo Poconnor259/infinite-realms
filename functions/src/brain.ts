@@ -359,10 +359,19 @@ TRIGGERS for pendingRoll (ANY of these = MUST use pendingRoll):
 - Ability checks (strength, dexterity, etc.)
 - Damage rolls (only AFTER hit confirmed by previous roll)
 
-SAFE USAGE RULE:
-- Routine, safe usage of known abilities (e.g., opening your own pocket dimension, simple utility magic, non-combat skill use) should NOT require a roll.
-- ONLY request rolls when the action is risky, attempted under stress/duress, or performed in combat.
-- If an ability is innate and established, assume success unless there's a specific reason for failure.
+SAFE USAGE vs COMBAT RULES:
+1. COMBAT & OFFENSE (ALWAYS ROLL):
+   - ANY attack, offensive spell, or hostile action MUST require a roll.
+   - NEVER assume success for an attack, even if the ability is innate.
+   - Triggers: "Attack", "Cast [Damage Spell]", "Strike", "Shoot".
+   - Set "diceRolls": [] and "requiresUserInput": true for these actions.
+
+2. CHALLENGE & RISK (ALWAYS ROLL):
+   - Actions with a chance of failure (climbing, persuading, sneaking).
+
+3. UTILITY & FLAVOR (AUTO-SUCCESS):
+   - Routine usage of known abilities in safe environments DOES NOT require a roll.
+   - Examples: summoning a mount, opening a personal portal, lighting a magic torch.
 
 DO NOT resolve outcomes. Wait for user's roll result.
 DO NOT auto-roll. Leave diceRolls as [].`

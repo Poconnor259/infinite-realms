@@ -23,6 +23,7 @@ export interface GameRequest {
     };
     interactiveDiceRolls?: boolean; // Whether user wants to roll dice manually
     rollResult?: number; // Result from user's dice roll when continuing
+    showSuggestedChoices?: boolean; // Whether the user wants suggested choices
     pendingRoll?: {
         type: string;
         purpose: string;
@@ -201,6 +202,7 @@ export async function processGameAction(
         interactiveDiceRolls,
         rollResult,
         pendingRoll: requestPendingRoll,
+        showSuggestedChoices,
     } = data;
 
     // Validate required fields
@@ -393,6 +395,7 @@ export async function processGameAction(
             interactiveDiceRolls,
             rollResult,
             pendingRoll: activePendingRoll,
+            showSuggestedChoices,
         });
 
         if (!brainResult.success) {

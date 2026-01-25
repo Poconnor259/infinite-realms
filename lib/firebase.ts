@@ -309,6 +309,7 @@ export interface ProcessInputRequest {
     };
     interactiveDiceRolls?: boolean;
     rollResult?: number;
+    showSuggestedChoices?: boolean;
     pendingRoll?: any; // Enhanced roll data for Fate Engine
 }
 
