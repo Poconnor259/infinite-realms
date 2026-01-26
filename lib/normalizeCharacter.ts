@@ -60,6 +60,13 @@ export interface NormalizedCharacter {
     // Resources (health, mana, stamina, etc.)
     resources: NormalizedResource[];
 
+    // Currency (Gold, Credits, etc.)
+    currency?: {
+        name: string;
+        amount: number;
+        icon?: string;
+    };
+
     // Stats (STR, DEX, etc.)
     stats: NormalizedStat[];
 
@@ -142,6 +149,7 @@ export function normalizeCharacter(rawCharacter: any, worldType: string, questLo
         class: characterClass,
         race,
         resources,
+        currency: normalizeCurrency(rawCharacter, worldType),
         stats,
         abilities,
         inventory,
@@ -576,6 +584,7 @@ function getEmptyCharacter(): NormalizedCharacter {
         name: 'Unknown',
         level: 1,
         resources: [],
+        currency: { name: 'Credits', amount: 0, icon: '💰' },
         stats: [],
         abilities: [],
         inventory: [],
@@ -584,3 +593,42 @@ function getEmptyCharacter(): NormalizedCharacter {
         extras: {},
     };
 }
+
+// ==================== CURRENCY NORMALIZATION ====================
+
+function normalizeCurrency(char: any, worldType: string): { name: string; amount: number; icon?: string } | undefined {
+    const worldLower = worldType.toLowerCase();
+
+    // Classic/D&D style
+    if (worldLower === 'classic' || char.gold !== undefined) {
+        return {
+            name: 'Gold',
+            amount: typeof char.gold === 'number' ? char.gold : 0,
+            icon: '🪙'
+        };
+    }
+
+    // Tactical/Praxis style
+    if (worldLower === 'tactical' || worldLower === 'praxis' || char.credits !== undefined) {
+        return {
+            name: 'Credits',
+            amount: typeof char.credits === 'number' ? char.credits : 0,
+            icon: '💰'
+        };
+    }
+
+    // Generic fallback or root property check
+    const possibleMoneyKeys = ['money', 'coins', 'currency', 'cash', 'balance'];
+    for (const key of possibleMoneyKeys) {
+        if (typeof char[key] === 'number') {
+            return {
+                name: capitalizeFirst(key),
+                amount: char[key],
+                icon: '💰'
+            };
+        }
+    }
+
+    return undefined;
+}
+

@@ -45,6 +45,10 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
     const scrollViewRef = useRef<ScrollView>(null);
     const [diceSectionY, setDiceSectionY] = useState(0);
 
+    // Filter state
+    const [abilityFilter, setAbilityFilter] = useState('All');
+    const [itemFilter, setItemFilter] = useState('All');
+
     // Get roll history from store
     const rollHistory = useGameStore((state) => state.rollHistory);
 
@@ -406,39 +410,118 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     hasUpdate={updates['inventory']}
                     onExpand={() => clearUpdate('inventory')}
                 >
-                    {character.inventory.map((item, index) => (
-                        <InventoryItem key={`${item.name}-${index}`} item={item} colors={colors} styles={styles} />
-                    ))}
+                    {/* Currency Display */}
+                    {character.currency && (
+                        <View style={styles.currencyContainer}>
+                            <Text style={styles.currencyIcon}>{character.currency.icon || '💰'}</Text>
+                            <Text style={styles.currencyAmount}>{character.currency.amount.toLocaleString()}</Text>
+                            <Text style={styles.currencyName}>{character.currency.name}</Text>
+                        </View>
+                    )}
+
+                    {/* Item Filters */}
+                    <ScrollView
+                        horizontal
+                        showsHorizontalScrollIndicator={false}
+                        style={styles.filterBar}
+                        contentContainerStyle={styles.filterBarContent}
+                    >
+                        {['All', 'Equipped', 'Weapons', 'Armor', 'Items', 'Misc'].map(filter => (
+                            <TouchableOpacity
+                                key={filter}
+                                style={[styles.filterChip, itemFilter === filter && styles.filterChipActive]}
+                                onPress={() => {
+                                    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                    setItemFilter(filter);
+                                }}
+                            >
+                                <Text style={[styles.filterChipText, itemFilter === filter && styles.filterChipTextActive]}>
+                                    {filter}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+
+                    {character.inventory
+                        .filter(item => {
+                            if (itemFilter === 'All') return true;
+                            if (itemFilter === 'Equipped') return item.equipped;
+
+                            const type = (item.type || '').toLowerCase();
+                            if (itemFilter === 'Weapons') return type.includes('weapon') || type.includes('primary') || type.includes('secondary');
+                            if (itemFilter === 'Armor') return type.includes('armor') || type.includes('helmet') || type.includes('chest') || type.includes('legs') || type.includes('boots') || type.includes('gloves') || type.includes('shield');
+                            if (itemFilter === 'Items') return type.includes('item') || type.includes('consumable') || type.includes('potion');
+                            if (itemFilter === 'Misc') return !item.equipped && !type.includes('weapon') && !type.includes('armor') && !type.includes('item') && !type.includes('primary') && !type.includes('secondary');
+
+                            return true;
+                        })
+                        .map((item, index) => (
+                            <InventoryItem key={`${item.name}-${index}`} item={item} colors={colors} styles={styles} />
+                        ))}
                 </CollapsibleSection>
-            )}
+            )
+            }
 
             {/* Abilities Section */}
-            {character.abilities.length > 0 && (
-                <CollapsibleSection
-                    title="Abilities"
-                    colors={colors}
-                    styles={styles}
-                    hasUpdate={updates['abilities']}
-                    onExpand={() => clearUpdate('abilities')}
-                >
-                    {character.abilities.map((ability, index) => (
-                        <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} styles={styles} />
-                    ))}
-                </CollapsibleSection>
-            )}
+            {
+                character.abilities.length > 0 && (
+                    <CollapsibleSection
+                        title="Abilities"
+                        colors={colors}
+                        styles={styles}
+                        hasUpdate={updates['abilities']}
+                        onExpand={() => clearUpdate('abilities')}
+                    >
+                        {/* Ability Filters */}
+                        <ScrollView
+                            horizontal
+                            showsHorizontalScrollIndicator={false}
+                            style={styles.filterBar}
+                            contentContainerStyle={styles.filterBarContent}
+                        >
+                            {['All', 'Attack', 'Defense', 'Utility', 'Passive'].map(filter => (
+                                <TouchableOpacity
+                                    key={filter}
+                                    style={[styles.filterChip, abilityFilter === filter && styles.filterChipActive]}
+                                    onPress={() => {
+                                        LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                                        setAbilityFilter(filter);
+                                    }}
+                                >
+                                    <Text style={[styles.filterChipText, abilityFilter === filter && styles.filterChipTextActive]}>
+                                        {filter}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </ScrollView>
+
+                        {character.abilities
+                            .filter(ability => {
+                                if (abilityFilter === 'All') return true;
+                                const type = (ability.type || '').toLowerCase();
+                                return type.includes(abilityFilter.toLowerCase());
+                            })
+                            .map((ability, index) => (
+                                <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} styles={styles} />
+                            ))}
+                    </CollapsibleSection>
+                )
+            }
 
             {/* World-Specific Extras */}
-            {Object.keys(character.extras).length > 0 && (
-                <ExtrasSection
-                    extras={character.extras}
-                    worldType={worldType}
-                    colors={colors}
-                    styles={styles}
-                    updates={updates}
-                    onClearUpdate={() => clearUpdate('extras')}
-                />
-            )}
-        </ScrollView>
+            {
+                Object.keys(character.extras).length > 0 && (
+                    <ExtrasSection
+                        extras={character.extras}
+                        worldType={worldType}
+                        colors={colors}
+                        styles={styles}
+                        updates={updates}
+                        onClearUpdate={() => clearUpdate('extras')}
+                    />
+                )
+            }
+        </ScrollView >
     );
 }
 
@@ -1118,4 +1201,62 @@ const createStyles = (colors: any) => StyleSheet.create({
         height: '100%',
         borderRadius: borderRadius.full,
     },
+    // Filter Styles
+    filterBar: {
+        marginBottom: spacing.sm,
+    },
+    filterBarContent: {
+        paddingRight: spacing.md,
+        gap: spacing.xs,
+    },
+    filterChip: {
+        paddingHorizontal: spacing.sm,
+        paddingVertical: 4,
+        borderRadius: borderRadius.full,
+        backgroundColor: colors.background.tertiary,
+        borderWidth: 1,
+        borderColor: colors.border.default,
+        marginRight: spacing.xs,
+    },
+    filterChipActive: {
+        backgroundColor: colors.primary[500],
+        borderColor: colors.primary[400],
+    },
+    filterChipText: {
+        fontSize: 12,
+        color: colors.text.secondary,
+        fontWeight: '500',
+    },
+    filterChipTextActive: {
+        color: '#fff',
+        fontWeight: 'bold',
+    },
+    // Currency Styles
+    currencyContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: spacing.sm,
+        backgroundColor: colors.background.tertiary,
+        borderRadius: borderRadius.md,
+        marginBottom: spacing.md,
+        borderWidth: 1,
+        borderColor: colors.gold?.main || '#f59e0b',
+    },
+    currencyIcon: {
+        fontSize: 18,
+        marginRight: spacing.xs,
+    },
+    currencyAmount: {
+        fontSize: typography.fontSize.lg,
+        fontWeight: 'bold',
+        color: colors.gold?.main || '#f59e0b',
+        marginRight: spacing.xs,
+    },
+    currencyName: {
+        fontSize: typography.fontSize.xs,
+        color: colors.text.muted,
+        textTransform: 'uppercase',
+        fontWeight: '600',
+    },
 });
+
