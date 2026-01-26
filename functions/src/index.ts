@@ -436,7 +436,9 @@ export const processGameAction = onCall(
             }
 
             // SAFETY NET: Detect if Brain missed pendingRoll when it should have returned one
-            if (interactiveDiceRolls && !brainResult.data.pendingRoll && !rollResult) {
+            // BYPASS for Help commands
+            const isHelpQuery = userInput.trim().toLowerCase().startsWith('help:');
+            if (interactiveDiceRolls && !brainResult.data.pendingRoll && !rollResult && !isHelpQuery) {
                 const narrativeText = brainResult.data.narrativeCues?.map(c => c.content).join(' ') || '';
                 const rollKeywords = /\b(roll|dice|d20|d6|d10|d100|check|save|attack|hit|damage|strike|dodge|resist)\b/i;
 
