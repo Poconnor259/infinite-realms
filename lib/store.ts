@@ -525,6 +525,7 @@ export const useGameStore = create<GameState>((set, get) => ({
                     pendingChoice: result.data.requiresUserInput && result.data.pendingChoice
                         ? result.data.pendingChoice
                         : null,
+                    pendingRoll: result.data.pendingRoll || null, // Handle chained rolls or clear if done
                 };
             });
 

@@ -36,6 +36,11 @@ export interface StateCorrections {
     gold?: number;
     experience?: number;
     questProgress?: Record<string, unknown>;
+    activeQuests?: {
+        questName: string;
+        questDescription: string;
+        status: string;
+    }[];
 }
 
 export interface StateReviewOutput {
@@ -100,8 +105,8 @@ export async function reviewStateConsistency(input: StateReviewInput): Promise<S
                     { role: 'user', content: `Review this narrative and extract any state changes:\n\n${narrative}` }
                 ],
                 response_format: { type: 'json_object' },
-                temperature: 0.3, // Low temperature for consistency
-                max_tokens: 1000,
+                temperature: 0.2, // Lower temperature for more accurate extraction
+                max_tokens: 1500,
             });
             content = response.choices[0]?.message?.content;
             if (response.usage) {
@@ -262,9 +267,61 @@ export function applyCorrections(
         newState.gold = corrections.gold;
     }
 
-    // Apply Experience changes
+    // Apply Experience changes and Level Up logic
     if (corrections.experience !== undefined) {
-        newState.experience = corrections.experience;
+        const char = (newState.character as any) || {};
+        const currentInternalLevel = Number(char.level || newState.level || 1);
+
+        // Use unified experience utility (logic duplicated here to avoid import issues if experience.ts isn't built yet, but ideally we should import)
+        // But since I created experience.ts, let's try to stick to the same formula logic here inline to be safe for now, 
+        // OR better yet, let's trust the deployment and just use the same formula logic since we can't easily import across the project structure without build verification.
+
+        // Formula: Base * Tier_Multiplier, where Base = (tier_level + 1) * 500
+        const getThreshold = (lvl: number) => {
+            const tier = Math.ceil(Math.max(1, lvl) / 10);
+            const tierLevel = ((Math.max(1, lvl) - 1) % 10) + 1;
+            return ((tierLevel + 1) * 500) * tier;
+        };
+
+        // Handle both object-based {current, max} and flat number experience
+        if (typeof newState.experience === 'object' && newState.experience !== null) {
+            const exp = newState.experience as { current: number; max: number };
+            let newCurrent = (exp.current || 0) + corrections.experience;
+            let newLevel = currentInternalLevel;
+
+            // Level up logic
+            let threshold = getThreshold(newLevel);
+            while (newCurrent >= threshold && newLevel < 60) {
+                newCurrent -= threshold;
+                newLevel++;
+                threshold = getThreshold(newLevel);
+            }
+
+            newState.experience = {
+                current: newCurrent,
+                max: threshold
+            };
+
+            // Sync level
+            newState.level = newLevel;
+            if (newState.character) (newState.character as any).level = newLevel;
+
+        } else {
+            // Flat number fallback
+            let newExperience = (Number(newState.experience) || 0) + corrections.experience;
+            let newLevel = currentInternalLevel;
+
+            let threshold = getThreshold(newLevel);
+            while (newExperience >= threshold && newLevel < 60) {
+                newExperience -= threshold;
+                newLevel++;
+                threshold = getThreshold(newLevel);
+            }
+
+            newState.experience = newExperience;
+            newState.level = newLevel;
+            if (newState.character) (newState.character as any).level = newLevel;
+        }
     }
 
     // Apply Inventory changes
@@ -319,6 +376,38 @@ export function applyCorrections(
     if (corrections.questProgress) {
         const currentProgress = (newState.questProgress as Record<string, unknown>) || {};
         newState.questProgress = { ...currentProgress, ...corrections.questProgress };
+    }
+
+    // Apply Active Quests (New Quests Detected)
+    if (corrections.activeQuests && Array.isArray(corrections.activeQuests)) {
+        const currentQuestLog = (newState.questLog as any[]) || [];
+
+        corrections.activeQuests.forEach(newQuest => {
+            // Check if quest already exists (by fuzzy name match or ID if we had it)
+            // AI returns "questName", schema wants "title"
+            const exists = currentQuestLog.some(q =>
+                q.title.toLowerCase() === newQuest.questName.toLowerCase() ||
+                q.id === newQuest.questName.replace(/\s+/g, '-').toLowerCase()
+            );
+
+            if (!exists) {
+                currentQuestLog.push({
+                    id: newQuest.questName.replace(/\s+/g, '-').toLowerCase(),
+                    title: newQuest.questName,
+                    description: newQuest.questDescription,
+                    status: 'active',
+                    startedAt: Date.now(),
+                    objectives: [] // AI didn't provide specific objectives in this format, defaults empty
+                });
+            }
+        });
+
+        newState.questLog = currentQuestLog;
+
+        // Auto-set the most recent one as active if none is active
+        if (!newState.activeQuestId && corrections.activeQuests.length > 0) {
+            newState.activeQuestId = corrections.activeQuests[corrections.activeQuests.length - 1].questName.replace(/\s+/g, '-').toLowerCase();
+        }
     }
 
     return newState;

@@ -25,9 +25,10 @@ interface UnifiedCharacterPanelProps {
     isRequestingQuests?: boolean;
     pendingRoll?: PendingRoll | null;
     onRollComplete?: (result: { roll: number; total: number; success?: boolean }) => void;
+    onDismiss?: () => void;
 }
 
-export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, pendingRoll, onRollComplete }: UnifiedCharacterPanelProps) {
+export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, pendingRoll, onRollComplete, onDismiss }: UnifiedCharacterPanelProps) {
     const { colors } = useThemeColors();
     const styles = useMemo(() => createStyles(colors), [colors]);
 
@@ -170,7 +171,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     <View style={styles.progressionContainer}>
                         <View style={styles.progressionHeader}>
                             <Text style={styles.progressionLabel}>
-                                {character.rank ? 'Rank Progress' : 'Level Progress'}
+                                {character.displayRank || (character.rank ? `${character.rank} Progress` : 'Level Progress')}
                             </Text>
                             <Text style={styles.progressionValue}>
                                 {character.experience.current} / {character.experience.max} XP
@@ -203,11 +204,12 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                         <DiceRoller
                             pendingRoll={pendingRoll}
                             rollHistory={rollHistory}
-                            onRollComplete={(result) => {
+                            onRollComplete={(result: any) => {
                                 if (onRollComplete) {
                                     onRollComplete(result);
                                 }
                             }}
+                            onDismiss={onDismiss}
                         />
                     </CollapsibleSection>
                 )}

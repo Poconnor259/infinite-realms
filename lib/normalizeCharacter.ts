@@ -55,6 +55,7 @@ export interface NormalizedCharacter {
         current: number;
         max: number;
     };
+    displayRank?: string;
 
     // Resources (health, mana, stamina, etc.)
     resources: NormalizedResource[];
@@ -105,10 +106,39 @@ export function normalizeCharacter(rawCharacter: any, worldType: string, questLo
     // Extract world-specific extras
     const extras = extractExtras(rawCharacter, worldType);
 
+    const internalLevel = rawCharacter.level || 1;
+    // XP Logic V2.0 - Inline Implementation to avoid dependency issues on client
+    // Formula: Base * Tier_Multiplier, where Base = (tier_level + 1) * 500
+    const tier = Math.ceil(Math.max(1, internalLevel) / 10);
+    const tierLevel = ((Math.max(1, internalLevel) - 1) % 10) + 1;
+    const base = (tierLevel + 1) * 500;
+    const xpMax = base * tier;
+
+    // Rank Display Logic
+    let displayRank = `Level ${internalLevel}`;
+    const normalizedWorld = worldType.toLowerCase();
+
+    if (normalizedWorld === 'outworlder') {
+        const ranks = ['Iron', 'Bronze', 'Silver', 'Gold', 'Diamond', 'Transcendent'];
+        displayRank = `${ranks[tier - 1] || 'Unknown'} ${tierLevel}`;
+    } else if (normalizedWorld === 'praxis' || normalizedWorld === 'tactical') {
+        const ranks = ['GREEN', 'YELLOW', 'ORANGE', 'RED', 'BLACK', 'OMEGA'];
+        displayRank = `${ranks[tier - 1] || 'UNKNOWN'}-${tierLevel}`;
+    } else if (normalizedWorld === 'classic' || normalizedWorld === 'valdoria') {
+        if (internalLevel <= 20) {
+            displayRank = `Level ${internalLevel}`;
+        } else if (internalLevel <= 40) {
+            displayRank = `Epic ${internalLevel - 20}`;
+        } else {
+            displayRank = `Legendary ${internalLevel - 40}`;
+        }
+    }
+
     return {
         name,
-        level,
-        rank,
+        level: internalLevel,
+        rank: displayRank.split(' ')[0], // Base rank name for simple displays
+        displayRank, // Full display string
         class: characterClass,
         race,
         resources,
@@ -117,7 +147,7 @@ export function normalizeCharacter(rawCharacter: any, worldType: string, questLo
         inventory,
         quests: Array.isArray(questLog) ? questLog : [],
         suggestedQuests: Array.isArray(suggestedQuests) ? suggestedQuests : [],
-        experience: rawCharacter.experience || { current: 0, max: 100 },
+        experience: rawCharacter.experience || { current: rawCharacter.experience ?? 0, max: xpMax },
         extras,
     };
 }

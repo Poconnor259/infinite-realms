@@ -11,6 +11,8 @@ import { useState, useRef, useEffect } from 'react';
 import {
     View,
     Text,
+    TouchableOpacity,
+    KeyboardAvoidingView,
     TextInput,
     StyleSheet,
     Animated,
@@ -49,10 +51,11 @@ interface RollHistoryEntry {
 interface DiceRollerProps {
     pendingRoll?: PendingRoll | null;
     rollHistory?: RollHistoryEntry[];
-    onRollComplete: (result: { roll: number; total: number; success?: boolean }) => void;
+    onRollComplete: (roll: number) => void;
+    onDismiss?: () => void;
 }
 
-export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: DiceRollerProps) {
+export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDismiss }: DiceRollerProps) {
     const { colors } = useThemeColors();
     const diceRollMode = useSettingsStore((state) => state.diceRollMode);
 
@@ -147,11 +150,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
                     const finalTotal = finalRoll + modifier;
                     const isSuccess = pendingRoll.difficulty ? finalTotal >= pendingRoll.difficulty : undefined;
                     if (onRollComplete) {
-                        onRollComplete({
-                            roll: finalRoll,
-                            total: finalTotal,
-                            success: isSuccess
-                        });
+                        onRollComplete(finalRoll);
                     }
                 }, 1500);
             }
@@ -186,7 +185,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
         }
 
         setTimeout(() => {
-            onRollComplete({ roll: rollValue, total, success });
+            onRollComplete(rollValue);
         }, 1500);
     };
 
@@ -202,6 +201,14 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
             borderWidth: 1,
             borderColor: colors.primary[600] + '40',
             alignItems: 'center',
+            position: 'relative',
+        },
+        dismissButton: {
+            position: 'absolute',
+            top: spacing.sm,
+            right: spacing.sm,
+            zIndex: 10,
+            padding: spacing.xs,
         },
         purpose: {
             fontSize: typography.fontSize.lg,
@@ -317,6 +324,17 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete }: Di
 
     return (
         <Animated.View style={[styles.container, { transform: [{ scale: scaleAnim }] }]}>
+            {/* Dismiss Button */}
+            {onDismiss && !isRolling && !showResult && (
+                <TouchableOpacity
+                    onPress={onDismiss}
+                    style={styles.dismissButton}
+                    accessibilityLabel="Dismiss roll"
+                >
+                    <Ionicons name="close" size={24} color={colors.text.muted} />
+                </TouchableOpacity>
+            )}
+
             {/* Purpose */}
             <Text style={styles.purpose}>
                 {pendingRoll.purpose}

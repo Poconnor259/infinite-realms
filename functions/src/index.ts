@@ -572,6 +572,13 @@ export const processGameAction = onCall(
             // 6. Pre-process: Decrement cooldowns for new turn
             let stateAfterCooldowns = decrementCooldowns(currentState);
 
+            // CRITICAL FIX: Explicitly clear any lingering pendingRoll from the previous state
+            // This prevents "phantom rolls" from persisting/re-appearing on reload if the new turn doesn't request one
+            if ((stateAfterCooldowns as any).pendingRoll) {
+                console.log('[GameEngine] Clearing stale pendingRoll from previous state');
+                delete (stateAfterCooldowns as any).pendingRoll;
+            }
+
             // 7. DEEP MERGE stateUpdates to preserve character data (abilities, essences, etc.)
             let finalState = deepMergeState(
                 stateAfterCooldowns,
@@ -866,7 +873,12 @@ export const processGameAction = onCall(
                             provider: questMasterConfig.provider as any,
                             model: questMasterConfig.model,
                             maxQuests: configData.questMaster?.maxQuestsPerTrigger || 2,
-                            customPrompt: qmPrompt
+                            customPrompt: qmPrompt,
+                            currentScene: chatHistory
+                                .filter(m => m.role === 'assistant' || m.role === 'narrator')
+                                .slice(-2)
+                                .map(m => m.content)
+                                .join('\n\n---\n\n')
                         });
 
                         if (questMasterResult.success && questMasterResult.data) {
@@ -1684,7 +1696,12 @@ export const requestQuestsTrigger = onCall(
             provider: questMasterConfig.provider as any,
             model: questMasterConfig.model,
             maxQuests: configData.questMaster?.maxQuestsPerTrigger || 2,
-            customPrompt: qmPrompt
+            customPrompt: qmPrompt,
+            currentScene: chatHistory
+                .filter(m => m.role === 'assistant' || m.role === 'narrator')
+                .slice(-2)
+                .map(m => m.content)
+                .join('\n\n---\n\n')
         });
 
         if (!questMasterResult.success || !questMasterResult.data) {

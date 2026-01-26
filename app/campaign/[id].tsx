@@ -29,7 +29,6 @@ import { HPBar } from '../../components/hud/HPBar';
 import { StatRow, ResourceBar } from '../../components/hud/StatCard';
 import { CharacterPanel } from '../../components/character/CharacterPanel';
 import { Logo } from '../../components/ui/Logo';
-import { DiceRoller } from '../../components/DiceRoller';
 import { ReadingSettingsPanel } from '../../components/ui/ReadingSettingsPanel';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
 import { loadSoundEffects } from '../../lib/sounds';
@@ -117,6 +116,8 @@ export default function CampaignScreen() {
         setPendingChoice,
         pendingRoll,
         submitRollResult,
+        setPendingRoll,
+        rollHistory,
         updateCurrentCampaign,
         clearRollHistory,
         lastFailedRequest,
@@ -642,13 +643,14 @@ export default function CampaignScreen() {
                                 {lastNarratorIndexReversed !== -1 && (
                                     <TouchableOpacity
                                         style={styles.navButton}
-                                        onPress={() => scrollToLastResponse()}
-                                        activeOpacity={0.7}
-                                    >
+                                        onPress={() => {
+                                            const index = messages.findIndex(m => m.role === 'user');
+                                            if (index !== -1) scrollToLastResponse(index);
+                                        }}>
                                         <Text style={{
                                             color: colors.text.primary,
                                             fontSize: 18,
-                                            fontFamily: typography.fontFamily.bold
+                                            fontWeight: '700'
                                         }}>T</Text>
                                     </TouchableOpacity>
                                 )}
@@ -722,6 +724,7 @@ export default function CampaignScreen() {
                                 // Pass the raw roll value, not the total (submitRollResult adds modifier)
                                 submitRollResult(result.roll);
                             }}
+                            onDismiss={() => setPendingRoll(null)}
                         />
                     </View>
                     )

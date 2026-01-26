@@ -17,6 +17,7 @@ export interface QuestMasterInput {
     model: string;
     maxQuests?: number; // Default: 2
     customPrompt?: string; // Override default prompt
+    currentScene?: string; // Last 2 full narrator messages
 }
 
 export interface QuestMasterOutput {
@@ -182,6 +183,8 @@ function getTemplateData(input: QuestMasterInput): Record<string, string> {
         ? recentEvents.join('\n')
         : '- No recent events';
 
+    const currentSceneText = input.currentScene || recentEventsList;
+
     return {
         '{{CHARACTER_CONTEXT}}': `
 - Name: ${character.name || 'Unknown'}
@@ -211,7 +214,9 @@ Available Quest Types: ${questTypes.join(', ')}`,
 Current Scale (Rank ${rank}):
 - Experience: ${scaling.experience} XP
 - Gold: ${scaling.gold} gold
-- Item Rarity: ${scaling.itemRarity}`
+- Item Rarity: ${scaling.itemRarity}`,
+
+        '{{CURRENT_SCENE}}': currentSceneText
     };
 }
 
@@ -233,8 +238,11 @@ ${ledger}
 ## QUEST HISTORY
 {{QUEST_HISTORY}}
 
-## RECENT EVENTS (Last 5 turns)
+## RECENT EVENTS (Summary)
 {{RECENT_EVENTS}}
+
+## CURRENT SCENE (Full Narrative)
+{{CURRENT_SCENE}}
 
 ## TRIGGER REASON
 {{TRIGGER_CONTEXT}}

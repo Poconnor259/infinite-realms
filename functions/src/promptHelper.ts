@@ -202,6 +202,13 @@ LOOK FOR CHANGES TO:
 - Party members (NPCs joining or leaving)
 - Quest progress (objectives completed)
 - Currency (gold, credits, etc.)
+- Experience (awarded for defeating enemies or completing milestones. SCALE XP by enemy Rank and Tier:
+    - Base: 50 XP for Iron Rank minions.
+    - Multiplier: Tier 2 (x2), Tier 3 (x3), Tier 4 (x4), Tier 5 (x6), Tier 6 (x10).
+    - Enemy Types: Minion (Base), Standard (x2), Elite (x4), Champion (x8), Boss (x20).
+    - KEYWORDS: Iron/Green/Lvl 1-10 (T1), Bronze/Yellow/Lvl 11-20 (T2), Silver/Orange/Epic 1 (T3), Gold/Red/Epic 11 (T4), Diamond/Black/Leg 1 (T5), Transcendent/Omega (T6).
+    - Example: A Silver Elite (Tier 3 Elite) = 50 * 3 * 4 = 600 XP.
+    - If no Rank/Tier is mentioned, default to 50 XP for standard enemies.)
 
 CURRENT GAME STATE:
 {currentState}
