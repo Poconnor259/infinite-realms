@@ -390,7 +390,10 @@ DO NOT resolve outcomes. Wait for user's roll result.
 DO NOT auto-roll. Leave diceRolls as [].`)
             : 'Calculate all dice rolls using proper randomization simulation and include them in diceRolls array.';
 
-        const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
+        const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. 
+${showSuggestedChoices
+                ? 'ALWAYS include a "pendingChoice" object with 2-4 "options" representing suggested next actions (e.g., "Attack", "Search", "Ask about..."). Set "requiresUserInput": true to ensure these are displayed.'
+                : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
 
         const rollResultRule = rollResult !== undefined
             ? `🎲 DICE ROLL RESULT RECEIVED: ${rollResult}

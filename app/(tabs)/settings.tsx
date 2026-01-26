@@ -242,6 +242,85 @@ export default function SettingsScreen() {
                                 />
                             }
                         />
+
+                        {/* Moved Gameplay Settings */}
+                        <Row
+                            label="Show Suggested Choices"
+                            sublabel={user?.showSuggestedChoices !== false ? "AI suggests 2-4 choices for ambiguous situations" : "Type your own response for freeform play"}
+                            icon="list-outline"
+                            iconColor="#ec4899"
+                            rightElement={
+                                <Switch
+                                    value={user?.showSuggestedChoices !== false} // Default to true
+                                    onValueChange={async (value) => {
+                                        if (user?.id) {
+                                            try {
+                                                await updateDoc(doc(db, 'users', user.id), {
+                                                    showSuggestedChoices: value
+                                                });
+                                                // Update local store
+                                                useUserStore.setState({
+                                                    user: {
+                                                        ...user,
+                                                        showSuggestedChoices: value
+                                                    }
+                                                });
+                                            } catch (error) {
+                                                console.error('Failed to update preference:', error);
+                                            }
+                                        }
+                                    }}
+                                    trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
+                                    thumbColor={user?.showSuggestedChoices !== false ? colors.primary[300] : colors.text.muted}
+                                />
+                            }
+                        />
+                        <Row
+                            label="Dice Roll Mode"
+                            sublabel={
+                                diceRollMode === 'auto' ? "AI auto-rolls dice for you" :
+                                    diceRollMode === 'digital' ? "Tap to roll animated digital dice" :
+                                        "Roll real dice and enter your result"
+                            }
+                            icon="dice-outline"
+                            iconColor="#8b5cf6"
+                            rightElement={
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        const modes: ('auto' | 'digital' | 'physical')[] = ['auto', 'digital', 'physical'];
+                                        const currentIndex = modes.indexOf(diceRollMode);
+                                        const nextMode = modes[(currentIndex + 1) % modes.length];
+                                        setPreference('diceRollMode', nextMode);
+                                    }}
+                                    style={{
+                                        flexDirection: 'row',
+                                        alignItems: 'center',
+                                        backgroundColor: colors.background.tertiary,
+                                        paddingHorizontal: 12,
+                                        paddingVertical: 6,
+                                        borderRadius: 8,
+                                        borderWidth: 1,
+                                        borderColor: colors.border.default,
+                                    }}
+                                >
+                                    <Ionicons
+                                        name={
+                                            diceRollMode === 'auto' ? 'flash' :
+                                                diceRollMode === 'digital' ? 'phone-portrait' :
+                                                    'hand-left'
+                                        }
+                                        size={16}
+                                        color={colors.primary[400]}
+                                        style={{ marginRight: 6 }}
+                                    />
+                                    <Text style={{ color: colors.text.primary, fontSize: 14, fontWeight: '500' }}>
+                                        {diceRollMode === 'auto' ? 'Auto' :
+                                            diceRollMode === 'digital' ? 'Digital' :
+                                                'Physical'}
+                                    </Text>
+                                </TouchableOpacity>
+                            }
+                        />
                     </Section>
                 </FadeInView>
 
@@ -338,92 +417,7 @@ export default function SettingsScreen() {
                 </FadeInView>
 
 
-                {/* Gameplay Preferences Section */}
-                <FadeInView delay={150}>
-                    <Section title="Gameplay">
-                        <Row
-                            label="Show Suggested Choices"
-                            sublabel={user?.showSuggestedChoices !== false ? "AI suggests 2-4 choices for ambiguous situations" : "Type your own response for freeform play"}
-                            icon="list-outline"
-                            iconColor="#ec4899"
-                            rightElement={
-                                <Switch
-                                    value={user?.showSuggestedChoices !== false} // Default to true
-                                    onValueChange={async (value) => {
-                                        if (user?.id) {
-                                            try {
-                                                await updateDoc(doc(db, 'users', user.id), {
-                                                    showSuggestedChoices: value
-                                                });
-                                                // Update local store
-                                                useUserStore.setState({
-                                                    user: {
-                                                        ...user,
-                                                        showSuggestedChoices: value
-                                                    }
-                                                });
-                                            } catch (error) {
-                                                console.error('Failed to update preference:', error);
-                                            }
-                                        }
-                                    }}
-                                    trackColor={{ false: colors.background.tertiary, true: colors.primary[600] }}
-                                    thumbColor={user?.showSuggestedChoices !== false ? colors.primary[300] : colors.text.muted}
-                                />
-                            }
-                        />
-                    </Section>
-                </FadeInView>
 
-                {/* Dice Roll Mode Section */}
-                <FadeInView delay={175}>
-                    <Section title="Dice Rolls">
-                        <Row
-                            label="Dice Roll Mode"
-                            sublabel={
-                                diceRollMode === 'auto' ? "AI auto-rolls dice for you" :
-                                    diceRollMode === 'digital' ? "Tap to roll animated digital dice" :
-                                        "Roll real dice and enter your result"
-                            }
-                            icon="dice-outline"
-                            iconColor="#8b5cf6"
-                            rightElement={
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        const modes: ('auto' | 'digital' | 'physical')[] = ['auto', 'digital', 'physical'];
-                                        const currentIndex = modes.indexOf(diceRollMode);
-                                        const nextMode = modes[(currentIndex + 1) % modes.length];
-                                        setPreference('diceRollMode', nextMode);
-                                    }}
-                                    style={{
-                                        flexDirection: 'row',
-                                        alignItems: 'center',
-                                        backgroundColor: colors.background.tertiary,
-                                        paddingHorizontal: 12,
-                                        paddingVertical: 6,
-                                        borderRadius: 8,
-                                    }}
-                                >
-                                    <Ionicons
-                                        name={
-                                            diceRollMode === 'auto' ? 'flash' :
-                                                diceRollMode === 'digital' ? 'phone-portrait' :
-                                                    'hand-left'
-                                        }
-                                        size={16}
-                                        color={colors.primary[400]}
-                                        style={{ marginRight: 6 }}
-                                    />
-                                    <Text style={{ color: colors.text.primary, fontSize: 14, fontWeight: '500' }}>
-                                        {diceRollMode === 'auto' ? 'Auto' :
-                                            diceRollMode === 'digital' ? 'Digital' :
-                                                'Physical'}
-                                    </Text>
-                                </TouchableOpacity>
-                            }
-                        />
-                    </Section>
-                </FadeInView>
 
                 {/* BYOK Section */}
                 <FadeInView delay={200}>

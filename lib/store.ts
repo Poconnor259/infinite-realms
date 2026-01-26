@@ -522,9 +522,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     messages: [...s.messages, narratorMessage],
                     currentCampaign: updatedCampaign,
                     isLoading: false,
-                    pendingChoice: result.data.requiresUserInput && result.data.pendingChoice
+                    pendingChoice: result.data.pendingChoice && result.data.pendingChoice.options && result.data.pendingChoice.options.length > 0
                         ? result.data.pendingChoice
-                        : null,
+                        : (result.data.requiresUserInput && result.data.pendingChoice ? result.data.pendingChoice : null),
                     pendingRoll: result.data.pendingRoll || null, // Handle chained rolls or clear if done
                 };
             });
@@ -732,9 +732,9 @@ export const useGameStore = create<GameState>((set, get) => ({
                     messages: [...newMessages, narratorMessage],
                     currentCampaign: updatedCampaign,
                     isLoading: false,
-                    pendingChoice: result.data.requiresUserInput && result.data.pendingChoice
+                    pendingChoice: result.data.pendingChoice && result.data.pendingChoice.options && result.data.pendingChoice.options.length > 0
                         ? result.data.pendingChoice
-                        : null,
+                        : (result.data.requiresUserInput && result.data.pendingChoice ? result.data.pendingChoice : null),
                     pendingRoll: null, // Clear any pending roll
                 };
             });
@@ -920,6 +920,7 @@ interface SettingsState {
     fontFamily: 'inter' | 'roboto' | 'outfit' | 'system';
     fontSize: 'small' | 'medium' | 'large' | 'xlarge';
     diceRollMode: 'auto' | 'digital' | 'physical';
+    showSuggestedChoices: boolean; // Default: true
 
     // Actions
     setApiKey: (provider: 'openai' | 'anthropic' | 'google', key: string | null) => void;
@@ -941,6 +942,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     fontFamily: 'inter',
     fontSize: 'medium',
     diceRollMode: 'digital',
+    showSuggestedChoices: true,
 
     setApiKey: (provider, key) => {
         // Store securely (will use expo-secure-store in production)
@@ -975,6 +977,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
         const fontFamily = storage.getString('pref_fontFamily');
         const fontSize = storage.getString('pref_fontSize');
         const diceRollMode = storage.getString('pref_diceRollMode');
+        const showSuggestedChoices = storage.getString('pref_showSuggestedChoices');
 
         set({
             openaiKey,

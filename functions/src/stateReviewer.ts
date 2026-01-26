@@ -232,11 +232,37 @@ export function applyCorrections(
 
     // Apply HP changes
     if (corrections.hp) {
+        // Handle root GameState (legacy/flat)
         const currentHp = (newState.hp as any) || { current: 0, max: 0 };
         newState.hp = {
             current: corrections.hp.current ?? currentHp.current,
             max: corrections.hp.max ?? currentHp.max
         };
+
+        // Handle Character object (nested)
+        if (newState.character && typeof newState.character === 'object') {
+            const char = newState.character as any;
+            const charHp = char.hp || { current: 0, max: 0 };
+
+            // Update character.hp
+            char.hp = {
+                current: corrections.hp.current ?? charHp.current,
+                max: corrections.hp.max ?? charHp.max
+            };
+
+            // Update character.resources.health (if it exists or generic structure is used)
+            if (!char.resources) char.resources = {};
+            // Sync to keys matching common patterns
+            ['health', 'hp', 'hitPoints'].forEach(key => {
+                if (char.resources[key] || key === 'health') { // Default to 'health' if creating new
+                    char.resources[key] = {
+                        current: corrections.hp!.current ?? (char.resources[key]?.current || charHp.current),
+                        max: corrections.hp!.max ?? (char.resources[key]?.max || charHp.max),
+                        ...char.resources[key] // Keep other fields like color/icon
+                    };
+                }
+            });
+        }
     }
 
     // Apply Mana changes
@@ -246,6 +272,27 @@ export function applyCorrections(
             current: corrections.mana.current ?? currentMana.current,
             max: corrections.mana.max ?? currentMana.max
         };
+
+        if (newState.character && typeof newState.character === 'object') {
+            const char = newState.character as any;
+            const charMana = char.mana || { current: 0, max: 0 };
+
+            char.mana = {
+                current: corrections.mana.current ?? charMana.current,
+                max: corrections.mana.max ?? charMana.max
+            };
+
+            if (!char.resources) char.resources = {};
+            ['mana', 'mp', 'energy'].forEach(key => {
+                if (char.resources[key] || key === 'mana') {
+                    char.resources[key] = {
+                        current: corrections.mana!.current ?? (char.resources[key]?.current || charMana.current),
+                        max: corrections.mana!.max ?? (char.resources[key]?.max || charMana.max),
+                        ...char.resources[key]
+                    };
+                }
+            });
+        }
     }
 
     // Apply Nanites changes
@@ -255,6 +302,29 @@ export function applyCorrections(
             current: corrections.nanites.current ?? currentNanites.current,
             max: corrections.nanites.max ?? currentNanites.max
         };
+
+        if (newState.character && typeof newState.character === 'object') {
+            const char = newState.character as any;
+            const charNanites = char.nanites || { current: 0, max: 0 };
+
+            char.nanites = {
+                current: corrections.nanites.current ?? charNanites.current,
+                max: corrections.nanites.max ?? charNanites.max
+            };
+
+            // Sync to character.resources.nanites
+            if (!char.resources) char.resources = {};
+            // For Tactical/Praxis, 'nanites' is the key
+            if (char.resources['nanites'] || true) { // Always update/create nanites in resources
+                char.resources['nanites'] = {
+                    current: corrections.nanites!.current ?? (char.resources['nanites']?.current || charNanites.current),
+                    max: corrections.nanites!.max ?? (char.resources['nanites']?.max || charNanites.max),
+                    color: '#3b82f6', // Ensure default color if creating new
+                    icon: '🤖',
+                    ...char.resources['nanites']
+                };
+            }
+        }
     }
 
     // Apply Fatigue changes

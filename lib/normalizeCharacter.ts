@@ -157,57 +157,87 @@ export function normalizeCharacter(rawCharacter: any, worldType: string, questLo
 function normalizeResources(char: any, worldType: string): NormalizedResource[] {
     const resources: NormalizedResource[] = [];
 
-    // Health (various possible field names)
-    const health = extractResource(char, ['hp', 'health', 'hitPoints']);
-    if (health) {
-        resources.push({
-            ...health,
-            name: 'Health',
-            color: '#ef4444', // Red
-            icon: '❤️',
-        });
-    }
-
-    // Mana/Nanites (world-specific naming)
-    const mana = extractResource(char, ['mana', 'mp', 'nanites', 'energy', 'nc']);
-    if (mana) {
-        const worldLower = worldType.toLowerCase();
-        const manaName = worldLower === 'tactical' || worldLower === 'praxis' ? 'Nanites' :
-            (char.nanites ? 'Nanites' : 'Mana'); // Fallback to key usage
-        resources.push({
-            ...mana,
-            name: manaName,
-            color: '#3b82f6', // Blue
-            icon: '💧',
-        });
-    }
-
-    const stamina = extractResource(char, ['stamina', 'spirit', 'focus', 'fatigue']);
-    if (stamina) {
-        // All world types use "Stamina" as the label
-        resources.push({
-            ...stamina,
-            name: 'Stamina',
-            color: '#22c55e', // Green
-            icon: '⚡',
-        });
-    }
-
-    // Check for resources object (generic engine format)
+    // 1. Priority: Check for resources object (generic engine format) - updated by AI
     if (char.resources && typeof char.resources === 'object') {
         for (const [key, value] of Object.entries(char.resources)) {
-            // Skip if we already have this resource (by name check)
-            if (resources.some(r => r.name.toLowerCase() === key.toLowerCase())) continue;
+            // Skip invalid entries
+            if (!value || typeof value !== 'object') continue;
 
             const res = value as any;
-            if (res && typeof res.current === 'number') {
+            if (typeof res.current === 'number') {
+                const name = capitalizeFirst(key);
+                // Map common names to standard UI colors/icons if not specified
+                let color = res.color || '#8b5cf6';
+                let icon = res.icon;
+
+                if (!icon) {
+                    if (name.match(/Health|Hp/i)) icon = '❤️';
+                    else if (name.match(/Mana|Mp|Energy/i)) icon = '💧';
+                    else if (name.match(/Stamina|Spirit/i)) icon = '⚡';
+                    else if (name.match(/Nanite/i)) icon = '🤖';
+                }
+
+                if (!color) {
+                    if (name.match(/Health|Hp/i)) color = '#ef4444';
+                    else if (name.match(/Mana|Mp|Energy|Nanite/i)) color = '#3b82f6';
+                    else if (name.match(/Stamina|Spirit/i)) color = '#22c55e';
+                }
+
                 resources.push({
                     current: res.current,
                     max: res.max || res.current, // Fallback max to current if missing
-                    name: capitalizeFirst(key),
-                    color: res.color || '#8b5cf6',
+                    name: name,
+                    color: color,
+                    icon: icon
                 });
             }
+        }
+    }
+
+    // 2. Fallback: Check root properties (Health, Mana, etc.)
+    // Only add if NOT already present in resources
+
+    // Health (various possible field names)
+    if (!resources.some(r => r.name === 'Health')) {
+        const health = extractResource(char, ['hp', 'health', 'hitPoints']);
+        if (health) {
+            resources.push({
+                ...health,
+                name: 'Health',
+                color: '#ef4444', // Red
+                icon: '❤️',
+            });
+        }
+    }
+
+    // Mana/Nanites (world-specific naming)
+    const worldLower = worldType.toLowerCase();
+    const isSciFi = worldLower === 'tactical' || worldLower === 'praxis';
+    const manaName = isSciFi ? 'Nanites' : (char.nanites ? 'Nanites' : 'Mana');
+
+    // Check if we already have this resource (by name)
+    if (!resources.some(r => r.name === manaName)) {
+        const mana = extractResource(char, ['mana', 'mp', 'nanites', 'energy', 'nc']);
+        if (mana) {
+            resources.push({
+                ...mana,
+                name: manaName,
+                color: '#3b82f6', // Blue
+                icon: isSciFi ? '🤖' : '💧',
+            });
+        }
+    }
+
+    // Stamina
+    if (!resources.some(r => r.name === 'Stamina')) {
+        const stamina = extractResource(char, ['stamina', 'spirit', 'focus', 'fatigue']);
+        if (stamina) {
+            resources.push({
+                ...stamina,
+                name: 'Stamina',
+                color: '#22c55e', // Green
+                icon: '⚡',
+            });
         }
     }
 
