@@ -454,7 +454,7 @@ PRAXIS STYLE:
             subtitle: 'He Who Fights With Monsters',
             icon: '🌌',
             color: '#10b981',
-            description: 'Enter a world where essence abilities define your power. Climb the ranks from Iron to Diamond as you absorb monster essences and unlock your confluence.',
+            description: 'Enter a world where essence abilities define your power. Climb the ranks from Iron to Diamond as you absorb monster essences.',
             features: [
                 'Essence-based power system',
                 'Rank progression (Iron → Diamond)',

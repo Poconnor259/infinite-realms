@@ -84,6 +84,20 @@ export interface WorldModule {
     customRules?: string;
     initialNarrative?: string;
     generateIntro?: boolean;
+    defaultLoadout?: {
+        abilities: Array<string | {
+            name: string;
+            essence?: string;
+            rank?: string;
+            type?: string;
+            cooldown?: number;
+            cost?: string;
+            costAmount?: number;
+            description?: string;
+        }>;
+        items: string[];
+        essences?: string[]; // For Outworlder
+    };
     order?: number;
 }
 

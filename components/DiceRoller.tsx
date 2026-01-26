@@ -84,7 +84,8 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
     };
 
     const { count, sides } = parseDiceType(pendingRoll.type);
-    const modifier = pendingRoll.modifier || 0;
+    const modifier = Number(pendingRoll.modifier) || 0;
+    const difficulty = pendingRoll.difficulty !== undefined ? Number(pendingRoll.difficulty) : undefined;
 
     // Roll the dice (digital mode)
     const rollDice = () => {
@@ -132,7 +133,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
                 setShowResult(true);
 
                 const total = finalRoll + modifier;
-                const success = pendingRoll.difficulty ? total >= pendingRoll.difficulty : undefined;
+                const success = difficulty !== undefined && !isNaN(difficulty) ? total >= difficulty : undefined;
 
                 // Play success/fail sound
                 if (success === true) {
@@ -148,7 +149,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
                 // Auto-continue after showing result
                 setTimeout(() => {
                     const finalTotal = finalRoll + modifier;
-                    const isSuccess = pendingRoll.difficulty ? finalTotal >= pendingRoll.difficulty : undefined;
+                    const isSuccess = difficulty !== undefined && !isNaN(difficulty) ? finalTotal >= difficulty : undefined;
                     if (onRollComplete) {
                         onRollComplete(finalRoll);
                     }
@@ -174,7 +175,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
         mediumHaptic();
 
         const total = rollValue + modifier;
-        const success = pendingRoll.difficulty ? total >= pendingRoll.difficulty : undefined;
+        const success = difficulty !== undefined && !isNaN(difficulty) ? total >= difficulty : undefined;
 
         if (success === true) {
             playSuccess();
@@ -190,7 +191,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
     };
 
     const total = result !== null ? result + modifier : null;
-    const success = total !== null && pendingRoll.difficulty ? total >= pendingRoll.difficulty : undefined;
+    const success = total !== null && difficulty !== undefined && !isNaN(difficulty) ? total >= difficulty : undefined;
 
     const styles = StyleSheet.create({
         container: {
@@ -354,9 +355,9 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
             )}
 
             {/* Difficulty */}
-            {pendingRoll.difficulty && !showResult && (
+            {difficulty !== undefined && !isNaN(difficulty) && !showResult && (
                 <Text style={styles.difficultyText}>
-                    Target: DC {pendingRoll.difficulty}
+                    Target: DC {difficulty}
                 </Text>
             )}
 
@@ -433,12 +434,12 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
                     )}
                     {success === true && (
                         <Text style={styles.successText}>
-                            ✅ SUCCESS!{pendingRoll.difficulty ? ` (vs DC ${pendingRoll.difficulty})` : ''}
+                            ✅ SUCCESS!{difficulty !== undefined && !isNaN(difficulty) ? ` (vs DC ${difficulty})` : ''}
                         </Text>
                     )}
                     {success === false && (
                         <Text style={styles.failText}>
-                            ❌ FAILED{pendingRoll.difficulty ? ` (vs DC ${pendingRoll.difficulty})` : ''}
+                            ❌ FAILED{difficulty !== undefined && !isNaN(difficulty) ? ` (vs DC ${difficulty})` : ''}
                         </Text>
                     )}
                 </View>

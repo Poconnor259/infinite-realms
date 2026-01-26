@@ -80,9 +80,28 @@ export default function AdminWorldsScreen() {
         customRules: '',
         initialNarrative: '',
         generateIntro: false,
+        defaultLoadout: {
+            abilities: [],
+            items: [],
+            essences: [],
+        },
         order: 0,
     });
     const [newFeature, setNewFeature] = useState('');
+    const [newItem, setNewItem] = useState('');
+    const [newAbility, setNewAbility] = useState('');
+    const [newEssence, setNewEssence] = useState('');
+    const [abilityDetail, setAbilityDetail] = useState({
+        essence: '',
+        rank: 'Iron',
+        type: 'attack',
+        cooldown: 0,
+        cost: 'mana',
+        costAmount: 10,
+        description: '',
+        rechargeOn: 'longRest' as 'shortRest' | 'longRest' | 'none',
+        maxUses: 0,
+    });
 
     useEffect(() => {
         loadData();
@@ -147,6 +166,11 @@ export default function AdminWorldsScreen() {
                 features: [],
                 customRules: '',
                 order: 0,
+                defaultLoadout: {
+                    abilities: [],
+                    items: [],
+                    essences: [],
+                },
             });
             loadWorlds();
         } catch (error) {
@@ -210,6 +234,10 @@ export default function AdminWorldsScreen() {
                 customRules: '',
                 initialNarrative: '*The tavern is warm and loud. You sit in the corner, polishing your gear. A shadow falls across your table.*',
                 generateIntro: false,
+                defaultLoadout: {
+                    abilities: ['Melee Attack', 'Dodge'],
+                    items: ['Longsword', 'Leather Armor', 'Health Potion'],
+                }
             },
             {
                 id: 'outworlder',
@@ -218,7 +246,7 @@ export default function AdminWorldsScreen() {
                 subtitle: 'He Who Fights With Monsters',
                 icon: '🌌',
                 color: '#10b981',
-                description: 'Enter a world where essence abilities define your power. Climb the ranks from Iron to Diamond as you absorb monster essences and unlock your confluence.',
+                description: 'Enter a world where essence abilities define your power. Climb the ranks from Iron to Diamond as you absorb monster essences.',
                 features: [
                     'Essence-based power system',
                     'Rank progression (Iron → Diamond)',
@@ -229,6 +257,22 @@ export default function AdminWorldsScreen() {
                 customRules: '',
                 initialNarrative: '*Darkness... then light. Blinding, violet light. You gasp for air as you wake up in a strange forest.*',
                 generateIntro: false,
+                defaultLoadout: {
+                    abilities: [
+                        {
+                            name: "Power Strike",
+                            essence: "Might",
+                            rank: "Iron",
+                            type: "attack",
+                            cooldown: 0,
+                            cost: "mana",
+                            costAmount: 10,
+                            description: "A powerful strike"
+                        }
+                    ],
+                    items: ["Basic Outworlder Tunic"],
+                    essences: ["Might"]
+                }
             },
             {
                 id: 'praxis',
@@ -248,6 +292,17 @@ export default function AdminWorldsScreen() {
                 customRules: '',
                 initialNarrative: '*[SYSTEM NOTIFICATION]*\n\n*Validation complete. Player registered. Welcome, Operative.*',
                 generateIntro: false,
+                defaultLoadout: {
+                    abilities: [
+                        {
+                            name: "Shadow Step",
+                            rank: "C",
+                            type: "active",
+                            description: "Teleport a short distance through the shadows."
+                        }
+                    ],
+                    items: ["Mk. IV Pulse Carbine", "Tactical Armor"],
+                }
             },
         ];
 
@@ -451,6 +506,56 @@ export default function AdminWorldsScreen() {
         }));
     };
 
+    const addLoadoutItem = (type: 'abilities' | 'items' | 'essences', value: string) => {
+        if (!value.trim()) return;
+
+        let finalValue: any = value.trim();
+
+        // For abilities, we use structured objects for ALL worlds if possible
+        if (type === 'abilities') {
+            finalValue = {
+                name: value.trim(),
+                ...abilityDetail
+            };
+        }
+
+        setNewWorld(prev => ({
+            ...prev,
+            defaultLoadout: {
+                ...prev.defaultLoadout!,
+                [type]: [...(prev.defaultLoadout?.[type] || []), finalValue]
+            }
+        }));
+
+        if (type === 'abilities') {
+            setNewAbility('');
+            // Reset ability detail
+            setAbilityDetail({
+                essence: '',
+                rank: 'Iron',
+                type: 'attack',
+                cooldown: 0,
+                cost: 'mana',
+                costAmount: 10,
+                description: '',
+                rechargeOn: 'longRest' as 'shortRest' | 'longRest' | 'none',
+                maxUses: 0,
+            });
+        }
+        if (type === 'items') setNewItem('');
+        if (type === 'essences') setNewEssence('');
+    };
+
+    const removeLoadoutItem = (type: 'abilities' | 'items' | 'essences', index: number) => {
+        setNewWorld(prev => ({
+            ...prev,
+            defaultLoadout: {
+                ...prev.defaultLoadout!,
+                [type]: (prev.defaultLoadout?.[type] || []).filter((_, i) => i !== index)
+            }
+        }));
+    };
+
     const renderForm = () => (
         <View style={[styles.form, { backgroundColor: colors.background.secondary }]}>
             <Text style={[styles.formTitle, { color: colors.text.primary }]}>
@@ -585,16 +690,180 @@ export default function AdminWorldsScreen() {
                     <Ionicons name="add" size={24} color="#fff" />
                 </TouchableOpacity>
             </View>
+
+            {/* Default Loadout Section */}
+            <Text style={[styles.formTitle, { color: colors.text.primary, marginTop: spacing.lg }]}>
+                🎒 Default Loadout
+            </Text>
+            <Text style={[styles.inputLabel, { color: colors.text.muted, marginBottom: spacing.md }]}>
+                Items and abilities given to characters upon creation in this world.
+            </Text>
+
+            {/* Abilities */}
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Default Abilities</Text>
+            <View style={styles.featureInputRow}>
+                <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                    value={newAbility}
+                    onChangeText={setNewAbility}
+                    placeholder="Enter ability name..."
+                    placeholderTextColor={colors.text.muted}
+                    onSubmitEditing={() => addLoadoutItem('abilities', newAbility)}
+                />
+                <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary[500] }]} onPress={() => addLoadoutItem('abilities', newAbility)}>
+                    <Ionicons name="add" size={24} color="#fff" />
+                </TouchableOpacity>
+            </View>
             <View style={styles.featuresList}>
-                {newWorld.features?.map((f, i) => (
+                {newWorld.defaultLoadout?.abilities?.map((item, i) => {
+                    const name = typeof item === 'string' ? item : item.name;
+                    return (
+                        <View key={i} style={[styles.featureTag, { backgroundColor: colors.background.tertiary }]}>
+                            <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{name}</Text>
+                            <TouchableOpacity onPress={() => removeLoadoutItem('abilities', i)}>
+                                <Ionicons name="close-circle" size={16} color={colors.status.error} />
+                            </TouchableOpacity>
+                        </View>
+                    );
+                })}
+            </View>
+
+            {/* Ability Detail Inputs - System Specific */}
+            <View style={{ marginTop: spacing.sm, padding: spacing.sm, backgroundColor: colors.background.secondary, borderRadius: borderRadius.md }}>
+                <Text style={{ color: colors.text.muted, fontSize: typography.fontSize.xs, marginBottom: spacing.sm }}>Ability Details (Optional Override for ALL Worlds):</Text>
+
+                <View style={styles.row}>
+                    {newWorld.type === 'outworlder' ? (
+                        <TextInput
+                            style={[styles.input, { flex: 1, marginRight: spacing.sm, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                            value={abilityDetail.essence}
+                            onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, essence: text }))}
+                            placeholder="Essence (Might, Dimension, etc.)"
+                            placeholderTextColor={colors.text.muted}
+                        />
+                    ) : (
+                        <TextInput
+                            style={[styles.input, { flex: 1, marginRight: spacing.sm, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                            value={abilityDetail.rank}
+                            onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, rank: text }))}
+                            placeholder={newWorld.type === 'tactical' ? "Rank (E, D, C, B, A, S)" : "Rank/Level"}
+                            placeholderTextColor={colors.text.muted}
+                        />
+                    )}
+
+                    <TextInput
+                        style={[styles.input, { flex: 1, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                        value={abilityDetail.type}
+                        onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, type: text }))}
+                        placeholder="Type (attack, defense, passive)"
+                        placeholderTextColor={colors.text.muted}
+                    />
+                </View>
+
+                {newWorld.type === 'classic' ? (
+                    <View style={styles.row}>
+                        <TextInput
+                            style={[styles.input, { flex: 1, marginRight: spacing.sm, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                            value={abilityDetail.rechargeOn}
+                            onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, rechargeOn: text as any }))}
+                            placeholder="Recharge (longRest, shortRest)"
+                            placeholderTextColor={colors.text.muted}
+                        />
+                        <TextInput
+                            style={[styles.input, { flex: 1, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                            value={abilityDetail.maxUses.toString()}
+                            onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, maxUses: parseInt(text) || 0 }))}
+                            placeholder="Max Uses (0 = infinite)"
+                            placeholderTextColor={colors.text.muted}
+                            keyboardType="numeric"
+                        />
+                    </View>
+                ) : (
+                    <View style={styles.row}>
+                        <TextInput
+                            style={[styles.input, { flex: 1, marginRight: spacing.sm, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                            value={abilityDetail.cost}
+                            onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, cost: text }))}
+                            placeholder="Cost Type (mana, stamina)"
+                            placeholderTextColor={colors.text.muted}
+                        />
+                        <TextInput
+                            style={[styles.input, { flex: 1, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                            value={abilityDetail.costAmount.toString()}
+                            onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, costAmount: parseInt(text) || 0 }))}
+                            placeholder="Cost Amount"
+                            placeholderTextColor={colors.text.muted}
+                            keyboardType="numeric"
+                        />
+                    </View>
+                )}
+
+                <TextInput
+                    style={[styles.input, { fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                    value={abilityDetail.description}
+                    onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, description: text }))}
+                    placeholder="Description..."
+                    placeholderTextColor={colors.text.muted}
+                />
+            </View>
+
+            {/* Items */}
+            <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Default Items</Text>
+            <View style={styles.featureInputRow}>
+                <TextInput
+                    style={[styles.input, { flex: 1, marginBottom: 0, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                    value={newItem}
+                    onChangeText={setNewItem}
+                    placeholder="Enter item name..."
+                    placeholderTextColor={colors.text.muted}
+                    onSubmitEditing={() => addLoadoutItem('items', newItem)}
+                />
+                <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary[500] }]} onPress={() => addLoadoutItem('items', newItem)}>
+                    <Ionicons name="add" size={24} color="#fff" />
+                </TouchableOpacity>
+            </View>
+            <View style={styles.featuresList}>
+                {newWorld.defaultLoadout?.items?.map((item, i) => (
                     <View key={i} style={[styles.featureTag, { backgroundColor: colors.background.tertiary }]}>
-                        <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{f}</Text>
-                        <TouchableOpacity onPress={() => removeFeature(i)}>
+                        <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{item}</Text>
+                        <TouchableOpacity onPress={() => removeLoadoutItem('items', i)}>
                             <Ionicons name="close-circle" size={16} color={colors.status.error} />
                         </TouchableOpacity>
                     </View>
                 ))}
             </View>
+
+            {/* Essences (Only for Outworlder type) */}
+            {
+                newWorld.type === 'outworlder' && (
+                    <>
+                        <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Default Essences (Outworlder Only)</Text>
+                        <View style={styles.featureInputRow}>
+                            <TextInput
+                                style={[styles.input, { flex: 1, marginBottom: 0, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                                value={newEssence}
+                                onChangeText={setNewEssence}
+                                placeholder="Enter essence name..."
+                                placeholderTextColor={colors.text.muted}
+                                onSubmitEditing={() => addLoadoutItem('essences', newEssence)}
+                            />
+                            <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary[500] }]} onPress={() => addLoadoutItem('essences', newEssence)}>
+                                <Ionicons name="add" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                        <View style={styles.featuresList}>
+                            {newWorld.defaultLoadout?.essences?.map((item, i) => (
+                                <View key={i} style={[styles.featureTag, { backgroundColor: colors.background.tertiary }]}>
+                                    <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{item}</Text>
+                                    <TouchableOpacity onPress={() => removeLoadoutItem('essences', i)}>
+                                        <Ionicons name="close-circle" size={16} color={colors.status.error} />
+                                    </TouchableOpacity>
+                                </View>
+                            ))}
+                        </View>
+                    </>
+                )
+            }
 
             <View style={styles.formButtons}>
                 <TouchableOpacity
@@ -618,7 +887,7 @@ export default function AdminWorldsScreen() {
                     )}
                 </TouchableOpacity>
             </View>
-        </View>
+        </View >
     );
 
     return (

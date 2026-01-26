@@ -75,7 +75,6 @@ export function getTemplateForWorld(worldType: string): CharacterTemplate {
                     name: 'Hero Name',
                     rank: 'Iron',
                     essences: ['Might', 'Swift'],
-                    confluence: '',
                     stats: {
                         power: 12,
                         speed: 11,

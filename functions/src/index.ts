@@ -1810,7 +1810,6 @@ export const createCampaign = onCall(
             hasPreselectedEssence,
             essenceSelection: initialCharacter?.essenceSelection,
             essences: initialCharacter?.essences,
-            confluence: initialCharacter?.confluence
         });
 
         // Only use AI generation if explicitly enabled for this world and we have a key
@@ -1825,11 +1824,9 @@ export const createCampaign = onCall(
                 // Add essence override instruction if essences are pre-selected
                 if (hasPreselectedEssence && engineType === 'outworlder') {
                     const essenceList = initialCharacter?.essences?.join(', ') || 'unknown';
-                    const confluenceInfo = initialCharacter?.confluence ? ` and the ${initialCharacter.confluence} Confluence` : '';
                     const rankInfo = initialCharacter?.rank || 'Iron';
                     const hasAbilities = initialCharacter?.abilities && Array.isArray(initialCharacter.abilities) && initialCharacter.abilities.length > 0;
-
-                    narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the following essences during their dimensional transit: ${essenceList}${confluenceInfo}.
+                    narrativeContent = `A new Outworlder awakens in a strange world. The character ${characterName || 'our hero'} has already bonded with the following essences during their dimensional transit: ${essenceList}.
                     
 CRITICAL: Do NOT present essence selection options (A, B, C, D). The character ALREADY has their essences. Skip the COMPENSATION PACKAGE — ESSENCE SELECTION sequence entirely. 
 

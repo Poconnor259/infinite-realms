@@ -701,8 +701,7 @@ function ExtrasSection({ extras, worldType, colors, styles, updates, onClearUpda
 }) {
     // Outworlder Essences
     if (extras.essences && Array.isArray(extras.essences) && extras.essences.length > 0) {
-        // Confluence IS the 4th essence (auto-created when you get 3rd)
-        const count = extras.essences.length + (extras.confluence ? 1 : 0);
+        const count = extras.essences.length;
 
         return (
             <CollapsibleSection
@@ -717,12 +716,6 @@ function ExtrasSection({ extras, worldType, colors, styles, updates, onClearUpda
                         <Text style={[styles.essenceName, { color: colors.text.primary }]}>{essence}</Text>
                     </View>
                 ))}
-                {extras.confluence && (
-                    <View style={[styles.confluenceItem, { backgroundColor: colors.gold.main + '20', borderColor: colors.gold.main }]}>
-                        <Text style={[styles.confluenceLabel, { color: colors.text.muted }]}>Confluence</Text>
-                        <Text style={[styles.confluenceName, { color: colors.gold.main }]}>{extras.confluence}</Text>
-                    </View>
-                )}
             </CollapsibleSection>
         );
     }

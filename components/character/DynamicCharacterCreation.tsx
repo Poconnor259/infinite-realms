@@ -12,11 +12,25 @@ import type { GameEngine, ModuleCharacter, FormFieldDefinition } from '../../lib
 interface DynamicCharacterCreationProps {
     characterName: string;
     engine: GameEngine;
+    defaultLoadout?: {
+        abilities: Array<string | {
+            name: string;
+            essence?: string;
+            rank?: string;
+            type?: string;
+            cooldown?: number;
+            cost?: string;
+            costAmount?: number;
+            description?: string;
+        }>;
+        items: string[];
+        essences?: string[];
+    };
     onComplete: (character: ModuleCharacter) => void;
     onBack: () => void;
 }
 
-export function DynamicCharacterCreation({ characterName, engine, onComplete, onBack }: DynamicCharacterCreationProps) {
+export function DynamicCharacterCreation({ characterName, engine, defaultLoadout, onComplete, onBack }: DynamicCharacterCreationProps) {
     const { colors } = useThemeColors();
 
     // Initialize character data
@@ -31,7 +45,6 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
     const [essenceMode, setEssenceMode] = useState<'random' | 'choose'>('random');
     const [selectedEssence, setSelectedEssence] = useState<Essence | null>(null);
     const [importedEssences, setImportedEssences] = useState<string[]>([]); // Store all imported essences
-    const [importedConfluence, setImportedConfluence] = useState<string>(''); // Store confluence from import
     const [importedAbilities, setImportedAbilities] = useState<any[]>([]); // Store abilities from import
     const [importedRank, setImportedRank] = useState<string>(''); // Store rank from import
     const [showEssenceDropdown, setShowEssenceDropdown] = useState(false);
@@ -127,6 +140,33 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                 current: 100,
                 max: 100,
             },
+            inventory: defaultLoadout?.items?.map(item => ({
+                id: Math.random().toString(36).substr(2, 9),
+                name: item,
+                quantity: 1,
+                type: 'misc'
+            })) || [],
+            abilities: defaultLoadout?.abilities?.map(a => {
+                if (typeof a === 'string') return a;
+                const isClassic = engineId === 'classic' || engineId.includes('classic');
+                const isTactical = engineId === 'tactical' || engineId === 'praxis' || engineId.includes('tactical') || engineId.includes('praxis');
+
+                return {
+                    ...a,
+                    currentCooldown: 0,
+                    rank: a.rank || (isOutworlder ? 'Iron' : (isTactical ? 'C' : '1')),
+                    type: a.type || 'attack',
+                    cost: a.cost || 'none',
+                    costAmount: a.costAmount ?? 0,
+                    cooldown: a.cooldown ?? 0,
+                    description: a.description || `Starting ability: ${a.name}`,
+                    essence: a.essence || (isOutworlder ? (selectedEssence?.name || 'Unknown') : 'None'),
+                    // Classic specific
+                    maxUses: (a as any).maxUses || 0,
+                    usesRemaining: (a as any).maxUses || 0,
+                    rechargeOn: (a as any).rechargeOn || 'longRest'
+                };
+            }) || [],
         };
 
         // Add stats
@@ -174,6 +214,18 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
             character[key] = formData[key];
         });
 
+        // For Outworlder: Merge default essences if present
+        if (isOutworlder && defaultLoadout?.essences && defaultLoadout.essences.length > 0) {
+            if (!character.essences) character.essences = [];
+            // Merge unique essences
+            const existingEssences = new Set(character.essences.map((e: string) => e.toLowerCase()));
+            defaultLoadout.essences.forEach(e => {
+                if (!existingEssences.has(e.toLowerCase())) {
+                    character.essences.push(e);
+                }
+            });
+        }
+
         // Add essence data for Outworlder
         if (isOutworlder) {
             if (essenceMode === 'choose' && (importedEssences.length > 0 || selectedEssence || isCustomEssence)) {
@@ -182,10 +234,6 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
                     // Use all imported essences
                     character.essences = importedEssences;
                     character.essenceSelection = 'imported';
-                    // Include confluence if imported
-                    if (importedConfluence) {
-                        character.confluence = importedConfluence;
-                    }
                     // Handle imported abilities
                     if (importedAbilities.length > 0) {
                         character.abilities = importedAbilities;
@@ -303,11 +351,6 @@ export function DynamicCharacterCreation({ characterName, engine, onComplete, on
         if (isOutworlder && data.essences && Array.isArray(data.essences) && data.essences.length > 0) {
             // Store ALL imported essences
             setImportedEssences(data.essences);
-
-            // Store confluence if present
-            if (data.confluence) {
-                setImportedConfluence(data.confluence);
-            }
 
             // Find matching essence from our list for UI display (first essence)
             const firstEssenceName = data.essences[0];

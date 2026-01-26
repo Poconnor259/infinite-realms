@@ -339,6 +339,7 @@ export function applyCorrections(
 
     // Apply Experience changes and Level Up logic
     if (corrections.experience !== undefined) {
+        console.log(`[StateReviewer] Applying XP correction: +${corrections.experience}`);
         const char = (newState.character as any) || {};
         const currentInternalLevel = Number(char.level || newState.level || 1);
 
@@ -392,6 +393,7 @@ export function applyCorrections(
             newState.level = newLevel;
             if (newState.character) (newState.character as any).level = newLevel;
         }
+        console.log(`[StateReviewer] New XP State:`, newState.experience, `Level:`, newState.level);
     }
 
     // Apply Inventory changes

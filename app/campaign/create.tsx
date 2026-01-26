@@ -151,6 +151,7 @@ export default function CreateCampaignScreen() {
             return <DynamicCharacterCreation
                 characterName={characterName}
                 engine={gameEngine}
+                defaultLoadout={world.defaultLoadout}
                 onComplete={handleCharacterComplete}
                 onBack={() => setStep('name')}
             />;
@@ -267,7 +268,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     headerTitle: {
         fontSize: typography.h3.fontSize,
-        fontWeight: typography.h3.fontWeight as any,
+        fontFamily: typography.h3.fontFamily,
         color: colors.text.primary,
     },
     worldCard: {
@@ -291,7 +292,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     worldName: {
         fontSize: typography.h2.fontSize,
-        fontWeight: typography.h2.fontWeight as any,
+        fontFamily: typography.h2.fontFamily,
         color: colors.text.primary,
         marginBottom: spacing.sm,
     },
@@ -306,7 +307,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     label: {
         fontSize: typography.label.fontSize,
-        fontWeight: typography.label.fontWeight as any,
+        fontFamily: typography.label.fontFamily,
         color: colors.text.secondary,
         marginBottom: spacing.sm,
         marginLeft: spacing.xs,
@@ -338,11 +339,10 @@ const createStyles = (colors: any) => StyleSheet.create({
     },
     createButtonDisabled: {
         opacity: 0.5,
-        ...shadows.none,
     },
     createButtonText: {
         fontSize: typography.h4.fontSize,
-        fontWeight: typography.h4.fontWeight as any,
+        fontFamily: typography.h4.fontFamily,
         color: '#fff',
     },
 });
