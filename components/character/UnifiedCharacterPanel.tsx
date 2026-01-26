@@ -479,7 +479,7 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                             style={styles.filterBar}
                             contentContainerStyle={styles.filterBarContent}
                         >
-                            {['All', 'Attack', 'Defense', 'Utility', 'Passive'].map(filter => (
+                            {['All', 'Attack', 'Defense', 'Utility', 'Passive', 'Special'].map(filter => (
                                 <TouchableOpacity
                                     key={filter}
                                     style={[styles.filterChip, abilityFilter === filter && styles.filterChipActive]}

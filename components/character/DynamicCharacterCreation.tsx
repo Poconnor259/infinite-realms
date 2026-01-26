@@ -53,6 +53,8 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
     const [isCustomEssence, setIsCustomEssence] = useState(false);
     const [customEssenceName, setCustomEssenceName] = useState('');
     const [customAbilityName, setCustomAbilityName] = useState('');
+    const [customIntrinsicAbility, setCustomIntrinsicAbility] = useState('');
+
 
     // Check if this is an Outworlder-type world
     const isOutworlder = engine.id === 'outworlder' || engine.name?.toLowerCase().includes('outworlder');
@@ -218,14 +220,36 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
         // For Outworlder: Merge default essences if present
         if (isOutworlder && defaultLoadout?.essences && defaultLoadout.essences.length > 0) {
             if (!character.essences) character.essences = [];
+            if (!character.abilities) character.abilities = [];
+
             // Merge unique essences
-            const existingEssences = new Set(character.essences.map((e: string) => e.toLowerCase()));
-            defaultLoadout.essences.forEach(e => {
-                if (!existingEssences.has(e.toLowerCase())) {
-                    character.essences.push(e);
+            const existingNames = new Set(character.essences.map((e: any) =>
+                (typeof e === 'string' ? e : e.name).toLowerCase()
+            ));
+
+            defaultLoadout.essences.forEach((e: any) => {
+                const name = typeof e === 'string' ? e : e.name;
+                if (!existingNames.has(name.toLowerCase())) {
+                    character.essences.push(name);
+
+                    // Also add intrinsic ability if defined in default loadout
+                    if (typeof e !== 'string' && e.intrinsicAbility) {
+                        character.abilities.push({
+                            name: e.intrinsicAbility,
+                            type: 'special',
+                            rank: 'Iron',
+                            essence: name,
+                            cooldown: 0,
+                            currentCooldown: 0,
+                            cost: 'mana',
+                            costAmount: 10,
+                            description: `Intrinsic ability from ${name} essence`
+                        });
+                    }
                 }
             });
         }
+
 
         // Add essence data for Outworlder
         if (isOutworlder) {
@@ -251,7 +275,7 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
 
                     if (isCustomEssence) {
                         character.abilities.push({
-                            name: customAbilityName || `Manifest ${finalEssenceName}`,
+                            name: customIntrinsicAbility.trim() || customAbilityName || `Manifest ${finalEssenceName}`,
                             type: 'special', // Default type for custom
                             rank: 'Iron',
                             essence: finalEssenceName,
@@ -259,8 +283,9 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
                             currentCooldown: 0,
                             cost: 'mana',
                             costAmount: 10,
-                            description: `Starting ability from ${finalEssenceName} essence`
+                            description: customIntrinsicAbility.trim() ? `Intrinsic ability from ${finalEssenceName} essence` : `Starting ability from ${finalEssenceName} essence`
                         });
+
                     } else if (selectedEssence) {
                         if (selectedEssence.name === 'Dimension') {
                             character.abilities.push('Spatial Awareness (Dimension - Intrinsic)');
@@ -523,6 +548,25 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
                                     value={customEssenceName}
                                     onChangeText={setCustomEssenceName}
                                 />
+
+                                <Text style={[styles.fieldLabel, { color: colors.text.secondary, marginTop: spacing.sm }]}>
+                                    Intrinsic Ability (Optional)
+                                </Text>
+                                <TextInput
+                                    style={[styles.input, {
+                                        backgroundColor: colors.background.secondary,
+                                        color: colors.text.primary,
+                                        borderColor: colors.border.default,
+                                        padding: spacing.sm,
+                                        borderRadius: spacing.sm,
+                                        borderWidth: 1,
+                                    }]}
+                                    placeholder="e.g., Dimensional Tear, Flame Breath..."
+                                    placeholderTextColor={colors.text.muted}
+                                    value={customIntrinsicAbility}
+                                    onChangeText={setCustomIntrinsicAbility}
+                                />
+
                             </View>
                         )}
                     </View>

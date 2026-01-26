@@ -96,7 +96,10 @@ export interface WorldModule {
             description?: string;
         }>;
         items: string[];
-        essences?: string[]; // For Outworlder
+        essences?: Array<string | {
+            name: string;
+            intrinsicAbility?: string;
+        }>; // For Outworlder
     };
     order?: number;
 }

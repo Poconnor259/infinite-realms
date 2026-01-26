@@ -104,6 +104,9 @@ export default function AdminWorldsScreen() {
     });
     const [editingAbilityIndex, setEditingAbilityIndex] = useState<number | null>(null);
     const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
+    const [editingEssenceIndex, setEditingEssenceIndex] = useState<number | null>(null);
+    const [newEssenceAbility, setNewEssenceAbility] = useState('');
+
 
     useEffect(() => {
         loadData();
@@ -551,11 +554,34 @@ export default function AdminWorldsScreen() {
             return;
         }
 
+        if (type === 'essences') {
+            finalValue = typeof value === 'string' && newEssenceAbility.trim()
+                ? { name: value.trim(), intrinsicAbility: newEssenceAbility.trim() }
+                : value.trim();
+
+            if (editingEssenceIndex !== null) {
+                // UPDATE existing
+                const newList = [...(newWorld.defaultLoadout?.essences || [])];
+                newList[editingEssenceIndex] = finalValue;
+                setNewWorld(prev => ({
+                    ...prev,
+                    defaultLoadout: {
+                        ...(prev.defaultLoadout || { items: [], abilities: [], essences: [] }),
+                        essences: newList
+                    }
+                }));
+                setNewEssence('');
+                setNewEssenceAbility('');
+                setEditingEssenceIndex(null);
+                return;
+            }
+        }
+
         // ADD new
         setNewWorld(prev => ({
             ...prev,
             defaultLoadout: {
-                ...prev.defaultLoadout!,
+                ...(prev.defaultLoadout || { items: [], abilities: [], essences: [] }),
                 [type]: [...(prev.defaultLoadout?.[type] || []), finalValue]
             }
         }));
@@ -580,8 +606,13 @@ export default function AdminWorldsScreen() {
             setNewItem('');
             setEditingItemIndex(null);
         }
-        if (type === 'essences') setNewEssence('');
+        if (type === 'essences') {
+            setNewEssence('');
+            setNewEssenceAbility('');
+            setEditingEssenceIndex(null);
+        }
     };
+
 
     const removeLoadoutItem = (type: 'abilities' | 'items' | 'essences', index: number) => {
         setNewWorld(prev => ({
@@ -946,27 +977,71 @@ export default function AdminWorldsScreen() {
                         <Text style={[styles.inputLabel, { color: colors.text.secondary }]}>Default Essences (Outworlder Only)</Text>
                         <View style={styles.featureInputRow}>
                             <TextInput
-                                style={[styles.input, { flex: 1, marginBottom: 0, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                                style={[styles.input, { flex: 1, marginRight: spacing.sm, marginBottom: 0, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
                                 value={newEssence}
                                 onChangeText={setNewEssence}
-                                placeholder="Enter essence name..."
+                                placeholder="Essence name..."
+                                placeholderTextColor={colors.text.muted}
+                            />
+                            <TextInput
+                                style={[styles.input, { flex: 1, marginBottom: 0, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
+                                value={newEssenceAbility}
+                                onChangeText={setNewEssenceAbility}
+                                placeholder="Intrinsic Ability..."
                                 placeholderTextColor={colors.text.muted}
                                 onSubmitEditing={() => addLoadoutItem('essences', newEssence)}
                             />
-                            <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary[500] }]} onPress={() => addLoadoutItem('essences', newEssence)}>
-                                <Ionicons name="add" size={24} color="#fff" />
+                            <TouchableOpacity
+                                style={[styles.addButton, { marginLeft: spacing.sm, backgroundColor: editingEssenceIndex !== null ? colors.status.success : colors.primary[500] }]}
+                                onPress={() => addLoadoutItem('essences', newEssence)}
+                            >
+                                <Ionicons name={editingEssenceIndex !== null ? "checkmark" : "add"} size={24} color="#fff" />
                             </TouchableOpacity>
+                            {editingEssenceIndex !== null && (
+                                <TouchableOpacity
+                                    style={[styles.addButton, { marginLeft: spacing.xs, backgroundColor: colors.background.tertiary }]}
+                                    onPress={() => {
+                                        setEditingEssenceIndex(null);
+                                        setNewEssence('');
+                                        setNewEssenceAbility('');
+                                    }}
+                                >
+                                    <Ionicons name="close" size={24} color={colors.text.secondary} />
+                                </TouchableOpacity>
+                            )}
                         </View>
                         <View style={styles.featuresList}>
-                            {newWorld.defaultLoadout?.essences?.map((item, i) => (
-                                <View key={i} style={[styles.featureTag, { backgroundColor: colors.background.tertiary }]}>
-                                    <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{item}</Text>
-                                    <TouchableOpacity onPress={() => removeLoadoutItem('essences', i)}>
-                                        <Ionicons name="close-circle" size={16} color={colors.status.error} />
+                            {newWorld.defaultLoadout?.essences?.map((essence, i) => {
+                                const name = typeof essence === 'string' ? essence : essence.name;
+                                const ability = typeof essence === 'string' ? null : essence.intrinsicAbility;
+                                return (
+                                    <TouchableOpacity
+                                        key={i}
+                                        onPress={() => {
+                                            setEditingEssenceIndex(i);
+                                            setNewEssence(name);
+                                            setNewEssenceAbility(ability || '');
+                                        }}
+                                        style={[
+                                            styles.featureTag,
+                                            {
+                                                backgroundColor: editingEssenceIndex === i ? colors.primary[100] : colors.background.tertiary,
+                                                borderColor: editingEssenceIndex === i ? colors.primary[500] : 'transparent',
+                                                borderWidth: 1
+                                            }
+                                        ]}
+                                    >
+                                        <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>
+                                            {name}{ability ? ` (${ability})` : ''}
+                                        </Text>
+                                        <TouchableOpacity onPress={() => removeLoadoutItem('essences', i)}>
+                                            <Ionicons name="close-circle" size={16} color={colors.status.error} />
+                                        </TouchableOpacity>
                                     </TouchableOpacity>
-                                </View>
-                            ))}
+                                );
+                            })}
                         </View>
+
                     </>
                 )
             }
