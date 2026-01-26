@@ -438,7 +438,7 @@ export const processGameAction = onCall(
             // SAFETY NET: Detect if Brain missed pendingRoll when it should have returned one
             if (interactiveDiceRolls && !brainResult.data.pendingRoll && !rollResult) {
                 const narrativeText = brainResult.data.narrativeCues?.map(c => c.content).join(' ') || '';
-                const rollKeywords = /\b(roll|dice|d20|d6|d10|d100|check|save|attack)\b/i;
+                const rollKeywords = /\b(roll|dice|d20|d6|d10|d100|check|save|attack|hit|damage|strike|dodge|resist)\b/i;
 
                 if (rollKeywords.test(narrativeText)) {
                     console.warn('[Safety Net] Brain missed pendingRoll! Narrative contains roll keywords:', narrativeText.substring(0, 200));

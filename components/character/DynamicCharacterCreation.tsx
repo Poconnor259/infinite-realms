@@ -131,6 +131,8 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
     };
 
     const handleCreate = () => {
+        const engineId = (engine.id || (engine as any).type || '').toLowerCase();
+
         // Build character object based on engine configuration
         const character: any = {
             id: Date.now().toString(),
@@ -180,7 +182,6 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
 
         // Add default resources based on engine type FIRST (Option C)
         // This ensures resources are always present, then engine.resources can override
-        const engineId = (engine.id || (engine as any).type || '').toLowerCase();
         console.log('[DynamicCharacterCreation] Engine ID:', engineId, 'Engine:', engine.id, (engine as any).type);
 
         if (engineId === 'classic' || engineId.includes('classic')) {

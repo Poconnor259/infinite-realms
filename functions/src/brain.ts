@@ -384,6 +384,7 @@ SAFE USAGE vs COMBAT RULES:
 
 3. UTILITY & FLAVOR (AUTO-SUCCESS):
    - Routine usage of known abilities in safe environments DOES NOT require a roll.
+   - Non-hostile system interactions (e.g., "Requesting a quest", "Checking status", "Opening map") succeed AUTOMATICALLY.
    - Examples: summoning a mount, opening a personal portal, lighting a magic torch.
 
 DO NOT resolve outcomes. Wait for user's roll result.

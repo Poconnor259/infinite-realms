@@ -102,6 +102,8 @@ export default function AdminWorldsScreen() {
         rechargeOn: 'longRest' as 'shortRest' | 'longRest' | 'none',
         maxUses: 0,
     });
+    const [editingAbilityIndex, setEditingAbilityIndex] = useState<number | null>(null);
+    const [editingItemIndex, setEditingItemIndex] = useState<number | null>(null);
 
     useEffect(() => {
         loadData();
@@ -517,8 +519,39 @@ export default function AdminWorldsScreen() {
                 name: value.trim(),
                 ...abilityDetail
             };
+
+            if (editingAbilityIndex !== null) {
+                // UPDATE existing
+                const newList = [...(newWorld.defaultLoadout?.abilities || [])];
+                newList[editingAbilityIndex] = finalValue;
+                setNewWorld(prev => ({
+                    ...prev,
+                    defaultLoadout: {
+                        ...(prev.defaultLoadout || { items: [], abilities: [] }),
+                        abilities: newList
+                    }
+                }));
+                // Reset happens in the cleanup below
+                return;
+            }
         }
 
+        if (type === 'items' && editingItemIndex !== null) {
+            // UPDATE existing item
+            const newList = [...(newWorld.defaultLoadout?.items || [])];
+            newList[editingItemIndex] = value.trim();
+            setNewWorld(prev => ({
+                ...prev,
+                defaultLoadout: {
+                    ...(prev.defaultLoadout || { items: [], abilities: [] }),
+                    items: newList
+                }
+            }));
+            // Reset happens in the cleanup below
+            return;
+        }
+
+        // ADD new
         setNewWorld(prev => ({
             ...prev,
             defaultLoadout: {
@@ -529,6 +562,7 @@ export default function AdminWorldsScreen() {
 
         if (type === 'abilities') {
             setNewAbility('');
+            setEditingAbilityIndex(null);
             // Reset ability detail
             setAbilityDetail({
                 essence: '',
@@ -542,7 +576,10 @@ export default function AdminWorldsScreen() {
                 maxUses: 0,
             });
         }
-        if (type === 'items') setNewItem('');
+        if (type === 'items') {
+            setNewItem('');
+            setEditingItemIndex(null);
+        }
         if (type === 'essences') setNewEssence('');
     };
 
@@ -710,20 +747,61 @@ export default function AdminWorldsScreen() {
                     placeholderTextColor={colors.text.muted}
                     onSubmitEditing={() => addLoadoutItem('abilities', newAbility)}
                 />
-                <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary[500] }]} onPress={() => addLoadoutItem('abilities', newAbility)}>
-                    <Ionicons name="add" size={24} color="#fff" />
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: editingAbilityIndex !== null ? colors.status.success : colors.primary[500] }]}
+                    onPress={() => addLoadoutItem('abilities', newAbility)}
+                >
+                    <Ionicons name={editingAbilityIndex !== null ? "checkmark" : "add"} size={24} color="#fff" />
                 </TouchableOpacity>
+                {editingAbilityIndex !== null && (
+                    <TouchableOpacity
+                        style={[styles.addButton, { marginLeft: spacing.xs, backgroundColor: colors.background.tertiary }]}
+                        onPress={() => {
+                            setEditingAbilityIndex(null);
+                            setNewAbility('');
+                        }}
+                    >
+                        <Ionicons name="close" size={24} color={colors.text.secondary} />
+                    </TouchableOpacity>
+                )}
             </View>
             <View style={styles.featuresList}>
                 {newWorld.defaultLoadout?.abilities?.map((item, i) => {
                     const name = typeof item === 'string' ? item : item.name;
                     return (
-                        <View key={i} style={[styles.featureTag, { backgroundColor: colors.background.tertiary }]}>
+                        <TouchableOpacity
+                            key={i}
+                            onPress={() => {
+                                setEditingAbilityIndex(i);
+                                setNewAbility(name);
+                                if (typeof item !== 'string') {
+                                    setAbilityDetail({
+                                        essence: item.essence || '',
+                                        rank: item.rank || 'Iron',
+                                        type: item.type || 'attack',
+                                        cooldown: item.cooldown || 0,
+                                        cost: item.cost || 'mana',
+                                        costAmount: item.costAmount || 0,
+                                        description: item.description || '',
+                                        rechargeOn: (item as any).rechargeOn || 'longRest',
+                                        maxUses: (item as any).maxUses || 0,
+                                    });
+                                }
+                            }}
+                            style={[
+                                styles.featureTag,
+                                {
+                                    backgroundColor: editingAbilityIndex === i ? colors.primary[100] : colors.background.tertiary,
+                                    borderColor: editingAbilityIndex === i ? colors.primary[500] : 'transparent',
+                                    borderWidth: 1
+                                }
+                            ]}
+                        >
                             <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{name}</Text>
                             <TouchableOpacity onPress={() => removeLoadoutItem('abilities', i)}>
                                 <Ionicons name="close-circle" size={16} color={colors.status.error} />
                             </TouchableOpacity>
-                        </View>
+                        </TouchableOpacity>
                     );
                 })}
             </View>
@@ -755,7 +833,7 @@ export default function AdminWorldsScreen() {
                         style={[styles.input, { flex: 1, fontSize: 12, height: 40, backgroundColor: colors.background.tertiary, color: colors.text.primary }]}
                         value={abilityDetail.type}
                         onChangeText={(text) => setAbilityDetail(prev => ({ ...prev, type: text }))}
-                        placeholder="Type (attack, defense, passive)"
+                        placeholder="Type (attack, defense, passive, utility)"
                         placeholderTextColor={colors.text.muted}
                     />
                 </View>
@@ -818,18 +896,46 @@ export default function AdminWorldsScreen() {
                     placeholderTextColor={colors.text.muted}
                     onSubmitEditing={() => addLoadoutItem('items', newItem)}
                 />
-                <TouchableOpacity style={[styles.addButton, { backgroundColor: colors.primary[500] }]} onPress={() => addLoadoutItem('items', newItem)}>
-                    <Ionicons name="add" size={24} color="#fff" />
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: editingItemIndex !== null ? colors.status.success : colors.primary[500] }]}
+                    onPress={() => addLoadoutItem('items', newItem)}
+                >
+                    <Ionicons name={editingItemIndex !== null ? "checkmark" : "add"} size={24} color="#fff" />
                 </TouchableOpacity>
+                {editingItemIndex !== null && (
+                    <TouchableOpacity
+                        style={[styles.addButton, { marginLeft: spacing.xs, backgroundColor: colors.background.tertiary }]}
+                        onPress={() => {
+                            setEditingItemIndex(null);
+                            setNewItem('');
+                        }}
+                    >
+                        <Ionicons name="close" size={24} color={colors.text.secondary} />
+                    </TouchableOpacity>
+                )}
             </View>
             <View style={styles.featuresList}>
                 {newWorld.defaultLoadout?.items?.map((item, i) => (
-                    <View key={i} style={[styles.featureTag, { backgroundColor: colors.background.tertiary }]}>
+                    <TouchableOpacity
+                        key={i}
+                        onPress={() => {
+                            setEditingItemIndex(i);
+                            setNewItem(item);
+                        }}
+                        style={[
+                            styles.featureTag,
+                            {
+                                backgroundColor: editingItemIndex === i ? colors.primary[100] : colors.background.tertiary,
+                                borderColor: editingItemIndex === i ? colors.primary[500] : 'transparent',
+                                borderWidth: 1
+                            }
+                        ]}
+                    >
                         <Text style={[styles.featureTagText, { color: colors.text.secondary }]}>{item}</Text>
                         <TouchableOpacity onPress={() => removeLoadoutItem('items', i)}>
                             <Ionicons name="close-circle" size={16} color={colors.status.error} />
                         </TouchableOpacity>
-                    </View>
+                    </TouchableOpacity>
                 ))}
             </View>
 

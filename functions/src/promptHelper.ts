@@ -116,6 +116,8 @@ WHEN TO PROCEED AUTOMATICALLY:
 - Clear, specific actions ("I attack the goblin with my sword")
 - Movement to named locations ("I go to the tavern")
 - Using specific items ("I drink the health potion")
+- **Non-hostile system interactions** ("I test out the new quest system", "Request a quest", "Check my stats")
+- **Utility/Flavor abilities** in safe environments (summoning food, lighting a torch)
 
 LOOT ROLLS (D&D 5E):
 When a player attempts to loot (search a body, container, room, etc.):
@@ -447,8 +449,8 @@ WORLD RULES (OUTWORLDER):
 - Abilities have cooldowns and mana/stamina costs
 - Health scales with rank
 - Stats to track: HP, Mana, Stamina, Rank, Essences (max 4), Confluence, Abilities with cooldowns.
-- UTILITY/SUMMONING ABILITIES: Abilities that summon items, vehicles, or active self-buffs (e.g., "Manifest Car", "Summon Weapon", "Armor Up") succeed AUTOMATICALLY. DO NOT request a roll unless there is a specific external force preventing it (e.g., anti-magic zone, being restrained).
-- ATTACK ABILITIES: Only require rolls if they target an enemy's defense. Auto-hit abilities (like Magic Missile equivalent) do not require a roll.
+- UTILITY/SUMMONING ABILITIES: Abilities that summon items, vehicles, or active self-buffs (e.g., "Manifest Car", "Summon Weapon", "Armor Up") succeed AUTOMATICALLY. DO NOT request a roll unless there is a specific external force preventing it.
+- ATTACK ABILITIES: Offensive actions targeting defenses REQUIRE a roll. Refer to the CRITICAL DICE RULES above for how to request this roll via "pendingRoll" if interactive mode is active.
 
 RESPONSE FORMAT:
 Respond with valid JSON only. No markdown, no explanation.`,
