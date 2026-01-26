@@ -721,8 +721,9 @@ export default function CampaignScreen() {
                             pendingRoll={pendingRoll}
                             onRollComplete={(result) => {
                                 console.log('[Campaign] Dice roll complete:', result);
-                                // Pass the raw roll value, not the total (submitRollResult adds modifier)
-                                submitRollResult(result.roll);
+                                // DiceRoller returns the raw roll number directly, not an object
+                                const rollValue = typeof result === 'object' ? result.roll : result;
+                                submitRollResult(rollValue);
                             }}
                             onDismiss={() => setPendingRoll(null)}
                         />

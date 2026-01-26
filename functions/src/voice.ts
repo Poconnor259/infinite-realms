@@ -278,6 +278,9 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             // Append state report instructions from Firestore (editable via admin)
             const stateReportPrompt = await getStateReportPrompt();
             cueText += stateReportPrompt;
+
+            // CRITICAL: Final instruction to ensure narrative is generated
+            cueText += `\n\nREMINDER: You MUST write the narrative story FIRST. The State Report JSON comes LAST. Do not output only JSON.\n`;
         }
 
         let narrative: string | null = null;

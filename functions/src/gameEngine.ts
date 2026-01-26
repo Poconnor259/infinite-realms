@@ -600,7 +600,7 @@ export async function processGameAction(
 
                 await messagesRef.add({
                     role: 'narrator',
-                    content: voiceResult.narrative || brainResult.data?.narrativeCue || '',
+                    content: voiceResult.narrative || brainResult.data?.narrativeCue?.trim() || brainResult.data?.narrativeCues?.map((c: any) => c.content).join(' ') || '',
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     metadata: {
                         voiceModel: voiceConfig.model,
@@ -742,7 +742,7 @@ export async function processGameAction(
         // 13. Return success response
         return {
             success: true,
-            narrativeText: voiceResult.narrative || brainResult.data?.narrativeCue || '',
+            narrativeText: voiceResult.narrative || brainResult.data?.narrativeCue?.trim() || brainResult.data?.narrativeCues?.map((c: any) => c.content).join(' ') || '',
             stateUpdates: finalState,
             diceRolls: brainResult.data?.diceRolls,
             systemMessages: brainResult.data?.systemMessages,

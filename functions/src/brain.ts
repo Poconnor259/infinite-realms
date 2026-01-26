@@ -334,8 +334,21 @@ Do not offer selection.
         }
 
         // Define dynamic instruction blocks
+        // Define dynamic instruction blocks
+        // LOGIC ADJUSTMENT: If we have a rollResult, we are RESOLVING a roll, so we MUST allow the AI to output it.
+        // We only enforce the "pendingRoll" restriction if we are NOT currently processing a result.
+        const isResolvingRoll = rollResult !== undefined;
+
         const diceRules = interactiveDiceRolls
-            ? `⚠️ CRITICAL - INTERACTIVE DICE MODE IS ACTIVE ⚠️
+            ? (isResolvingRoll
+                ? `⚠️ INTERACTIVE ROLL RESOLUTION ⚠️
+You are processing the User's manual dice roll result (${rollResult}).
+1. YOU MUST ADD THIS ROLL to the 'diceRolls' array in your response.
+   Structure: { "type": "${pendingRoll?.type || 'd20'}", "result": ${rollResult}, "modifier": ${pendingRoll?.modifier || 0}, "total": ${(rollResult || 0) + (pendingRoll?.modifier || 0)}, "purpose": "${pendingRoll?.purpose || 'Action'}" }
+2. DO NOT set "requiresUserInput": true (unless a *different* follow-up action needs a roll).
+3. DO NOT set "pendingRoll" for this same action again.
+4. Continue the narrative based on this result.`
+                : `⚠️ CRITICAL - INTERACTIVE DICE MODE IS ACTIVE ⚠️
 This is a MANDATORY requirement. When ANY situation requires a dice roll, you MUST:
 
 1. Set "requiresUserInput": true
@@ -374,7 +387,7 @@ SAFE USAGE vs COMBAT RULES:
    - Examples: summoning a mount, opening a personal portal, lighting a magic torch.
 
 DO NOT resolve outcomes. Wait for user's roll result.
-DO NOT auto-roll. Leave diceRolls as [].`
+DO NOT auto-roll. Leave diceRolls as [].`)
             : 'Calculate all dice rolls using proper randomization simulation and include them in diceRolls array.';
 
         const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. ${showSuggestedChoices ? 'Include 2-4 options in pendingChoice.options when pausing.' : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
@@ -412,7 +425,8 @@ The training document contains the complete dice mechanics. Follow it precisely.
         systemPrompt = systemPrompt.replace('{{ROLL_RESULT_RULE}}', rollResultRule);
 
         // CRITICAL: Add dice rules at ABSOLUTE TOP of prompt for visibility
-        if (interactiveDiceRolls) {
+        // but ONLY if we are NOT resolving a roll (otherwise it conflicts with the resolution instruction)
+        if (interactiveDiceRolls && !isResolvingRoll) {
             const CRITICAL_DICE_HEADER = `
 🚨🚨🚨 CRITICAL MANDATORY RULE - READ THIS FIRST 🚨🚨🚨
 
