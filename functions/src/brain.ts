@@ -394,7 +394,16 @@ DO NOT auto-roll. Leave diceRolls as [].`)
 
         const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. 
 ${showSuggestedChoices
-                ? 'ALWAYS include a "pendingChoice" object with 2-4 "options" representing suggested next actions (e.g., "Attack", "Search", "Ask about..."). Set "requiresUserInput": true to ensure these are displayed.'
+                ? `ALWAYS include a "pendingChoice" object with 2-4 "options" representing suggested next actions.
+STRICT GUIDELINES FOR SUGGESTED CHOICES:
+1. FIRST-PERSON PERSPECTIVE: Every option MUST be written from the player's perspective (e.g., "I ask about...", "I attack...", "I examine...").
+2. ACTION-ORIENTED: Suggestions must be THINGS THE PLAYER DOES, not things that happen to the player.
+3. NO NARRATIVE OUTCOMES: Forbidden from suggesting NPC reactions, world changes, or outcomes as choices.
+   - WRONG: "The merchant offers a discount."
+   - RIGHT: "I haggle with the merchant for a better price."
+   - WRONG: "The woman lowers her weapon."
+   - RIGHT: "I try to convince her I'm not a threat."
+4. Set "requiresUserInput": true to ensure these are displayed.`
                 : 'Do NOT include options in pendingChoice.options. Set it to null/undefined.'}`;
 
         const rollResultRule = rollResult !== undefined
