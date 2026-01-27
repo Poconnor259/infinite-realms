@@ -826,7 +826,10 @@ Respond with JSON only. No markdown, no explanation.`;
                     systemMessages: Array.isArray(parsed.systemMessages) ? parsed.systemMessages : [],
                     requiresUserInput: !!parsed.requiresUserInput,
                     pendingChoice: parsed.pendingChoice || undefined,
-                    pendingRoll: parsed.pendingRoll || undefined,
+                    pendingRoll: parsed.pendingRoll ? {
+                        ...parsed.pendingRoll,
+                        type: parsed.pendingRoll.type || 'd20'
+                    } : undefined,
                 },
                 usage
             };

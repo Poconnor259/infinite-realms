@@ -155,7 +155,9 @@ export function normalizeCharacter(rawCharacter: any, worldType: string, questLo
         inventory,
         quests: Array.isArray(questLog) ? questLog : [],
         suggestedQuests: Array.isArray(suggestedQuests) ? suggestedQuests : [],
-        experience: rawCharacter.experience || { current: rawCharacter.experience ?? 0, max: xpMax },
+        experience: typeof rawCharacter.experience === 'object' && rawCharacter.experience !== null
+            ? rawCharacter.experience
+            : { current: Number(rawCharacter.experience) || 0, max: xpMax },
         extras,
     };
 }
@@ -178,14 +180,14 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
                 let color = res.color || '#8b5cf6';
                 let icon = res.icon;
 
-                if (!icon) {
+                if (!icon && typeof name === 'string') {
                     if (name.match(/Health|Hp/i)) icon = '❤️';
                     else if (name.match(/Mana|Mp|Energy/i)) icon = '💧';
                     else if (name.match(/Stamina|Spirit/i)) icon = '⚡';
                     else if (name.match(/Nanite/i)) icon = '🤖';
                 }
 
-                if (!color) {
+                if (!color && typeof name === 'string') {
                     if (name.match(/Health|Hp/i)) color = '#ef4444';
                     else if (name.match(/Mana|Mp|Energy|Nanite/i)) color = '#3b82f6';
                     else if (name.match(/Stamina|Spirit/i)) color = '#22c55e';

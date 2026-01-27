@@ -82,7 +82,8 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
     }
 
     // Parse dice type (e.g., "d20" -> 20, "2d6" -> 6)
-    const parseDiceType = (type: string): { count: number; sides: number } => {
+    const parseDiceType = (type: string | undefined | null): { count: number; sides: number } => {
+        if (!type || typeof type !== 'string') return { count: 1, sides: 20 };
         const match = type.match(/(\d*)d(\d+)/i);
         if (!match) return { count: 1, sides: 20 };
         return {
@@ -353,7 +354,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
 
             {/* Dice Type */}
             <Text style={styles.diceType}>
-                🎲 {pendingRoll.type.toUpperCase()}
+                🎲 {(pendingRoll.type || 'd20').toUpperCase()}
             </Text>
 
             {/* Modifier */}
@@ -523,7 +524,7 @@ function RollHistory({ history, colors }: RollHistoryProps) {
                         </View>
                         <View style={historyStyles.itemBody}>
                             <Text style={[historyStyles.diceType, { color: colors.text.primary }]}>
-                                {entry.type.toUpperCase()}
+                                {(entry.type || 'd20').toUpperCase()}
                             </Text>
                             <View style={{ flex: 1 }}>
                                 <Text style={[historyStyles.result, { color: colors.primary[400] }]}>
