@@ -23,14 +23,28 @@ interface UnifiedCharacterPanelProps {
     onDeclineQuest?: (questId: string) => void;
     onRequestQuests?: () => void;
     isRequestingQuests?: boolean;
-    pendingRoll?: PendingRoll | null;
-    onRollComplete?: (result: { roll: number; total: number; success?: boolean }) => void;
+    isProcessing?: boolean;
+    pendingRoll?: any;
+    onRollComplete?: (result: any) => void;
     onDismiss?: () => void;
 }
 
-export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, pendingRoll, onRollComplete, onDismiss }: UnifiedCharacterPanelProps) {
-    const { colors } = useThemeColors();
-    const styles = useMemo(() => createStyles(colors), [colors]);
+export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, isProcessing, pendingRoll, onRollComplete, onDismiss }: UnifiedCharacterPanelProps) {
+    const { colors, typography } = useThemeColors();
+    const [statsExpanded, setStatsExpanded] = React.useState(true);
+    const [abilitiesExpanded, setAbilitiesExpanded] = React.useState(true);
+    const [inventoryExpanded, setInventoryExpanded] = React.useState(false);
+    const [questsExpanded, setQuestsExpanded] = React.useState(true);
+    const [diceExpanded, setDiceExpanded] = React.useState(false);
+
+    // Auto-expand dice when a roll is pending
+    React.useEffect(() => {
+        if (pendingRoll) {
+            setDiceExpanded(true);
+        }
+    }, [pendingRoll]);
+
+    const styles = createStyles(colors, typography);
 
     // Enable LayoutAnimation for Android
     if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -323,16 +337,22 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
 
                         <View style={styles.questActions}>
                             <TouchableOpacity
-                                style={[styles.questActionButton, { backgroundColor: colors.background.tertiary }]}
+                                style={[styles.questActionButton, { backgroundColor: colors.background.tertiary }, isProcessing && { opacity: 0.5 }]}
                                 onPress={() => onDeclineQuest?.(quest.id)}
+                                disabled={isProcessing}
                             >
                                 <Text style={[styles.questActionText, { color: colors.text.muted }]}>Decline</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
-                                style={[styles.questActionButton, { backgroundColor: colors.primary[400] }]}
+                                style={[styles.questActionButton, { backgroundColor: colors.primary[400] }, isProcessing && { opacity: 0.8 }]}
                                 onPress={() => onAcceptQuest?.(quest.id)}
+                                disabled={isProcessing}
                             >
-                                <Text style={[styles.questActionText, { color: '#000' }]}>Accept</Text>
+                                {isProcessing ? (
+                                    <ActivityIndicator size="small" color="#000" />
+                                ) : (
+                                    <Text style={[styles.questActionText, { color: '#000' }]}>Accept</Text>
+                                )}
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -843,7 +863,7 @@ function getRankColor(rank: string): string {
 
 // ==================== STYLES ====================
 
-const createStyles = (colors: any) => StyleSheet.create({
+const createStyles = (colors: any, typography: any) => StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: colors.background.secondary,

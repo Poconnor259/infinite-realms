@@ -201,11 +201,13 @@ export default function CampaignScreen() {
     const handleAcceptQuest = async (questId: string) => {
         if (!id) return;
         setIsProcessingQuest(true);
+        // Clear sync lock to allow immediate real-time update from Firestore
+        useGameStore.setState({ syncBlockedUntil: 0 });
+
         try {
             const acceptTrigger = httpsCallable(functions, 'acceptQuestTrigger');
             await acceptTrigger({ campaignId: id, questId });
-            // Reload campaign to update UI with accepted quest
-            await loadCampaign(id);
+            // RELOAD REMOVED: onSnapshot listener handles real-time updates
         } catch (error) {
             console.error('Error accepting quest:', error);
             Alert.alert('Error', 'Failed to accept quest');
@@ -217,11 +219,13 @@ export default function CampaignScreen() {
     const handleDeclineQuest = async (questId: string) => {
         if (!id) return;
         setIsProcessingQuest(true);
+        // Clear sync lock
+        useGameStore.setState({ syncBlockedUntil: 0 });
+
         try {
             const declineTrigger = httpsCallable(functions, 'declineQuestTrigger');
             await declineTrigger({ campaignId: id, questId });
-            // Reload campaign to update UI with declined quest removed
-            await loadCampaign(id);
+            // RELOAD REMOVED: onSnapshot listener handles real-time updates
         } catch (error) {
             console.error('Error declining quest:', error);
             Alert.alert('Error', 'Failed to decline quest');
@@ -233,6 +237,9 @@ export default function CampaignScreen() {
     const handleRequestQuests = async () => {
         if (!id) return;
         setIsRequestingQuests(true);
+        // Clear sync lock
+        useGameStore.setState({ syncBlockedUntil: 0 });
+
         try {
             const requestTrigger = httpsCallable(functions, 'requestQuestsTrigger');
             const result: any = await requestTrigger({ campaignId: id });
@@ -733,6 +740,7 @@ export default function CampaignScreen() {
                             onDeclineQuest={handleDeclineQuest}
                             onRequestQuests={handleRequestQuests}
                             isRequestingQuests={isRequestingQuests}
+                            isProcessing={isProcessingQuest}
                             pendingRoll={pendingRoll}
                             onRollComplete={(result) => {
                                 console.log('[Campaign] Dice roll complete:', result);

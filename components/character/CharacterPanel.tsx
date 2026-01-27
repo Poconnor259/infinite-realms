@@ -19,12 +19,13 @@ interface CharacterPanelProps {
     onDeclineQuest?: (questId: string) => void;
     onRequestQuests?: () => void;
     isRequestingQuests?: boolean;
+    isProcessing?: boolean;
     pendingRoll?: PendingRoll | null;
     onRollComplete?: (result: { roll: number; total: number; success?: boolean }) => void;
     onDismiss?: () => void;
 }
 
-export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, pendingRoll, onRollComplete, onDismiss }: CharacterPanelProps) {
+export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDeclineQuest, onRequestQuests, isRequestingQuests, isProcessing, pendingRoll, onRollComplete, onDismiss }: CharacterPanelProps) {
     // Extract character data from moduleState
     const rawCharacter = (moduleState as any).character;
 
@@ -45,6 +46,7 @@ export function CharacterPanel({ moduleState, worldModule, onAcceptQuest, onDecl
                 onDeclineQuest={onDeclineQuest}
                 onRequestQuests={onRequestQuests}
                 isRequestingQuests={isRequestingQuests}
+                isProcessing={isProcessing}
                 pendingRoll={pendingRoll}
                 onRollComplete={onRollComplete}
                 onDismiss={onDismiss}
