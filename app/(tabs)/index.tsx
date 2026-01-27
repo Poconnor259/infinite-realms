@@ -13,6 +13,14 @@ const DEFAULT_WORLD_COLORS: Record<string, string> = {
     tactical: '#8b5cf6',
 };
 
+const DIFFICULTY_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+    story: { label: 'Story', icon: '🎭', color: '#60a5fa' },
+    novice: { label: 'Novice', icon: '📚', color: '#10b981' },
+    adventurer: { label: 'Adventurer', icon: '⚔️', color: '#3b82f6' },
+    hero: { label: 'Hero', icon: '🏆', color: '#f59e0b' },
+    legendary: { label: 'Legendary', icon: '💀', color: '#ef4444' },
+};
+
 export default function HomeScreen() {
     const router = useRouter();
     const theme = useTheme();
@@ -134,6 +142,8 @@ export default function HomeScreen() {
 
     const renderCampaignItem = ({ item }: { item: Campaign }) => {
         const worldInfo = availableWorlds.find(w => w.id === item.worldModule);
+        const difficultyKey = (item.character as any).difficulty || 'adventurer';
+        const difficulty = DIFFICULTY_CONFIG[difficultyKey];
 
         return (
             <Card
@@ -142,8 +152,23 @@ export default function HomeScreen() {
                 mode="contained"
             >
                 <Card.Title
-                    title={item.name}
-                    titleVariant="titleMedium"
+                    title={
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                            <Text style={{ fontSize: 16, fontWeight: 'bold', color: theme.colors.onSurface }}>
+                                {item.name}
+                            </Text>
+                            {difficulty && (
+                                <Chip
+                                    selectedColor={difficulty.color}
+                                    style={[styles.difficultyChip, { backgroundColor: difficulty.color + '20' }]}
+                                    textStyle={{ fontSize: 10, fontWeight: 'bold' }}
+                                    compact
+                                >
+                                    {difficulty.icon} {difficulty.label}
+                                </Chip>
+                            )}
+                        </View>
+                    }
                     subtitle={`${item.character.name} • Lv.${item.character.level}`}
                     left={(props) => (
                         <View style={[styles.squareIconContainer, { backgroundColor: worldInfo?.color || theme.colors.primaryContainer }]}>
@@ -290,5 +315,9 @@ const styles = StyleSheet.create({
     },
     squareIconText: {
         fontSize: 24,
+    },
+    difficultyChip: {
+        height: 24,
+        marginRight: -4,
     },
 });

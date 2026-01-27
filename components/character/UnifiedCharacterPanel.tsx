@@ -204,6 +204,22 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                         colors={colors}
                         styles={styles}
                         defaultExpanded={!!pendingRoll}
+                        rightElement={
+                            !pendingRoll && (
+                                <TouchableOpacity
+                                    onPress={() => useGameStore.getState().triggerManualRoll()}
+                                    style={{
+                                        paddingHorizontal: spacing.sm,
+                                        paddingVertical: 4,
+                                        backgroundColor: colors.primary[500] + '20',
+                                        borderRadius: borderRadius.sm,
+                                        marginRight: 8
+                                    }}
+                                >
+                                    <Text style={{ color: colors.primary[400], fontSize: 12, fontWeight: 'bold' }}>Manual Roll</Text>
+                                </TouchableOpacity>
+                            )
+                        }
                     >
                         <DiceRoller
                             pendingRoll={pendingRoll}

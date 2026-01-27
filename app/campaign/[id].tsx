@@ -28,6 +28,14 @@ import { ChatInput } from '../../components/chat/ChatInput';
 import { HPBar } from '../../components/hud/HPBar';
 import { StatRow, ResourceBar } from '../../components/hud/StatCard';
 import { CharacterPanel } from '../../components/character/CharacterPanel';
+
+const DIFFICULTY_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
+    story: { label: 'Story', icon: '🎭', color: '#60a5fa' },
+    novice: { label: 'Novice', icon: '📚', color: '#10b981' },
+    adventurer: { label: 'Adventurer', icon: '⚔️', color: '#3b82f6' },
+    hero: { label: 'Hero', icon: '🏆', color: '#f59e0b' },
+    legendary: { label: 'Legendary', icon: '💀', color: '#ef4444' },
+};
 import { Logo } from '../../components/ui/Logo';
 import { ReadingSettingsPanel } from '../../components/ui/ReadingSettingsPanel';
 import { normalizeCharacter } from '../../lib/normalizeCharacter';
@@ -523,9 +531,16 @@ export default function CampaignScreen() {
                                         {currentCampaign?.name || 'Loading...'}
                                     </Text>
                                     {(currentCampaign?.name?.toLowerCase() !== (currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name?.toLowerCase() : '...')) && (
-                                        <Text style={styles.worldName}>
-                                            {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
-                                        </Text>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                                            <Text style={styles.worldName}>
+                                                {currentCampaign?.worldModule ? getWorldInfo(colors)[currentCampaign.worldModule]?.name : '...'}
+                                            </Text>
+                                            {currentCampaign?.character && (currentCampaign.character as any).difficulty && (
+                                                <Text style={[styles.worldName, { color: DIFFICULTY_CONFIG[(currentCampaign.character as any).difficulty]?.color || colors.text.muted, opacity: 0.9 }]}>
+                                                    • {DIFFICULTY_CONFIG[(currentCampaign.character as any).difficulty]?.icon} {DIFFICULTY_CONFIG[(currentCampaign.character as any).difficulty]?.label}
+                                                </Text>
+                                            )}
+                                        </View>
                                     )}
                                 </View>
                             </View>

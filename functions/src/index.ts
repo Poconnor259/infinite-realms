@@ -496,7 +496,7 @@ export const processGameAction = onCall(
             }
 
             // If there's a pending roll, save state and return early
-            if (effectivePendingRoll && brainResult.data.requiresUserInput) {
+            if (effectivePendingRoll) {
                 console.log('[Brain] Pending dice roll required, pausing for user input');
 
                 if (auth?.uid) {

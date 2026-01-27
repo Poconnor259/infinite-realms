@@ -197,6 +197,13 @@ interface GameState {
         modifier?: number;
         stat?: string;
         difficulty?: number;
+        // Fate Engine optional fields
+        rollType?: 'skill' | 'attack' | 'savingThrow' | 'check';
+        proficiencyApplies?: boolean;
+        itemBonus?: number;
+        situationalMod?: number;
+        advantageSources?: string[];
+        disadvantageSources?: string[];
     } | null;
     rollHistory: RollHistoryEntry[];
 
@@ -220,7 +227,8 @@ interface GameState {
     updateModuleState: (updates: Partial<ModuleState>) => void;
     clearMessages: () => void;
     setPendingChoice: (choice: { prompt: string; options?: string[]; choiceType: string } | null) => void;
-    setPendingRoll: (roll: { type: string; purpose: string; modifier?: number; stat?: string; difficulty?: number } | null) => void;
+    setPendingRoll: (roll: GameState['pendingRoll']) => void;
+    triggerManualRoll: (type?: string, purpose?: string) => void;
     submitRollResult: (rollResult: number) => Promise<void>;
     addRollToHistory: (entry: RollHistoryEntry) => void;
     clearRollHistory: () => void;
@@ -814,6 +822,17 @@ export const useGameStore = create<GameState>((set, get) => ({
                 syncBlockedUntil: Date.now() + 2000, // Block sync even on error
             }));
         }
+    },
+
+    triggerManualRoll: (type = 'd20', purpose = 'Manual Roll') => {
+        set({
+            pendingRoll: {
+                type,
+                purpose,
+                modifier: 0,
+            },
+            isLoading: false,
+        });
     },
 
     loadCampaign: async (id: string) => {
