@@ -68,6 +68,14 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
     const scaleAnim = useRef(new Animated.Value(1)).current;
     const displayNumber = useRef(new Animated.Value(1)).current;
 
+    // Reset state when a new pending roll arrives
+    useEffect(() => {
+        setIsRolling(false);
+        setResult(null);
+        setPhysicalInput('');
+        setShowResult(false);
+    }, [pendingRoll]);
+
     // If no pending roll, show history
     if (!pendingRoll) {
         return <RollHistory history={rollHistory} colors={colors} />;
@@ -133,7 +141,9 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
                 setShowResult(true);
 
                 const total = finalRoll + modifier;
-                const success = difficulty !== undefined && !isNaN(difficulty) ? total >= difficulty : undefined;
+                const success = (difficulty !== undefined && difficulty !== null && !isNaN(difficulty) && difficulty > 0)
+                    ? total >= difficulty
+                    : undefined;
 
                 // Play success/fail sound
                 if (success === true) {
@@ -355,7 +365,7 @@ export function DiceRoller({ pendingRoll, rollHistory = [], onRollComplete, onDi
             )}
 
             {/* Difficulty */}
-            {difficulty !== undefined && !isNaN(difficulty) && !showResult && (
+            {difficulty !== undefined && difficulty !== null && !isNaN(difficulty) && difficulty > 0 && !showResult && (
                 <Text style={styles.difficultyText}>
                     Target: DC {difficulty}
                 </Text>

@@ -440,50 +440,96 @@ export const processGameAction = onCall(
             const isHelpQuery = userInput.trim().toLowerCase().startsWith('help:');
             if (interactiveDiceRolls && !brainResult.data.pendingRoll && !rollResult && !isHelpQuery) {
                 const narrativeText = brainResult.data.narrativeCues?.map(c => c.content).join(' ') || '';
-                const rollKeywords = /\b(roll|dice|d20|d6|d10|d100|check|save|attack|hit|damage|strike|dodge|resist)\b/i;
+                // Broaden keywords to catch more combat, skill, and loot actions
+                const rollKeywords = /\b(roll|dice|d20|d6|d10|d100|check|save|attack|hit|damage|strike|dodge|resist|swing|cast|shoot|block|stealth|clash|defense|loot|search|find|treasure|drop|examine|investigate|perception)\b/i;
 
                 if (rollKeywords.test(narrativeText)) {
                     console.warn('[Safety Net] Brain missed pendingRoll! Narrative contains roll keywords:', narrativeText.substring(0, 200));
 
                     // Try to extract roll info from narrative
-                    const d20Match = narrativeText.match(/roll\s+(?:a\s+)?d20/i);
                     const dcMatch = narrativeText.match(/DC\s+(\d+)/i);
-                    const purposeMatch = narrativeText.match(/(?:to\s+)?(\w+(?:\s+\w+){0,3})(?:\s+roll|\s+check|\s+save)/i);
+                    // Match a longer phrase before roll/check/save, allowing for basic punctuation
+                    const purposeMatch = narrativeText.match(/(?:to\s+)?([^.!?]{2,40})(?:\s+roll|\s+check|\s+save)/i) ||
+                        narrativeText.match(/\b(attack|strike|hit|block|dodge|resist|cast|shoot|loot|search|find|treasure|examine|investigate|perception)\b/i);
 
-                    if (d20Match) {
-                        const extractedRoll = {
-                            type: 'd20',
-                            purpose: purposeMatch?.[1] || 'Action',
-                            difficulty: dcMatch ? parseInt(dcMatch[1]) : undefined,
-                            modifier: 0,
-                        };
+                    // Refined purpose extraction and cleanup
+                    let extractedPurpose = purposeMatch?.[1] || purposeMatch?.[0] || 'Action';
 
-                        console.log('[Safety Net] Extracted pendingRoll:', extractedRoll);
-
-                        // Return early with extracted roll
-                        if (auth?.uid && !userInput.startsWith('[DICE ROLL RESULT:')) {
-                            const messagesRef = db.collection('users')
-                                .doc(auth.uid)
-                                .collection('campaigns')
-                                .doc(campaignId)
-                                .collection('messages');
-
-                            await messagesRef.add({
-                                role: 'user',
-                                content: userInput,
-                                timestamp: admin.firestore.FieldValue.serverTimestamp(),
-                            });
+                    // Cleanup: remove common prefix filler words at the start
+                    // Use a more comprehensive list and ensure we don't over-clean
+                    const filterPrefix = (text: string) => {
+                        let cleaned = text.trim();
+                        const fillers = ['you', 'i', 'to', 'your', 'my', 'focus', 'on', 'make', 'making', 'is', 'a', 'an', 'the', 'must', 'perform'];
+                        let changed = true;
+                        while (changed) {
+                            changed = false;
+                            const words = cleaned.split(/\s+/);
+                            if (words.length > 1 && fillers.includes(words[0].toLowerCase())) {
+                                words.shift();
+                                cleaned = words.join(' ');
+                                changed = true;
+                            }
                         }
+                        return cleaned;
+                    };
 
-                        return {
-                            success: true,
-                            stateUpdates: brainResult.data.stateUpdates || {},
-                            diceRolls: [],
-                            systemMessages: brainResult.data.systemMessages || [],
-                            requiresUserInput: true,
-                            pendingRoll: extractedRoll,
-                        };
+                    extractedPurpose = filterPrefix(extractedPurpose);
+
+                    // Remove trailing 'roll/check/save' if accidentally captured
+                    extractedPurpose = extractedPurpose.replace(/\s+(roll|check|save)$/i, '').trim();
+
+                    // Capitalize first letter
+                    if (extractedPurpose.length > 0) {
+                        extractedPurpose = extractedPurpose.charAt(0).toUpperCase() + extractedPurpose.slice(1);
                     }
+
+                    // Final fallback if cleaning made it too short or empty
+                    if (extractedPurpose.length < 2) {
+                        extractedPurpose = (purposeMatch?.[0] || 'Action').replace(/\s+(roll|check|save)$/i, '').trim();
+                        if (extractedPurpose.length > 0) {
+                            extractedPurpose = extractedPurpose.charAt(0).toUpperCase() + extractedPurpose.slice(1);
+                        } else {
+                            extractedPurpose = 'Action';
+                        }
+                    }
+
+                    // LENIENT EXTRACTION: Don't require "d20" mention. If keywords found, assume d20 by default unless another is specified.
+                    const d6Match = narrativeText.match(/\bd6\b/i);
+                    const d10Match = narrativeText.match(/\bd10\b/i);
+                    const d100Match = narrativeText.match(/\bd100\b/i);
+
+                    const extractedRoll = {
+                        type: d100Match ? 'd100' : (d10Match ? 'd10' : (d6Match ? 'd6' : 'd20')),
+                        purpose: extractedPurpose,
+                        difficulty: dcMatch ? parseInt(dcMatch[1]) : undefined,
+                        modifier: 0,
+                    };
+
+                    console.log('[Safety Net] Extracted pendingRoll:', extractedRoll);
+
+                    // Return early with extracted roll (save user message first)
+                    if (auth?.uid && !userInput.startsWith('[DICE ROLL RESULT:')) {
+                        const messagesRef = db.collection('users')
+                            .doc(auth.uid)
+                            .collection('campaigns')
+                            .doc(campaignId)
+                            .collection('messages');
+
+                        await messagesRef.add({
+                            role: 'user',
+                            content: userInput,
+                            timestamp: admin.firestore.FieldValue.serverTimestamp(),
+                        });
+                    }
+
+                    return {
+                        success: true,
+                        stateUpdates: brainResult.data.stateUpdates || {},
+                        diceRolls: [],
+                        systemMessages: brainResult.data.systemMessages || [],
+                        requiresUserInput: true,
+                        pendingRoll: extractedRoll,
+                    };
                 }
             }
 
