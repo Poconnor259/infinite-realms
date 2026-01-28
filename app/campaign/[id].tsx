@@ -22,7 +22,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { spacing, borderRadius, typography } from '../../lib/theme';
 import { useThemeColors } from '../../lib/hooks/useTheme';
-import { useGameStore, useTurnsStore, useUserStore } from '../../lib/store';
+import { useGameStore, useTurnsStore, useUserStore, useSettingsStore } from '../../lib/store';
 import { MessageBubble } from '../../components/chat/MessageBubble';
 import { ChatInput } from '../../components/chat/ChatInput';
 import { HPBar } from '../../components/hud/HPBar';
@@ -422,6 +422,25 @@ export default function CampaignScreen() {
             setPanelVisible(true);
         }
     }, [pendingRoll, panelVisible]);
+
+    // Auto-resolve pending rolls when dice mode is 'auto'
+    useEffect(() => {
+        const settings = useSettingsStore.getState();
+
+        // If there's a pending roll and dice mode is auto, automatically roll and submit
+        if (pendingRoll && settings.diceRollMode === 'auto' && !isLoading) {
+            console.log('[Campaign] Auto-resolving pending roll:', pendingRoll.purpose);
+
+            // Simulate a dice roll based on the type
+            const diceType = pendingRoll.type || 'd20';
+            const maxValue = parseInt(diceType.substring(1)) || 20;
+            const rollResult = Math.floor(Math.random() * maxValue) + 1;
+
+            // Submit the roll result
+            submitRollResult(rollResult);
+        }
+    }, [pendingRoll, isLoading, submitRollResult]);
+
 
     // Smart Idle Detection for Cache Heartbeat
     useEffect(() => {

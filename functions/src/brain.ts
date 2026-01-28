@@ -367,10 +367,13 @@ REQUIRED pendingRoll JSON structure:
 
 TRIGGERS for pendingRoll (ANY of these = MUST use pendingRoll):
 - Combat attacks (melee, ranged, spell)
-- Skill checks (stealth, perception, persuasion, etc.)
+- Skill checks when player ACTIVELY ATTEMPTS (searching, sneaking, persuading, etc.)
+  DO NOT trigger for informational questions ("What do I see?", "I ask the guard about...")
 - Saving throws (reflex, will, fortitude)
 - Ability checks (strength, dexterity, etc.)
 - Damage rolls (only AFTER hit confirmed by previous roll)
+- ONLY when you can assign a meaningful DC (at least 5, typically 10-20)
+
 
 SAFE USAGE vs COMBAT RULES:
 1. COMBAT & OFFENSE (ALWAYS ROLL):

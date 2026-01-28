@@ -960,7 +960,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     themeVariant: 'default',
     fontFamily: 'inter',
     fontSize: 'medium',
-    diceRollMode: 'digital',
+    diceRollMode: 'auto',
     showSuggestedChoices: true,
 
     setApiKey: (provider, key) => {
