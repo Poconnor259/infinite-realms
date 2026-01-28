@@ -39,6 +39,7 @@ export default function CreateCampaignScreen() {
     const [isCreating, setIsCreating] = useState(false);
     const [step, setStep] = useState<'name' | 'character'>('name');
     const [characterData, setCharacterData] = useState<ModuleCharacter | null>(null);
+    const [difficulty, setDifficulty] = useState<string>('adventurer');
 
     React.useEffect(() => {
         const loadWorld = async () => {
@@ -101,6 +102,7 @@ export default function CreateCampaignScreen() {
                 worldModule: worldId,
                 characterName: characterName.trim(),
                 initialCharacter: character,
+                difficulty: difficulty,
             });
             console.log('[Create] Cloud function result:', result);
 
@@ -219,6 +221,34 @@ export default function CreateCampaignScreen() {
                                 }
                             }}
                         />
+                    </FadeInView>
+
+                    {/* Difficulty Selection */}
+                    <FadeInView delay={250} style={styles.inputSection}>
+                        <Text style={styles.label}>Difficulty</Text>
+                        <View style={styles.difficultyContainer}>
+                            {[
+                                { value: 'story', label: 'Story', icon: '🎭', desc: 'Narrative focus' },
+                                { value: 'novice', label: 'Novice', icon: '📚', desc: 'Forgiving' },
+                                { value: 'adventurer', label: 'Adventurer', icon: '⚔️', desc: 'Balanced' },
+                                { value: 'hero', label: 'Hero', icon: '🏆', desc: 'Challenging' },
+                                { value: 'legendary', label: 'Legendary', icon: '💀', desc: 'Unforgiving' },
+                            ].map((diff) => (
+                                <AnimatedPressable
+                                    key={diff.value}
+                                    style={[
+                                        styles.difficultyOption,
+                                        difficulty === diff.value && styles.difficultyOptionSelected,
+                                        { borderColor: difficulty === diff.value ? world.color : colors.border.default }
+                                    ]}
+                                    onPress={() => setDifficulty(diff.value)}
+                                >
+                                    <Text style={styles.difficultyIcon}>{diff.icon}</Text>
+                                    <Text style={[styles.difficultyLabel, { color: colors.text.primary }]}>{diff.label}</Text>
+                                    <Text style={[styles.difficultyDesc, { color: colors.text.muted }]}>{diff.desc}</Text>
+                                </AnimatedPressable>
+                            ))}
+                        </View>
                     </FadeInView>
 
                 </ScrollView>
@@ -344,5 +374,31 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontSize: typography.h4.fontSize,
         fontFamily: typography.h4.fontFamily,
         color: '#fff',
+    },
+    difficultyContainer: {
+        gap: spacing.sm,
+    },
+    difficultyOption: {
+        padding: spacing.md,
+        borderRadius: borderRadius.md,
+        borderWidth: 2,
+        borderColor: '#333',
+        alignItems: 'center',
+        flexDirection: 'row',
+        gap: spacing.sm,
+    },
+    difficultyOptionSelected: {
+        borderWidth: 3,
+    },
+    difficultyIcon: {
+        fontSize: 24,
+    },
+    difficultyLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        flex: 1,
+    },
+    difficultyDesc: {
+        fontSize: 12,
     },
 });

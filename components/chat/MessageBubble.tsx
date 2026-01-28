@@ -20,6 +20,7 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
     const isSystem = message.role === 'system';
     const isNarrator = message.role === 'narrator';
     const [debugExpanded, setDebugExpanded] = useState(false);
+    const [ledgerExpanded, setLedgerExpanded] = useState(false);
     const user = useUserStore((state) => state.user);
 
     // Ensure content is always a string to prevent React error #31
@@ -278,6 +279,32 @@ export function MessageBubble({ message, index, isLastUserMessage = false }: Mes
                         <View style={styles.debugContent}>
                             <Text style={[styles.debugJson, { color: colors.text.muted }]}>
                                 {JSON.stringify(message.metadata.debug, null, 2)}
+                            </Text>
+                        </View>
+                    )}
+                </View>
+            )}
+
+            {/* Game Ledger Panel (Admin Only) */}
+            {!isUser && !isSystem && message.metadata?.debug?.ledger && user?.role === 'admin' && (
+                <View style={[styles.debugPanel, { backgroundColor: colors.background.tertiary, borderColor: colors.border.default }]}>
+                    <TouchableOpacity
+                        style={styles.debugHeader}
+                        onPress={() => setLedgerExpanded(!ledgerExpanded)}
+                    >
+                        <Ionicons
+                            name={ledgerExpanded ? 'chevron-down' : 'chevron-forward'}
+                            size={16}
+                            color={colors.text.muted}
+                        />
+                        <Text style={[styles.debugTitle, { color: colors.text.muted }]}>
+                            📜 Game Ledger
+                        </Text>
+                    </TouchableOpacity>
+                    {ledgerExpanded && (
+                        <View style={styles.debugContent}>
+                            <Text style={[styles.debugJson, { color: colors.text.muted, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' }]}>
+                                {message.metadata.debug.ledger}
                             </Text>
                         </View>
                     )}

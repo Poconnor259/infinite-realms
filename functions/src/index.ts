@@ -15,6 +15,7 @@ import { processWithBrain } from './brain';
 import { generateNarrative } from './voice';
 import { initPromptHelper, seedAIPrompts, getStateReviewerSettings, getQuestMasterPrompt } from './promptHelper';
 import { reviewStateConsistency, applyCorrections } from './stateReviewer';
+import { buildCampaignLedger } from './utils/campaignLedger';
 import { performCleanup } from './scripts/cleanupAbilities';
 
 
@@ -272,6 +273,20 @@ export const processGameAction = onCall(
                 }
             } catch (error) {
                 console.error('[ProcessGameAction] Failed to fetch AI settings:', error);
+            }
+
+            // 2.6 Load Campaign Document to get difficulty
+            let campaignDifficulty = 'adventurer'; // Default
+            if (auth?.uid) {
+                try {
+                    const campaignDoc = await db.collection('users').doc(auth.uid).collection('campaigns').doc(campaignId).get();
+                    if (campaignDoc.exists) {
+                        const campaignData = campaignDoc.data();
+                        campaignDifficulty = campaignData?.difficulty || 'adventurer';
+                    }
+                } catch (error) {
+                    console.error('[ProcessGameAction] Failed to fetch campaign difficulty:', error);
+                }
             }
 
             // 2.5 Verify User Tier & BYOK Access
@@ -1111,6 +1126,7 @@ export const processGameAction = onCall(
                             stateReport: voiceResult.stateReport || null,
                             reviewerResult: reviewerResult || null,
                             questResult: questMasterDebug,
+                            ledger: buildCampaignLedger({ ...finalState, difficulty: campaignDifficulty }, engineType),
                             models: {
                                 brain: brainConfig.model,
                                 voice: voiceConfig.model,
@@ -1125,7 +1141,7 @@ export const processGameAction = onCall(
                     .collection('campaigns')
                     .doc(campaignId)
                     .update({
-                        moduleState: finalState,
+                        moduleState: cleanForFirestore(finalState),
                         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
                     });
             }
@@ -1783,7 +1799,7 @@ export const createCampaign = onCall(
             throw new HttpsError('unauthenticated', 'User must be signed in');
         }
 
-        const { name, worldModule: worldId, characterName, initialCharacter } = request.data;
+        const { name, worldModule: worldId, characterName, initialCharacter, difficulty } = request.data;
 
         // Resolve world configuration from Firestore
         let worldData: any = null;
@@ -1975,6 +1991,7 @@ Skip directly to the adventure start.`;
             name,
             worldModule: worldId,
             character,
+            difficulty: difficulty || 'adventurer',
             moduleState: {
                 type: engineType,
                 character,

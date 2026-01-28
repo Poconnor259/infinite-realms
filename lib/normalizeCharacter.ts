@@ -177,7 +177,7 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
             if (typeof res.current === 'number') {
                 const name = capitalizeFirst(key);
                 // Map common names to standard UI colors/icons if not specified
-                let color = res.color || '#8b5cf6';
+                let color = res.color;
                 let icon = res.icon;
 
                 if (!icon && typeof name === 'string') {
@@ -192,6 +192,8 @@ function normalizeResources(char: any, worldType: string): NormalizedResource[] 
                     else if (name.match(/Mana|Mp|Energy|Nanite/i)) color = '#3b82f6';
                     else if (name.match(/Stamina|Spirit/i)) color = '#22c55e';
                 }
+
+                if (!color) color = '#8b5cf6';
 
                 resources.push({
                     current: res.current,
@@ -366,6 +368,23 @@ function getStatInfo(key: string, worldType: string): { name: string; abbreviati
 
 // ==================== ABILITY NORMALIZATION ====================
 
+// Map AI-generated ability types to UI filter categories
+const ABILITY_TYPE_MAP: Record<string, string> = {
+    'offensive': 'Attack',
+    'combat': 'Attack',
+    'damage': 'Attack',
+    'defensive': 'Defense',
+    'protection': 'Defense',
+    'shield': 'Defense',
+    'utility': 'Utility',
+    'support': 'Utility',
+    'passive': 'Passive',
+    'aura': 'Passive',
+    'special': 'Special',
+    'unique': 'Special',
+    'ultimate': 'Special',
+};
+
 function normalizeAbilities(char: any): NormalizedAbility[] {
     const abilities: NormalizedAbility[] = [];
 
@@ -377,7 +396,7 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
             if (ability && typeof ability === 'object') {
                 normalized = {
                     name: ability.name || 'Unknown Ability',
-                    type: ability.type,
+                    type: ABILITY_TYPE_MAP[(ability.type || '').toLowerCase()] || ability.type,
                     cooldown: ability.cooldown,
                     currentCooldown: ability.currentCooldown,
                     description: ability.description,
@@ -394,7 +413,7 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
                 if (complexMatch) {
                     normalized = {
                         name: complexMatch[1].trim(),
-                        type: complexMatch[2].trim(),
+                        type: ABILITY_TYPE_MAP[complexMatch[2].trim().toLowerCase()] || complexMatch[2].trim(),
                         description: complexMatch[3].trim(),
                     };
                 } else {
@@ -449,6 +468,21 @@ function normalizeAbilities(char: any): NormalizedAbility[] {
 
 // ==================== INVENTORY NORMALIZATION ====================
 
+// Keywords for inferring item types from names
+const ITEM_TYPE_KEYWORDS: Record<string, string[]> = {
+    'weapon': ['sword', 'blade', 'bow', 'axe', 'dagger', 'spear', 'staff', 'wand', 'mace', 'hammer', 'crossbow', 'gun'],
+    'armor': ['armor', 'helmet', 'chest', 'boots', 'gloves', 'shield', 'plate', 'mail', 'robe', 'cloak'],
+    'consumable': ['potion', 'herb', 'elixir', 'scroll', 'food', 'drink', 'tonic', 'remedy'],
+};
+
+function inferItemType(name: string): string | undefined {
+    const lowerName = name.toLowerCase();
+    for (const [type, keywords] of Object.entries(ITEM_TYPE_KEYWORDS)) {
+        if (keywords.some(kw => lowerName.includes(kw))) return type;
+    }
+    return undefined;
+}
+
 function normalizeInventory(char: any): NormalizedItem[] {
     const inventory: NormalizedItem[] = [];
 
@@ -459,7 +493,7 @@ function normalizeInventory(char: any): NormalizedItem[] {
                     id: item.id,
                     name: item.name || 'Unknown Item',
                     quantity: item.quantity || 1,
-                    type: item.type,
+                    type: item.type || inferItemType(item.name || ''),
                     equipped: item.equipped || false,
                     rank: item.rank,
                 });

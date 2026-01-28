@@ -125,8 +125,17 @@ export function deepMergeState(
             for (const [charKey, charValue] of Object.entries(charUpdates)) {
                 if (charValue === undefined || charValue === null) continue;
 
-                // Protect immutable character fields
-                if (['essences', 'rank', 'name'].includes(charKey) && currentChar[charKey]) {
+                // Protect immutable character fields (but allow essence progression)
+                if (['rank', 'name'].includes(charKey) && currentChar[charKey]) {
+                    continue; // Only block rank/name changes, allow essence progression
+                }
+
+                // Handle essences as a Set (add-only, allow new essences)
+                if (charKey === 'essences') {
+                    const currentEssences = currentChar.essences || [];
+                    if (Array.isArray(charValue)) {
+                        mergedChar.essences = Array.from(new Set([...currentEssences, ...charValue]));
+                    }
                     continue;
                 }
 

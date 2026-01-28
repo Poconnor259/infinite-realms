@@ -352,6 +352,7 @@ export interface CreateCampaignRequest {
     worldModule: string;
     characterName: string;
     initialCharacter?: any; // ModuleCharacter type - will be validated by backend
+    difficulty?: string;
 }
 
 export interface CreateCampaignResponse {

@@ -182,6 +182,14 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     {safeClass && (
                         <Text style={styles.classText}>{safeClass}</Text>
                     )}
+                    {character.currency && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginLeft: spacing.sm, backgroundColor: colors.background.tertiary, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, borderWidth: 1, borderColor: (colors.gold?.main || '#f59e0b') + '40' }}>
+                            <Text style={{ fontSize: 14, marginRight: 4 }}>{character.currency.icon || '🪙'}</Text>
+                            <Text style={{ fontSize: 14, fontWeight: 'bold', color: colors.gold?.main || '#f59e0b' }}>
+                                {character.currency.amount.toLocaleString()}
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 {/* Level/Rank Progression Bar */}
@@ -446,14 +454,6 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                     hasUpdate={updates['inventory']}
                     onExpand={() => clearUpdate('inventory')}
                 >
-                    {/* Currency Display */}
-                    {character.currency && (
-                        <View style={styles.currencyContainer}>
-                            <Text style={styles.currencyIcon}>{character.currency.icon || '💰'}</Text>
-                            <Text style={styles.currencyAmount}>{character.currency.amount.toLocaleString()}</Text>
-                            <Text style={styles.currencyName}>{character.currency.name}</Text>
-                        </View>
-                    )}
 
                     {/* Item Filters */}
                     <ScrollView
@@ -535,7 +535,21 @@ export function UnifiedCharacterPanel({ character, worldType, onAcceptQuest, onD
                             .filter(ability => {
                                 if (abilityFilter === 'All') return true;
                                 const type = (ability.type || '').toLowerCase();
-                                return type.includes(abilityFilter.toLowerCase());
+                                const filterLower = abilityFilter.toLowerCase();
+
+                                // Direct match
+                                if (type === filterLower) return true;
+
+                                // Category-based matching for common variations
+                                if (filterLower === 'attack') {
+                                    return ['attack', 'offensive', 'combat', 'damage'].includes(type);
+                                }
+                                if (filterLower === 'defense') {
+                                    return ['defense', 'defensive', 'protection', 'shield'].includes(type);
+                                }
+
+                                // Fallback to substring match
+                                return type.includes(filterLower);
                             })
                             .map((ability, index) => (
                                 <AbilityItem key={`${ability.name}-${index}`} ability={ability} colors={colors} styles={styles} />
@@ -824,7 +838,7 @@ function ExtrasSection({ extras, worldType, colors, styles, updates, onClearUpda
 
         return (
             <CollapsibleSection
-                title={`Essences (${count}/4)`}
+                title={`Essences (${count})`}
                 colors={colors}
                 styles={styles}
                 hasUpdate={updates?.['extras']}

@@ -504,9 +504,25 @@ export default function CampaignScreen() {
         icon: '🌍',
         color: colors.text.muted
     };
-    const rawCharacter = currentCampaign.character || (currentCampaign.moduleState as any)?.character;
+    const charData = (currentCampaign.character || (currentCampaign.moduleState as any)?.character || {}) as any;
+    const moduleState = currentCampaign.moduleState || {};
+
+    // Merge critical progress data that can sometimes exist at the top level of moduleState
+    // Priority: moduleState (AI's direct report) > charData (nested object)
+    const rawCharacter = {
+        ...charData,
+        experience: ((moduleState as any).experience !== undefined && (moduleState as any).experience !== null)
+            ? (moduleState as any).experience
+            : charData.experience,
+        gold: ((moduleState as any).gold !== undefined && (moduleState as any).gold !== null)
+            ? (moduleState as any).gold
+            : charData.gold,
+        credits: ((moduleState as any).credits !== undefined && (moduleState as any).credits !== null)
+            ? (moduleState as any).credits
+            : charData.credits,
+    };
+
     const character = normalizeCharacter(rawCharacter, currentCampaign.worldModule);
-    const moduleState = currentCampaign.moduleState;
 
     const renderMessage = ({ item, index }: { item: Message; index: number }) => (
         <MessageBubble
