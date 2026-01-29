@@ -254,7 +254,14 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             // Add narrative cues
             cueText += 'NARRATIVE CUES:\n';
             for (const cue of narrativeCues) {
-                cueText += `- [${cue.type.toUpperCase()}${cue.emotion ? ` / ${cue.emotion}` : ''}] ${cue.content}\n`;
+                // SAFETY: AI might occasionally return strings instead of objects or omit properties
+                const cueType = (cue as any).type || 'description';
+                const cueContent = (cue as any).content || (typeof cue === 'string' ? cue : '');
+                const cueEmotion = (cue as any).emotion;
+
+                if (cueContent) {
+                    cueText += `- [${String(cueType).toUpperCase()}${cueEmotion ? ` / ${cueEmotion}` : ''}] ${cueContent}\n`;
+                }
             }
 
             // Add state changes

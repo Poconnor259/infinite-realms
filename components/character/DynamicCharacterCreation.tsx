@@ -576,7 +576,7 @@ export function DynamicCharacterCreation({ characterName, engine, defaultLoadout
                 {engine.creationFields && engine.creationFields.length > 0 && (
                     <View style={styles.section}>
                         <Text style={[styles.sectionTitle, { color: colors.text.primary }]}>Character Details</Text>
-                        {engine.creationFields.map((field, index) => (
+                        {engine.creationFields.filter(f => f.id !== 'difficulty').map((field, index) => (
                             <View key={field.id} style={styles.fieldContainer}>
                                 <Text style={[styles.fieldLabel, { color: colors.text.secondary }]}>
                                     {field.label}{field.required && ' *'}

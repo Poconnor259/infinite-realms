@@ -72,6 +72,9 @@ interface DiceRoll {
     modifier?: number;
     total: number;
     purpose?: string;
+    difficulty?: number;
+    success?: boolean;
+    label?: string;
 }
 
 // ==================== JSON SCHEMA FOR RESPONSE ====================
@@ -88,7 +91,10 @@ const BrainResponseSchema = z.object({
         result: z.number().describe('Raw dice result'),
         modifier: z.number().optional().describe('Modifier added to roll'),
         total: z.number().describe('Final total after modifiers'),
-        purpose: z.string().optional().describe('What the roll was for'),
+        purpose: z.string().optional().describe('What the roll was for, e.g. "Attack roll vs Orc"'),
+        difficulty: z.number().optional().describe('DC/Target number if applicable'),
+        success: z.boolean().optional().describe('True if total >= difficulty'),
+        label: z.string().optional().describe('Short display label for UI'),
     })).optional().default([]).describe('Any dice rolls made'),
     systemMessages: z.array(z.string()).optional().default([]).describe('Game system notifications for the player'),
     narrativeCue: z.string().optional().describe('Simple narrative fallback if Claude is unavailable'),
@@ -344,7 +350,7 @@ Do not offer selection.
                 ? `⚠️ INTERACTIVE ROLL RESOLUTION ⚠️
 You are processing the User's manual dice roll result (${rollResult}).
 1. YOU MUST ADD THIS ROLL to the 'diceRolls' array in your response.
-   Structure: { "type": "${pendingRoll?.type || 'd20'}", "result": ${rollResult}, "modifier": ${pendingRoll?.modifier || 0}, "total": ${(rollResult || 0) + (pendingRoll?.modifier || 0)}, "purpose": "${pendingRoll?.purpose || 'Action'}" }
+   Structure: { "type": "${pendingRoll?.type || 'd20'}", "result": ${rollResult}, "modifier": ${pendingRoll?.modifier || 0}, "total": ${(rollResult || 0) + (pendingRoll?.modifier || 0)}, "purpose": "${pendingRoll?.purpose || 'Action'}", "difficulty": ${pendingRoll?.difficulty || 'null'}, "success": ${pendingRoll?.difficulty ? (rollResult || 0) + (pendingRoll?.modifier || 0) >= (pendingRoll?.difficulty || 0) : 'null'} }
 2. DO NOT set "requiresUserInput": true (unless a *different* follow-up action needs a roll).
 3. DO NOT set "pendingRoll" for this same action again.
 4. Continue the narrative based on this result.`
@@ -393,7 +399,7 @@ SAFE USAGE vs COMBAT RULES:
 
 DO NOT resolve outcomes. Wait for user's roll result.
 DO NOT auto-roll. Leave diceRolls as [].`)
-            : 'Calculate all dice rolls using proper randomization simulation and include them in diceRolls array.';
+            : 'Calculate all dice rolls using proper randomization simulation and include them in "diceRolls" array. ALWAYS include "purpose", "modifier", "total", and "difficulty" (Target DC) if applicable to show your work.';
 
         const choicesRule = `USER PREFERENCE: showSuggestedChoices = ${showSuggestedChoices}. 
 ${showSuggestedChoices
@@ -804,9 +810,19 @@ Respond with JSON only. No markdown, no explanation.`;
         }
 
         // Normalize common AI response quirks before validation
-        if (parsed.narrativeCues && typeof parsed.narrativeCues === 'string') {
-            console.log('[Brain] Normalizing narrativeCues from string to array');
-            parsed.narrativeCues = [{ type: 'description', content: parsed.narrativeCues }];
+        if (parsed.narrativeCues) {
+            if (typeof parsed.narrativeCues === 'string') {
+                console.log('[Brain] Normalizing narrativeCues from string to array');
+                parsed.narrativeCues = [{ type: 'description', content: parsed.narrativeCues }];
+            } else if (Array.isArray(parsed.narrativeCues)) {
+                // If AI returns an array of strings, convert to objects
+                parsed.narrativeCues = parsed.narrativeCues.map((cue: any) => {
+                    if (typeof cue === 'string') {
+                        return { type: 'description', content: cue };
+                    }
+                    return cue;
+                });
+            }
         }
         if (parsed.systemMessages && typeof parsed.systemMessages === 'string') {
             parsed.systemMessages = [parsed.systemMessages];
@@ -824,7 +840,9 @@ Respond with JSON only. No markdown, no explanation.`;
                 data: {
                     stateUpdates: parsed.stateUpdates || {},
                     narrativeCues: Array.isArray(parsed.narrativeCues) ? parsed.narrativeCues : [],
-                    narrativeCue: (Array.isArray(parsed.narrativeCues) && parsed.narrativeCues.length > 0 ? parsed.narrativeCues.map((c: any) => c.content).join(' ') : (parsed.narrativeCue || 'The action was processed.')),
+                    narrativeCue: (Array.isArray(parsed.narrativeCues) && parsed.narrativeCues.length > 0
+                        ? parsed.narrativeCues.map((c: any) => typeof c === 'string' ? c : (c.content || '')).join(' ').trim()
+                        : (parsed.narrativeCue || 'The action was processed.')),
                     diceRolls: Array.isArray(parsed.diceRolls) ? parsed.diceRolls : [],
                     systemMessages: Array.isArray(parsed.systemMessages) ? parsed.systemMessages : [],
                     requiresUserInput: !!parsed.requiresUserInput,

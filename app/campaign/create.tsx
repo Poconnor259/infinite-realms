@@ -226,26 +226,25 @@ export default function CreateCampaignScreen() {
                     {/* Difficulty Selection */}
                     <FadeInView delay={250} style={styles.inputSection}>
                         <Text style={styles.label}>Difficulty</Text>
-                        <View style={styles.difficultyContainer}>
+                        <View style={styles.difficultyGrid}>
                             {[
-                                { value: 'story', label: 'Story', icon: '🎭', desc: 'Narrative focus' },
-                                { value: 'novice', label: 'Novice', icon: '📚', desc: 'Forgiving' },
-                                { value: 'adventurer', label: 'Adventurer', icon: '⚔️', desc: 'Balanced' },
-                                { value: 'hero', label: 'Hero', icon: '🏆', desc: 'Challenging' },
-                                { value: 'legendary', label: 'Legendary', icon: '💀', desc: 'Unforgiving' },
+                                { value: 'story', label: 'Story', icon: '🎭' },
+                                { value: 'novice', label: 'Novice', icon: '📚' },
+                                { value: 'adventurer', label: 'Adventurer', icon: '⚔️' },
+                                { value: 'hero', label: 'Hero', icon: '🏆' },
+                                { value: 'legendary', label: 'Legendary', icon: '💀' },
                             ].map((diff) => (
                                 <AnimatedPressable
                                     key={diff.value}
                                     style={[
-                                        styles.difficultyOption,
-                                        difficulty === diff.value && styles.difficultyOptionSelected,
+                                        styles.difficultyChip,
+                                        difficulty === diff.value && styles.difficultyChipSelected,
                                         { borderColor: difficulty === diff.value ? world.color : colors.border.default }
                                     ]}
                                     onPress={() => setDifficulty(diff.value)}
                                 >
                                     <Text style={styles.difficultyIcon}>{diff.icon}</Text>
                                     <Text style={[styles.difficultyLabel, { color: colors.text.primary }]}>{diff.label}</Text>
-                                    <Text style={[styles.difficultyDesc, { color: colors.text.muted }]}>{diff.desc}</Text>
                                 </AnimatedPressable>
                             ))}
                         </View>
@@ -375,30 +374,29 @@ const createStyles = (colors: any) => StyleSheet.create({
         fontFamily: typography.h4.fontFamily,
         color: '#fff',
     },
-    difficultyContainer: {
+    difficultyGrid: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: spacing.sm,
     },
-    difficultyOption: {
-        padding: spacing.md,
-        borderRadius: borderRadius.md,
+    difficultyChip: {
+        paddingVertical: spacing.sm,
+        paddingHorizontal: spacing.md,
+        borderRadius: borderRadius.full,
         borderWidth: 2,
-        borderColor: '#333',
         alignItems: 'center',
         flexDirection: 'row',
-        gap: spacing.sm,
+        gap: spacing.xs,
+        marginBottom: spacing.xs,
     },
-    difficultyOptionSelected: {
-        borderWidth: 3,
+    difficultyChipSelected: {
+        borderWidth: 2,
     },
     difficultyIcon: {
-        fontSize: 24,
+        fontSize: 16,
     },
     difficultyLabel: {
-        fontSize: 16,
+        fontSize: 14,
         fontWeight: '600',
-        flex: 1,
-    },
-    difficultyDesc: {
-        fontSize: 12,
     },
 });

@@ -286,7 +286,9 @@ function extractRollsFromMessages(messages: Message[]): RollHistoryEntry[] {
                     purpose: diceRoll.purpose || 'Unknown',
                     roll: diceRoll.result,
                     total: diceRoll.total,
-                    success: undefined, // Not stored in DiceRoll type
+                    modifier: diceRoll.modifier,
+                    difficulty: diceRoll.difficulty,
+                    success: diceRoll.success,
                     mode: 'auto', // Assume auto since it came from backend
                     timestamp: message.timestamp,
                 });
@@ -511,7 +513,15 @@ export const useGameStore = create<GameState>((set, get) => ({
                 metadata: {
                     voiceModel: result.data.voiceModelId,
                     turnCost: result.data.turnCost,
-                    diceRolls: [{ type: capturedRoll.type || 'd20', result: rollResult, total: rollResult + (capturedRoll.modifier || 0), purpose: capturedRoll.purpose }],
+                    diceRolls: [{
+                        type: capturedRoll.type || 'd20',
+                        result: rollResult,
+                        total: rollResult + (capturedRoll.modifier || 0),
+                        purpose: capturedRoll.purpose,
+                        modifier: capturedRoll.modifier,
+                        difficulty: capturedRoll.difficulty,
+                        success: capturedRoll.difficulty ? (rollResult + (capturedRoll.modifier || 0) >= capturedRoll.difficulty) : undefined
+                    }],
                     debug: result.data.debug,
                 },
             };

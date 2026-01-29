@@ -142,7 +142,7 @@ export default function HomeScreen() {
 
     const renderCampaignItem = ({ item }: { item: Campaign }) => {
         const worldInfo = availableWorlds.find(w => w.id === item.worldModule);
-        const difficultyKey = (item.character as any).difficulty || 'adventurer';
+        const difficultyKey = item.difficulty || (item.character as any).difficulty || 'adventurer';
         const difficulty = DIFFICULTY_CONFIG[difficultyKey];
 
         return (

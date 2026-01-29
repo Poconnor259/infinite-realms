@@ -53,6 +53,9 @@ export interface DiceRoll {
     modifier?: number;
     total: number;
     purpose?: string;
+    difficulty?: number;
+    success?: boolean;
+    label?: string;
 }
 
 // ==================== CAMPAIGN ====================
@@ -62,6 +65,7 @@ export interface Campaign {
     userId: string;
     name: string;
     worldModule: WorldModuleType;
+    difficulty?: string;
     createdAt: number;
     updatedAt: number;
     character: Character;

@@ -207,7 +207,11 @@ export const getAvailableModels = onCall(
 // ==================== MAIN GAME ENDPOINT ====================
 
 export const processGameAction = onCall(
-    { cors: true, invoker: 'public' },
+    {
+        cors: true,
+        invoker: 'public',
+        timeoutSeconds: 300
+    },
     async (request): Promise<GameResponse> => {
         const data = request.data as GameRequest;
         const auth = request.auth;
@@ -602,8 +606,19 @@ export const processGameAction = onCall(
             }
 
             // 5. Run Voice (Narrative)
+            // FAILSAFE: If Brain returns no cues (hallucination or refusal), inject a default cue to force Voice generation
+            // This prevents "..." empty responses when the Brain model gets lazy
+            const narrativeCues = brainResult.data.narrativeCues || [];
+            if (narrativeCues.length === 0 && !userInput.startsWith('/')) {
+                console.log('[ProcessGameAction] Brain returned no cues, injecting fallback to force Voice generation');
+                narrativeCues.push({
+                    type: 'description',
+                    content: `Narrate the result of the player's action: "${userInput}". Describe the scene and any immediate changes in the world.`
+                });
+            }
+
             const voiceResult = await generateNarrative({
-                narrativeCues: brainResult.data.narrativeCues,
+                narrativeCues: narrativeCues,
                 worldModule: engineType,
                 chatHistory,
                 stateChanges: brainResult.data.stateUpdates,
@@ -1116,7 +1131,7 @@ export const processGameAction = onCall(
 
                 await messagesRef.add({
                     role: 'narrator',
-                    content: voiceResult.narrative || brainResult.data.narrativeCue || '...',
+                    content: (voiceResult.narrative?.trim()) || (brainResult.data.narrativeCue?.trim()) || '...',
                     timestamp: admin.firestore.FieldValue.serverTimestamp(),
                     metadata: cleanForFirestore({
                         voiceModel: voiceConfig.model, // Store resolved model ID for permanent display
@@ -1209,7 +1224,12 @@ interface GenerateTextResponse {
 }
 
 export const generateText = onCall(
-    { cors: true, invoker: 'public' },
+    {
+        cors: true,
+        invoker: 'public',
+        memory: '512MiB',
+        timeoutSeconds: 120
+    },
     async (request): Promise<GenerateTextResponse> => {
         try {
             const { prompt, maxLength = 150, modelId } = request.data as GenerateTextRequest;
@@ -1360,7 +1380,11 @@ interface VerifyConfigOneRequest {
 }
 
 export const verifyModelConfig = onCall(
-    { cors: true, invoker: 'public' },
+    {
+        cors: true,
+        invoker: 'public',
+        timeoutSeconds: 60
+    },
     async (request) => {
         try {
             const { provider, model } = request.data as VerifyConfigOneRequest;
@@ -1793,7 +1817,11 @@ export const requestQuestsTrigger = onCall(
 // ==================== CAMPAIGN MANAGEMENT ====================
 
 export const createCampaign = onCall(
-    { cors: true, invoker: 'public' },
+    {
+        cors: true,
+        invoker: 'public',
+        timeoutSeconds: 300
+    },
     async (request) => {
         if (!request.auth) {
             throw new HttpsError('unauthenticated', 'User must be signed in');
@@ -1985,16 +2013,21 @@ Skip directly to the adventure start.`;
             character.id = `char_${Date.now()}`;
         }
 
+        const charWithDifficulty = {
+            ...character,
+            difficulty: difficulty || 'adventurer'
+        };
+
         // Save campaign
         await campaignRef.set({
             id: campaignRef.id,
             name,
             worldModule: worldId,
-            character,
+            character: charWithDifficulty,
             difficulty: difficulty || 'adventurer',
             moduleState: {
                 type: engineType,
-                character,
+                character: charWithDifficulty,
             },
             createdAt: now,
             updatedAt: now,
@@ -2364,6 +2397,7 @@ export const getKnowledgeForModule = async (
 ): Promise<string[]> => {
     const snapshot = await db.collection('knowledgeBase')
         .where('enabled', '==', true)
+        .where('worldModule', 'in', ['global', worldModule])
         .get();
 
     const docs = snapshot.docs
