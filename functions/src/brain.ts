@@ -831,34 +831,46 @@ Respond with JSON only. No markdown, no explanation.`;
         // Validate with Zod
         const validated = BrainResponseSchema.safeParse(parsed);
 
+        let finalData: any;
         if (!validated.success) {
             console.warn('Brain response validation failed, attempting robust recovery:', validated.error.message);
 
             // ROBUST RECOVERY: Preserve as much as possible even if validation fails
-            return {
-                success: true,
-                data: {
-                    stateUpdates: parsed.stateUpdates || {},
-                    narrativeCues: Array.isArray(parsed.narrativeCues) ? parsed.narrativeCues : [],
-                    narrativeCue: (Array.isArray(parsed.narrativeCues) && parsed.narrativeCues.length > 0
-                        ? parsed.narrativeCues.map((c: any) => typeof c === 'string' ? c : (c.content || '')).join(' ').trim()
-                        : (parsed.narrativeCue || 'The action was processed.')),
-                    diceRolls: Array.isArray(parsed.diceRolls) ? parsed.diceRolls : [],
-                    systemMessages: Array.isArray(parsed.systemMessages) ? parsed.systemMessages : [],
-                    requiresUserInput: !!parsed.requiresUserInput,
-                    pendingChoice: parsed.pendingChoice || undefined,
-                    pendingRoll: parsed.pendingRoll ? {
-                        ...parsed.pendingRoll,
-                        type: parsed.pendingRoll.type || 'd20'
-                    } : undefined,
-                },
-                usage
+            finalData = {
+                stateUpdates: parsed.stateUpdates || {},
+                narrativeCues: Array.isArray(parsed.narrativeCues) ? parsed.narrativeCues : [],
+                narrativeCue: parsed.narrativeCue || '',
+                diceRolls: Array.isArray(parsed.diceRolls) ? parsed.diceRolls : [],
+                systemMessages: Array.isArray(parsed.systemMessages) ? parsed.systemMessages : [],
+                requiresUserInput: !!parsed.requiresUserInput,
+                pendingChoice: parsed.pendingChoice || undefined,
+                pendingRoll: parsed.pendingRoll ? {
+                    ...parsed.pendingRoll,
+                    type: parsed.pendingRoll.type || 'd20'
+                } : undefined,
             };
+        } else {
+            finalData = validated.data;
+        }
+
+        // GUARANTEE: Populate narrativeCue from narrativeCues if it's missing or empty
+        // This provides a robust fallback for the Voice AI (Claude)
+        if (!String(finalData.narrativeCue || '').trim() && finalData.narrativeCues.length > 0) {
+            console.log('[Brain] Generating fallback narrativeCue from array');
+            finalData.narrativeCue = finalData.narrativeCues
+                .map((c: any) => typeof c === 'string' ? c : (c.content || ''))
+                .join(' ')
+                .trim();
+        }
+
+        // Final failsafe
+        if (!String(finalData.narrativeCue || '').trim()) {
+            finalData.narrativeCue = 'The action was processed.';
         }
 
         return {
             success: true,
-            data: validated.data,
+            data: finalData,
             usage
         };
 

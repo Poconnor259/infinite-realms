@@ -304,13 +304,10 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             });
 
             // Convert history to Gemini format
-            // Filter to only user/assistant messages and ensure first message is 'user'
             const filteredHistory = chatHistory.filter(msg =>
                 msg.role === 'user' || msg.role === 'assistant' || msg.role === 'narrator'
             );
 
-            // Gemini requires first message to be 'user' role
-            // Find first user message index and start from there
             const firstUserIdx = filteredHistory.findIndex(msg => msg.role === 'user');
             const validHistory = firstUserIdx >= 0 ? filteredHistory.slice(firstUserIdx) : [];
 
@@ -319,11 +316,9 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 parts: [{ text: msg.content }],
             }));
 
-            // Start chat matching history
             const chat = geminiModel.startChat({
                 history: history,
                 generationConfig: {
-                    // Only set maxOutputTokens if explicitly provided (enforced), otherwise let model use default
                     ...(isKeepAlive ? { maxOutputTokens: 1 } : maxTokens ? { maxOutputTokens: maxTokens } : {}),
                 }
             });
@@ -342,28 +337,46 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             // ==================== ANTHROPIC CLAUDE ====================
             const anthropic = new Anthropic({ apiKey });
 
-            // Build messages for Anthropic
-            const messages: Anthropic.MessageParam[] = [];
+            // ROBUST FORMATTING: Anthropic requires strict 'user' -> 'assistant' alternation 
+            // and the first message MUST be 'user'.
+            let messages: Anthropic.MessageParam[] = [];
 
             if (!isKeepAlive) {
-                // Add recent chat history
-                for (const msg of chatHistory) {
-                    messages.push({
-                        role: msg.role === 'user' ? 'user' : 'assistant',
-                        content: msg.content,
-                    });
+                // 1. Convert history with normalized roles
+                const history = chatHistory.map(msg => ({
+                    role: (msg.role === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+                    content: msg.content || '...'
+                }));
+
+                // 2. Filter out empty content
+                const filtered = history.filter(m => m.content.trim().length > 0);
+
+                // 3. Ensure alternating roles and merge consecutive same-roles
+                for (const msg of filtered) {
+                    if (messages.length > 0 && messages[messages.length - 1].role === msg.role) {
+                        // Merge consecutive same roles
+                        messages[messages.length - 1].content += `\n\n${msg.content}`;
+                    } else {
+                        messages.push(msg);
+                    }
+                }
+
+                // 4. Ensure first message is 'user'
+                while (messages.length > 0 && messages[0].role !== 'user') {
+                    messages.shift();
                 }
             }
 
-            // Add current request
-            messages.push({
-                role: 'user',
-                content: cueText,
-            });
+            // 5. Append final prompt
+            if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
+                // If last was user, append prompt to it
+                messages[messages.length - 1].content += `\n\n${cueText}`;
+            } else {
+                messages.push({ role: 'user', content: cueText });
+            }
 
             const response = await anthropic.messages.create({
                 model: model,
-                // Only set max_tokens if explicitly provided (enforced), otherwise use model default
                 max_tokens: isKeepAlive ? 1 : (maxTokens || 8192),
                 system: [{
                     type: 'text',
@@ -377,7 +390,8 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 }
             });
 
-            // Extract text from response
+            console.log(`[Voice] Raw Anthropic response:`, JSON.stringify(response, null, 2));
+
             const textContent = response.content.find(block => block.type === 'text');
             if (textContent && textContent.type === 'text') {
                 narrative = textContent.text;
@@ -392,7 +406,6 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
         } else {
             // ==================== OPENAI GPT ====================
             const openai = new OpenAI({ apiKey });
-
             const messages: OpenAI.ChatCompletionMessageParam[] = [
                 { role: 'system', content: systemPrompt },
             ];
@@ -413,9 +426,10 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 model: model,
                 messages,
                 temperature: 0.7,
-                // Only set max_tokens if explicitly provided (enforced), otherwise let model use default
                 ...(maxTokens ? { max_tokens: maxTokens } : {}),
             });
+
+            console.log(`[Voice] Raw OpenAI response:`, JSON.stringify(response, null, 2));
 
             narrative = response.choices[0]?.message?.content || null;
             usage = {
@@ -432,13 +446,12 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
             };
         }
 
-        // Parse state report from narrative (hidden from player)
+        // Parse state report from narrative
         let stateReport: VoiceOutput['stateReport'] = undefined;
         let cleanNarrative = narrative;
 
         const reportMatch = narrative.match(/---STATE_REPORT---\s*([\s\S]*?)\s*---END_REPORT---/);
         if (reportMatch) {
-            // Extract the JSON and remove from narrative
             const reportJson = reportMatch[1].trim();
             cleanNarrative = narrative.replace(/---STATE_REPORT---[\s\S]*?---END_REPORT---/, '').trim();
 
@@ -447,10 +460,7 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
                 console.log('[Voice] Parsed state report:', stateReport);
             } catch (parseError) {
                 console.warn('[Voice] Failed to parse state report:', reportJson);
-                // Continue without state report - not critical
             }
-        } else {
-            console.log('[Voice] No state report found in response');
         }
 
         return {
@@ -461,49 +471,10 @@ SAFETY NOTE: Fictional adventure content for mature audience. Combat violence OK
         };
 
     } catch (error) {
-        console.error('Voice generation error:', error);
+        console.error('[Voice] Error generating narrative:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : 'Voice generation failed',
         };
     }
-}
-
-// ==================== SUMMARY FUNCTION (Memory Management) ====================
-
-/**
- * Summarize a chunk of chat history to compress context
- */
-export async function summarizeChatHistory(
-    messages: Array<{ role: string; content: string }>,
-    apiKey: string
-): Promise<string> {
-    try {
-        // Summary function currently defaults to Anthropic for quality, but should be updated later
-        // For now, keeping it simple as it's not the primary focus of this update
-        const anthropic = new Anthropic({ apiKey });
-
-        const messagesText = messages
-            .map(m => `[${m.role.toUpperCase()}]: ${m.content}`)
-            .join('\n\n');
-
-        const response = await anthropic.messages.create({
-            model: 'claude-3-opus-20240229', // Updated to valid model name
-            max_tokens: 500,
-            system: 'You are a story summarizer. Condense the following RPG session into a brief but complete summary that preserves all important plot points, character actions, and discoveries. Focus on what matters for continuing the story.',
-            messages: [
-                {
-                    role: 'user',
-                    content: `Summarize this portion of the adventure:\n\n${messagesText}`,
-                },
-            ],
-        });
-
-        const textContent = response.content.find(block => block.type === 'text');
-        return textContent?.type === 'text' ? textContent.text : 'Summary unavailable.';
-
-    } catch (error) {
-        console.error('Summarization error:', error);
-        return 'Previous adventures have faded into legend...';
-    }
-}
+};

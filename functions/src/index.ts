@@ -611,10 +611,14 @@ export const processGameAction = onCall(
             const narrativeCues = brainResult.data.narrativeCues || [];
             if (narrativeCues.length === 0 && !userInput.startsWith('/')) {
                 console.log('[ProcessGameAction] Brain returned no cues, injecting fallback to force Voice generation');
+                const fallbackText = `Narrate the result of the player's action: "${userInput}". Describe the scene and any immediate changes in the world.`;
                 narrativeCues.push({
                     type: 'description',
-                    content: `Narrate the result of the player's action: "${userInput}". Describe the scene and any immediate changes in the world.`
+                    content: fallbackText
                 });
+
+                // CRITICAL: Update the backup string so that if Voice fails, we show this instead of "The action was processed."
+                brainResult.data.narrativeCue = fallbackText;
             }
 
             const voiceResult = await generateNarrative({
@@ -1142,6 +1146,7 @@ export const processGameAction = onCall(
                             reviewerResult: reviewerResult || null,
                             questResult: questMasterDebug,
                             ledger: buildCampaignLedger({ ...finalState, difficulty: campaignDifficulty }, engineType),
+                            voiceError: voiceResult.error || null, // Surface the real error for diagnostics
                             models: {
                                 brain: brainConfig.model,
                                 voice: voiceConfig.model,

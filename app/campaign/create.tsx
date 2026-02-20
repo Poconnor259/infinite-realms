@@ -200,8 +200,10 @@ export default function CreateCampaignScreen() {
                         <View style={[styles.worldIconContainer, { backgroundColor: world.color + '20' }]}>
                             <Text style={styles.worldIcon}>{world.icon}</Text>
                         </View>
-                        <Text style={styles.worldName}>{world.name}</Text>
-                        <Text style={styles.worldDescription}>{world.description}</Text>
+                        <View style={styles.worldInfo}>
+                            <Text style={styles.worldName}>{world.name}</Text>
+                            <Text style={styles.worldDescription} numberOfLines={3}>{world.description}</Text>
+                        </View>
                     </FadeInView>
 
                     {/* Input Section */}
@@ -228,23 +230,28 @@ export default function CreateCampaignScreen() {
                         <Text style={styles.label}>Difficulty</Text>
                         <View style={styles.difficultyGrid}>
                             {[
-                                { value: 'story', label: 'Story', icon: '🎭' },
-                                { value: 'novice', label: 'Novice', icon: '📚' },
-                                { value: 'adventurer', label: 'Adventurer', icon: '⚔️' },
-                                { value: 'hero', label: 'Hero', icon: '🏆' },
-                                { value: 'legendary', label: 'Legendary', icon: '💀' },
+                                { value: 'story', label: 'Story', icon: '🎭', desc: 'Narrative focus' },
+                                { value: 'novice', label: 'Novice', icon: '📚', desc: 'Forgiving combat' },
+                                { value: 'adventurer', label: 'Adventurer', icon: '⚔️', desc: 'Balanced experience' },
+                                { value: 'hero', label: 'Hero', icon: '🏆', desc: 'Challenging battles' },
+                                { value: 'legendary', label: 'Legendary', icon: '💀', desc: 'Unforgiving world' },
                             ].map((diff) => (
                                 <AnimatedPressable
                                     key={diff.value}
                                     style={[
                                         styles.difficultyChip,
-                                        difficulty === diff.value && styles.difficultyChipSelected,
-                                        { borderColor: difficulty === diff.value ? world.color : colors.border.default }
+                                        difficulty === diff.value && [styles.difficultyChipSelected, { borderColor: world.color, backgroundColor: world.color + '10' }],
+                                        difficulty !== diff.value && { borderColor: colors.border.default }
                                     ]}
                                     onPress={() => setDifficulty(diff.value)}
                                 >
-                                    <Text style={styles.difficultyIcon}>{diff.icon}</Text>
-                                    <Text style={[styles.difficultyLabel, { color: colors.text.primary }]}>{diff.label}</Text>
+                                    <View style={styles.difficultyIconContainer}>
+                                        <Text style={styles.difficultyIcon}>{diff.icon}</Text>
+                                    </View>
+                                    <View style={styles.difficultyTextContainer}>
+                                        <Text style={[styles.difficultyLabel, { color: difficulty === diff.value ? world.color : colors.text.primary }]}>{diff.label}</Text>
+                                        <Text style={styles.difficultyDesc}>{diff.desc}</Text>
+                                    </View>
                                 </AnimatedPressable>
                             ))}
                         </View>
@@ -301,35 +308,39 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: colors.text.primary,
     },
     worldCard: {
+        flexDirection: 'row',
         alignItems: 'center',
-        padding: spacing.xl,
+        padding: spacing.md,
         backgroundColor: colors.background.secondary,
-        borderRadius: borderRadius.xl,
+        borderRadius: borderRadius.lg,
         marginBottom: spacing.xl,
-        ...shadows.md,
+        ...shadows.sm,
     },
     worldIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
+        width: 60,
+        height: 60,
+        borderRadius: 30,
         alignItems: 'center',
         justifyContent: 'center',
-        marginBottom: spacing.md,
+        marginRight: spacing.md,
     },
     worldIcon: {
-        fontSize: 40,
+        fontSize: 32,
+    },
+    worldInfo: {
+        flex: 1,
+        justifyContent: 'center',
     },
     worldName: {
-        fontSize: typography.h2.fontSize,
-        fontFamily: typography.h2.fontFamily,
+        fontSize: typography.h3.fontSize,
+        fontFamily: typography.h3.fontFamily,
         color: colors.text.primary,
-        marginBottom: spacing.sm,
+        marginBottom: 2,
     },
     worldDescription: {
         fontSize: typography.body.fontSize,
         color: colors.text.secondary,
-        textAlign: 'center',
-        maxWidth: 260,
+        lineHeight: 20,
     },
     inputSection: {
         marginBottom: spacing.xl,
@@ -375,28 +386,43 @@ const createStyles = (colors: any) => StyleSheet.create({
         color: '#fff',
     },
     difficultyGrid: {
-        flexDirection: 'row',
-        flexWrap: 'wrap',
+        flexDirection: 'column',
         gap: spacing.sm,
     },
     difficultyChip: {
-        paddingVertical: spacing.sm,
-        paddingHorizontal: spacing.md,
-        borderRadius: borderRadius.full,
-        borderWidth: 2,
-        alignItems: 'center',
         flexDirection: 'row',
-        gap: spacing.xs,
-        marginBottom: spacing.xs,
+        alignItems: 'center',
+        padding: spacing.md,
+        borderRadius: borderRadius.lg,
+        borderWidth: 1,
+        backgroundColor: colors.background.secondary,
+        ...shadows.sm,
     },
     difficultyChipSelected: {
         borderWidth: 2,
     },
+    difficultyIconContainer: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: colors.background.tertiary,
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginRight: spacing.md,
+    },
     difficultyIcon: {
-        fontSize: 16,
+        fontSize: 20,
+    },
+    difficultyTextContainer: {
+        flex: 1,
     },
     difficultyLabel: {
-        fontSize: 14,
-        fontWeight: '600',
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 2,
+    },
+    difficultyDesc: {
+        fontSize: 13,
+        color: colors.text.secondary,
     },
 });
