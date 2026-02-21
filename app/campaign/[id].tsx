@@ -433,8 +433,14 @@ export default function CampaignScreen() {
 
             // Simulate a dice roll based on the type
             const diceType = pendingRoll.type || 'd20';
-            const maxValue = parseInt(diceType.substring(1)) || 20;
-            const rollResult = Math.floor(Math.random() * maxValue) + 1;
+            const match = diceType.match(/(\d*)d(\d+)/i);
+            const count = match && match[1] ? parseInt(match[1]) || 1 : 1;
+            const sides = match && match[2] ? parseInt(match[2]) || 20 : 20;
+
+            let rollResult = 0;
+            for (let i = 0; i < count; i++) {
+                rollResult += Math.floor(Math.random() * sides) + 1;
+            }
 
             // Submit the roll result
             submitRollResult(rollResult);

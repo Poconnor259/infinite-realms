@@ -504,8 +504,22 @@ export async function generateQuests(input: QuestMasterInput): Promise<QuestMast
             };
         }
 
+        // Clean up markdown formatting if present (especially for Anthropic)
+        let jsonText = content.trim();
+        const codeBlockMatch = jsonText.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+        if (codeBlockMatch) {
+            jsonText = codeBlockMatch[1].trim();
+        }
+        jsonText = jsonText.trim();
+
         // Parse and validate response
-        const parsed = JSON.parse(content);
+        let parsed;
+        try {
+            parsed = JSON.parse(jsonText);
+        } catch (e: any) {
+            console.error('[QuestMaster] Failed to parse JSON. Raw response:', content);
+            throw new Error(`Invalid JSON returned from AI: ${e.message}`);
+        }
         const validated = QuestResponseSchema.parse(parsed);
 
         return {
